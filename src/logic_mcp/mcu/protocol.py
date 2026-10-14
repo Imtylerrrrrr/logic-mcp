@@ -189,3 +189,39 @@ def load_fixture(path: str | Path) -> list[tuple[float, str, bytes]]:
         if parsed:
             rows.append(parsed)
     return rows
+
+
+MAX_FADER = 16383
+
+
+def handshake_reply(ev: Event) -> bytes | None:
+    """Logic의 쿼리에 대한 응답. 0x14(본체)에만 답한다."""
+    if isinstance(ev, DeviceQuery) and ev.device == DEVICE_ID:
+        return SYSEX_HEADER + bytes([DEVICE_ID, 0x01]) + SERIAL + CHALLENGE + b"\xF7"
+    if isinstance(ev, VersionRequest) and ev.device == DEVICE_ID:
+        return SYSEX_HEADER + bytes([DEVICE_ID, 0x14]) + VERSION + b"\xF7"
+    return None
+
+
+def button_down(note: int) -> bytes:
+    return bytes([0x90, note, 0x7F])
+
+
+def button_up(note: int) -> bytes:
+    return bytes([0x90, note, 0x00])
+
+
+def fader_move(channel: int, value: int) -> list[bytes]:
+    if not 0 <= channel <= 8:
+        raise ValueError(f"channel {channel} not in 0..8")
+    if not 0 <= value <= MAX_FADER:
+        raise ValueError(f"value {value} not in 0..{MAX_FADER}")
+    touch = Note.FADER_TOUCH + channel
+    return [button_down(touch), bytes([0xE0 | channel, value & 0x7F, value >> 7]), button_up(touch)]
+
+
+def vpot_turn(channel: int, steps: int) -> bytes:
+    if steps == 0:
+        raise ValueError("steps must be nonzero")
+    mag = min(abs(steps), 63)
+    return bytes([0xB0, 0x10 + channel, mag if steps > 0 else 0x40 | mag])

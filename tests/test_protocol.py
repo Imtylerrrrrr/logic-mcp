@@ -68,3 +68,43 @@ def test_fixture_decodes_without_error():
             continue
         kinds.add(type(P.decode(data)).__name__)
     assert {"LcdWrite", "Led", "FaderPos", "TimeDigit", "VpotRing", "DeviceQuery", "VersionRequest"} <= kinds
+
+
+def test_handshake_reply_only_for_0x14():
+    reply = P.handshake_reply(P.DeviceQuery(device=0x14))
+    assert reply == bytes.fromhex("F0 00 00 66 14 01 4C 47 43 4D 43 50 31 01 02 03 04 F7")
+    assert P.handshake_reply(P.DeviceQuery(device=0x15)) is None
+    assert P.handshake_reply(P.DeviceQuery(device=0x10)) is None
+    assert P.handshake_reply(P.VersionRequest(device=0x14)) == bytes.fromhex("F0 00 00 66 14 14 56 31 2E 30 30 F7")
+    assert P.handshake_reply(P.VersionRequest(device=0x11)) is None
+    assert P.handshake_reply(P.Led(note=1, on=True)) is None
+
+
+def test_handshake_reply_matches_fixture_tx():
+    rows = P.load_fixture(FIXTURE)
+    pairs = [(rows[i][2], rows[i + 1][2]) for i in range(len(rows) - 1)
+             if rows[i][1] == "RX" and rows[i + 1][1] == "TX"]
+    checked = 0
+    for rx, tx in pairs:
+        ev = P.decode(rx)
+        if isinstance(ev, (P.DeviceQuery, P.VersionRequest)) and ev.device == 0x14:
+            assert P.handshake_reply(ev) == tx
+            checked += 1
+    assert checked >= 2
+
+
+def test_button_and_fader_and_vpot_encoders():
+    assert P.button_down(P.Note.PLAY) == bytes([0x90, 0x5E, 0x7F])
+    assert P.button_up(P.Note.PLAY) == bytes([0x90, 0x5E, 0x00])
+    assert P.fader_move(0, 10000) == [bytes([0x90, 0x68, 0x7F]), bytes([0xE0, 0x10, 0x4E]), bytes([0x90, 0x68, 0x00])]
+    assert P.fader_move(7, 0)[1] == bytes([0xE7, 0x00, 0x00])
+    assert P.vpot_turn(0, 5) == bytes([0xB0, 0x10, 0x05])
+    assert P.vpot_turn(0, -5) == bytes([0xB0, 0x10, 0x45])
+    assert P.vpot_turn(3, 63) == bytes([0xB0, 0x13, 0x3F])
+    assert P.vpot_turn(3, 99) == bytes([0xB0, 0x13, 0x3F])
+    with pytest.raises(ValueError):
+        P.vpot_turn(0, 0)
+    with pytest.raises(ValueError):
+        P.fader_move(0, 16384)
+    with pytest.raises(ValueError):
+        P.fader_move(9, 0)
