@@ -48,7 +48,7 @@ Claude Code ──stdio──▶ logic-mcp ──CoreMIDI 가상 포트 "LogicMC
 **연결 상태 머신** (`logic://status`로 노출):
 
 ```
-no_logic ──디바이스 쿼리 수신, 0x14 응답──▶ handshake ──LCD 첫 그리기──▶ animating ──LCD·링 1초 조용──▶ ready
+no_logic ──디바이스 쿼리 수신, 0x14 응답──▶ handshake ──LCD 첫 그리기──▶ animating ──LCD·링 조용(재바인딩 1초, 핸드셰이크 뒤 10초)──▶ ready
 (핸드셰이크 없이 LCD부터 오면(이름 재바인딩) no_logic → animating → ready)
 ```
 
