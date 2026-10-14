@@ -50,3 +50,14 @@ def test_parse_pan_text():
     assert F.parse_pan_text("-") is None
     assert F.parse_pan_text("+0.0 dB") is None
     assert F.parse_pan_text("") is None
+
+
+def test_parse_db_text_truncated_and_integer():
+    assert F.parse_db_text("-120 dB") == -120.0
+    assert F.parse_db_text("-55.0 d") == -55.0
+    assert F.parse_db_text("-10.0 d") == -10.0
+    assert F.parse_db_text("-9.9 dB") == -9.9
+    assert F.parse_db_text("+0.0 dB") == 0.0
+    assert F.parse_db_text("-oo dB") == -math.inf
+    for s in ("+5", "0", "-", "", "Muted"):
+        assert F.parse_db_text(s) is None

@@ -11,7 +11,7 @@ MAX_RAW = 14845      # +6.0 dB. Logic은 이 위를 클램프한다
 ZERO_DB_RAW = 12443
 MAX_DB = 6.0
 _MIN_FINITE_DB = -72.0   # -inf 아래 구간 보간용 가짜 바닥. 캘리브레이션 표가 들어오면 영향 없음
-_DB_RE = re.compile(r"^\s*([+-]?\d+(?:\.\d+)?|-oo)\s*dB\s*$")
+_DB_RE = re.compile(r"^\s*([+-]?\d+(?:\.\d+)?|-oo)\s*dB?\s*$")
 _PAN_RE = re.compile(r"^\s*([+-]?\d+)\s*$")
 
 
