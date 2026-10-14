@@ -327,17 +327,21 @@ class Commands:
         t0 = self._now_ms()
         with self._lock:
             st = self.surface.state
-            if st.connection.state not in ("ready", "animating"):
+            if st.connection.state != "ready":
                 return self._result(action, False, "skipped", t0,
-                                    note=f"상태가 {st.connection.state}. Logic에서 프로젝트를 열면 자동 설치됨")
+                                    note=f"상태가 {st.connection.state}. 먼저 logic_session wait_ready")
             done: list[str] = []
             # 1) 번호 접두사
             if not any(s.number is not None for s in st.strips):
                 self._move_bank(lambda: self._press_with_option(P.Note.NAME_VALUE))
                 if not any(s.number is not None for s in self.surface.state.strips):
+                    self._move_bank(lambda: self._press_with_option(P.Note.NAME_VALUE))
                     return self._result(action, False, "unverified", t0, after=self.status(),
-                                        note="OPTION+NAME/VALUE 뒤에도 LCD에 번호가 없음")
+                                        note="OPTION+NAME/VALUE 뒤에도 LCD에 번호가 없음 (되돌려 눌렀음)")
                 done.append("numbers")
+            if not self.surface.state.strips[0].fader_known:
+                return self._result(action, False, "unverified", t0, after=self.status(),
+                                    note="페이더 1 위치를 아직 못 받음. 페이더 1을 살짝 움직이거나 프로젝트를 다시 연 뒤 configure를 다시 실행")
             # 2) 값 표시 모드: 페이더 1을 현재값으로 다시 보내 dB 텍스트가 뜨는지 본다
             def probe_value_mode() -> bool:
                 raw = self.surface.state.strips[0].fader_raw
@@ -348,8 +352,10 @@ class Commands:
                 self._press(P.Note.NAME_VALUE)
                 self.surface.wait_settled(0.5)
                 if not probe_value_mode():
+                    self._press(P.Note.NAME_VALUE)
+                    self.surface.wait_settled(0.5)
                     return self._result(action, False, "unverified", t0, after=self.status(),
-                                        note="NAME/VALUE 뒤에도 LCD 2행에 dB 값이 안 보임")
+                                        note="NAME/VALUE 뒤에도 LCD 2행에 dB 값이 안 보임 (되돌려 눌렀음)")
                 done.append("value_mode")
             # 3) Beats 클락
             if self.surface.state.time.mode != "beats":

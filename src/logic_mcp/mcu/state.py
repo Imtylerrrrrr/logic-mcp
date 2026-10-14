@@ -29,6 +29,7 @@ class Strip:
     mute: bool = False
     select: bool = False
     fader_raw: int = 0
+    fader_known: bool = False
     pan_ring: tuple[int, int, bool] = (0, 0, False)
     meter: int = 0
     value_text: str = ""
@@ -165,7 +166,7 @@ def reduce(state: SurfaceState, ev: P.Event, now: float) -> SurfaceState:
     if isinstance(ev, P.FaderPos):
         if ev.channel == 8:
             return replace(st, master_fader=ev.value)
-        return replace(st, strips=_set_strip(st.strips, ev.channel, fader_raw=ev.value))
+        return replace(st, strips=_set_strip(st.strips, ev.channel, fader_raw=ev.value, fader_known=True))
 
     if isinstance(ev, P.VpotRing):
         conn = replace(st.connection, last_display_change=now)
