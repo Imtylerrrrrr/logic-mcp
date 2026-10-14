@@ -18,12 +18,23 @@ def test_spot_points():
 def test_clamp_and_monotonic():
     t = F.FaderTable.load()
     assert t.db_to_raw(20.0) == F.MAX_RAW
-    assert t.db_to_raw(-200.0) == 0
+    lo_raw = min(r for r, d in t.points if d != -math.inf)
+    assert t.db_to_raw(-200.0) == lo_raw
+    assert t.db_to_raw(-130.0) == lo_raw
+    assert lo_raw < t.db_to_raw(-100.0) < 127
+    assert t.db_to_raw(-math.inf) == 0
     prev = -1
-    for db10 in range(-600, 61):
-        raw = t.db_to_raw(db10 / 10)
+    for db2 in range(-260, 13):
+        raw = t.db_to_raw(db2 / 2)
         assert raw >= prev
+        assert raw > 0
         prev = raw
+    prev_db = -math.inf
+    for raw in range(1, F.MAX_RAW + 1):
+        db = t.raw_to_db(raw)
+        assert db >= prev_db
+        prev_db = db
+    assert t.raw_to_db(1) == t.raw_to_db(lo_raw)
     with pytest.raises(ValueError):
         t.db_to_raw(math.nan)
 

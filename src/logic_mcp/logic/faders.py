@@ -10,7 +10,6 @@ from pathlib import Path
 MAX_RAW = 14845      # +6.0 dB. Logic은 이 위를 클램프한다
 ZERO_DB_RAW = 12443
 MAX_DB = 6.0
-_MIN_FINITE_DB = -72.0   # -inf 아래 구간 보간용 가짜 바닥. 캘리브레이션 표가 들어오면 영향 없음
 _DB_RE = re.compile(r"^\s*([+-]?\d+(?:\.\d+)?|-oo)\s*dB?\s*$")
 _PAN_RE = re.compile(r"^\s*([+-]?\d+)\s*$")
 
@@ -27,6 +26,9 @@ class FaderTable:
         pts.sort()
         return cls(points=tuple(pts))
 
+    def _finite(self) -> list[tuple[int, float]]:
+        return [(r, d) for r, d in self.points if d != -math.inf]
+
     def db_to_raw(self, db: float) -> int:
         if math.isnan(db):
             raise ValueError("db is NaN")
@@ -34,7 +36,7 @@ class FaderTable:
             return 0
         if db >= MAX_DB:
             return MAX_RAW
-        pts = [(r, (_MIN_FINITE_DB if d == -math.inf else d)) for r, d in self.points]
+        pts = self._finite()
         if db <= pts[0][1]:
             return pts[0][0]
         for (r0, d0), (r1, d1) in zip(pts, pts[1:]):
@@ -47,7 +49,9 @@ class FaderTable:
     def raw_to_db(self, raw: int) -> float:
         if raw <= 0:
             return -math.inf
-        pts = [(r, (_MIN_FINITE_DB if d == -math.inf else d)) for r, d in self.points]
+        pts = self._finite()
+        if raw <= pts[0][0]:
+            return pts[0][1]
         if raw >= pts[-1][0]:
             return pts[-1][1]
         for (r0, d0), (r1, d1) in zip(pts, pts[1:]):
@@ -55,7 +59,7 @@ class FaderTable:
                 if r1 == r0:
                     return d0
                 return round(d0 + (d1 - d0) * (raw - r0) / (r1 - r0), 1)
-        return pts[0][1]
+        return pts[-1][1]
 
 
 def parse_db_text(text: str) -> float | None:
