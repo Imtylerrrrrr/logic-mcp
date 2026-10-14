@@ -159,3 +159,95 @@ class Commands:
             field, base, want = _TRACK_ACTIONS[action]
             return self._set_led(action, base + ch, want, self._target(ch), self._strip_view(ch),
                                  lambda: self._strip_view(ch), t0)
+
+    _TRANSPORT_LED = {"play": (P.Note.PLAY, True), "stop": (P.Note.STOP, True),
+                      "record": (P.Note.RECORD, True), "cycle_on": (P.Note.CYCLE, True),
+                      "cycle_off": (P.Note.CYCLE, False)}
+    _TRANSPORT_MOVE = {"rewind": P.Note.REWIND, "fast_forward": P.Note.FFWD}
+
+    def _transport_view(self) -> dict:
+        st = self.surface.state
+        return {**st.transport.__dict__, "time": st.time.text, "time_parsed": st.time.parsed()}
+
+    def transport(self, action: str) -> ToolResult:
+        t0 = self._now_ms()
+        with self._lock:
+            if (r := self._require_ready(action, t0)) is not None:
+                return r
+            if action in self._TRANSPORT_LED:
+                note, want = self._TRANSPORT_LED[action]
+                return self._set_led(action, note, want, {"transport": action}, self._transport_view(),
+                                     self._transport_view, t0)
+            if action in self._TRANSPORT_MOVE:
+                before = self._transport_view()
+                text0 = self.surface.state.time.text
+                self._press(self._TRANSPORT_MOVE[action])
+                ok = self.surface.wait_for(lambda s: s.time.text != text0, LED_TIMEOUT)
+                self.surface.wait_settled(0.3)
+                return self._result(action, ok, "verified" if ok else "unverified", t0,
+                                    target={"transport": action}, before=before, after=self._transport_view(),
+                                    note="" if ok else "타임 디스플레이가 변하지 않음(이미 끝?)")
+            return self._result(action, False, "skipped", t0, note=f"모르는 action {action}")
+
+    def mixer_volume(self, strip: int | None, number: int | None, db: float) -> ToolResult:
+        action = "set_volume"
+        t0 = self._now_ms()
+        with self._lock:
+            if (r := self._require_ready(action, t0)) is not None:
+                return r
+            if db != db:  # NaN
+                return self._result(action, False, "skipped", t0, note="db가 NaN. 예: -6.0, 0, \"-inf\"")
+            ch = self._resolve(strip, number, action, t0)
+            if isinstance(ch, ToolResult):
+                return ch
+            raw = self.faders.db_to_raw(db)
+            note = f"clamped to +6.0 dB" if db > 6.0 else ""
+            before = self._strip_view(ch)
+            for msg in P.fader_move(ch, raw):
+                self.surface.send(msg)
+            ok = self.surface.wait_for(lambda s: abs(s.strips[ch].fader_raw - raw) <= 32, FADER_TIMEOUT)
+            self.surface.wait_settled(0.5)
+            after = self._strip_view(ch)
+            if ok:
+                return self._result(action, True, "verified", t0, target=self._target(ch), before=before,
+                                    after=after, note=note)
+            changed = after["fader_raw"] != before["fader_raw"]
+            return self._result(action, False, "unverified" if changed else "timeout", t0,
+                                target=self._target(ch), before=before, after=after,
+                                note=(note + " " if note else "") +
+                                ("페이더 에코값이 보낸 값과 다름" if changed else "페이더 에코 없음"))
+
+    def mixer_pan(self, strip: int | None, number: int | None, pan: int) -> ToolResult:
+        action = "set_pan"
+        t0 = self._now_ms()
+        with self._lock:
+            if (r := self._require_ready(action, t0)) is not None:
+                return r
+            if not -64 <= pan <= 63:
+                return self._result(action, False, "skipped", t0, note="pan은 -64..63 정수")
+            mode = self.surface.state.assignment.mode
+            if mode != "pan":
+                return self._result(action, False, "skipped", t0,
+                                    note=f"V-Pot 할당 모드가 {mode}. PAN 모드에서만 팬을 보냄(스펙 2 logic_assign)")
+            ch = self._resolve(strip, number, action, t0)
+            if isinstance(ch, ToolResult):
+                return ch
+            current = parse_pan_text(self.surface.state.strips[ch].value_text)
+            if current is None:
+                return self._result(action, False, "skipped", t0, target=self._target(ch),
+                                    note="LCD 2행이 팬 값이 아님. `logic_session configure`로 값 표시 모드 확인")
+            before = self._strip_view(ch)
+            if current == pan:
+                return self._result(action, True, "skipped", t0, target=self._target(ch), before=before,
+                                    after=before, note="already")
+            for _attempt in range(2):
+                cur = parse_pan_text(self.surface.state.strips[ch].value_text)
+                if cur is None or cur == pan:
+                    break
+                self.surface.send(P.vpot_turn(ch, max(-63, min(63, pan - cur))))
+                self.surface.wait_for(lambda s: parse_pan_text(s.strips[ch].value_text) == pan, PAN_TIMEOUT)
+                self.surface.wait_settled(0.3)
+            after = self._strip_view(ch)
+            ok = parse_pan_text(after["value_text"]) == pan
+            return self._result(action, ok, "verified" if ok else "unverified", t0, target=self._target(ch),
+                                before=before, after=after, note="" if ok else "LCD 팬 값이 목표와 다름")

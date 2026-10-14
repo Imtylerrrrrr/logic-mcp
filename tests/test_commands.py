@@ -100,3 +100,105 @@ def test_status_fields():
     assert s["state"] == "ready" and s["name_format_ok"] is True
     assert s["assignment_mode"] == "pan" and s["logic_running"] is True
     assert s["visible_numbers"] == [1, 2, 5]
+
+
+import math
+
+
+def test_transport_play_stop_cycle():
+    cmds, surface, fake = make_commands()
+    lit = echo_led(fake)
+    r = cmds.transport("play")
+    assert r.ok and r.verified == "verified" and r.after["play"] is True
+    assert cmds.transport("play").verified == "skipped"
+    r = cmds.transport("stop")
+    assert r.ok and r.after["stop"] is True
+    r = cmds.transport("cycle_on")
+    assert r.ok and r.after["cycle"] is True
+    r = cmds.transport("cycle_off")
+    assert r.ok and r.after["cycle"] is False
+    assert cmds.transport("dance").ok is False
+
+
+def test_transport_rewind_verified_by_time_change():
+    cmds, surface, fake = make_commands()
+    fake.replies = lambda d: [bytes([0xB0, 0x47, 0x32])] if d == P.button_down(P.Note.REWIND) else []
+    r = cmds.transport("rewind")
+    assert r.ok and r.verified == "verified"
+    assert fake.sent[:2] == [P.button_down(P.Note.REWIND), P.button_up(P.Note.REWIND)]
+
+
+def fader_echo(fake, quantize=lambda v: v):
+    def replies(data: bytes) -> list[bytes]:
+        if data[0] & 0xF0 == 0xE0:
+            ch = data[0] & 0x0F
+            v = quantize(data[1] | (data[2] << 7))
+            return [bytes([0xE0 | ch, v & 0x7F, v >> 7])]
+        return []
+    fake.replies = replies
+
+
+def test_set_volume_verified_with_quantized_echo():
+    cmds, surface, fake = make_commands()
+    fader_echo(fake, quantize=lambda v: v - 10)
+    r = cmds.mixer_volume(strip=1, number=None, db=-5.8)
+    assert r.ok and r.verified == "verified"
+    assert fake.sent == P.fader_move(0, 9990)
+    assert r.after["fader_raw"] == 9980
+
+
+def test_set_volume_clamps_and_notes():
+    cmds, surface, fake = make_commands()
+    fader_echo(fake)
+    r = cmds.mixer_volume(strip=1, number=None, db=12.0)
+    assert r.ok and "clamp" in r.note and fake.sent[1] == bytes([0xE0, 14845 & 0x7F, 14845 >> 7])
+    r = cmds.mixer_volume(strip=1, number=None, db=-math.inf)
+    assert r.ok and fake.sent[-2] == bytes([0xE0, 0x00, 0x00])
+    r = cmds.mixer_volume(strip=1, number=None, db=math.nan)
+    assert r.ok is False and "NaN" in r.note
+
+
+def test_set_volume_unverified_when_echo_far():
+    cmds, surface, fake = make_commands()
+    fake.feed(bytes([0xE0, 0x1B, 0x61]))  # 페이더 1 = 12443 에서 시작
+    fader_echo(fake, quantize=lambda v: 0)
+    r = cmds.mixer_volume(strip=1, number=None, db=0.0)
+    assert r.ok is False and r.verified == "unverified"
+
+
+def lcd_row2(text: bytes) -> bytes:
+    return bytes.fromhex("F0 00 00 66 14 12 38") + text + b"\xF7"
+
+
+def test_set_pan_reads_lcd_and_sends_delta():
+    cmds, surface, fake = make_commands()
+    fake.feed(lcd_row2(b"0      "))
+    fake.replies = lambda d: [lcd_row2(b"+10    ")] if d == P.vpot_turn(0, 10) else []
+    r = cmds.mixer_pan(strip=1, number=None, pan=10)
+    assert r.ok and r.verified == "verified" and r.after["value_text"] == "+10"
+    assert fake.sent == [P.vpot_turn(0, 10)]
+    assert cmds.mixer_pan(strip=1, number=None, pan=10).verified == "skipped"
+
+
+def test_set_pan_second_nudge_then_unverified():
+    cmds, surface, fake = make_commands()
+    fake.feed(lcd_row2(b"0      "))
+    fake.replies = lambda d: [lcd_row2(b"+7     ")]
+    r = cmds.mixer_pan(strip=1, number=None, pan=10)
+    assert r.ok is False and r.verified == "unverified"
+    assert fake.sent == [P.vpot_turn(0, 10), P.vpot_turn(0, 3)]
+
+
+def test_set_pan_refused_outside_pan_mode_or_bad_text():
+    cmds, surface, fake = make_commands()
+    fake.feed(lcd_row2(b"0      "))
+    fake.feed(P.button_up(P.Note.PAN))
+    fake.feed(P.button_down(P.Note.EQ))
+    r = cmds.mixer_pan(strip=1, number=None, pan=5)
+    assert r.ok is False and "eq" in r.note and fake.sent == []
+    fake.feed(P.button_up(P.Note.EQ))
+    fake.feed(P.button_down(P.Note.PAN))
+    fake.feed(lcd_row2(b"-      "))
+    r = cmds.mixer_pan(strip=1, number=None, pan=5)
+    assert r.ok is False and "configure" in r.note and fake.sent == []
+    assert cmds.mixer_pan(strip=1, number=None, pan=64).ok is False
