@@ -107,10 +107,39 @@ class Commands:
         visible = [n for n in numbers if n is not None]
         return self._result(action, False, "skipped", t0, note=f"번호 {number} 없음. 보이는 번호: {visible}")
 
+    _BANK_NOTES = {"left": P.Note.BANK_LEFT, "right": P.Note.BANK_RIGHT,
+                   "channel_left": P.Note.CHANNEL_LEFT, "channel_right": P.Note.CHANNEL_RIGHT}
+
+    def _bank_view(self) -> dict:
+        st = self.surface.state
+        return {"visible_numbers": [s.number for s in st.strips if s.number is not None],
+                "row1": st.lcd[0]}
+
+    def _press_with_option(self, note: int) -> None:
+        self.surface.send(P.button_down(P.Note.OPTION))
+        self._press(note)
+        self.surface.send(P.button_up(P.Note.OPTION))
+
+    def _move_bank(self, press: Callable[[], None]) -> bool:
+        row0 = self.surface.state.lcd[0]
+        press()
+        ok = self.surface.wait_for(lambda s: s.lcd[0] != row0, BANK_TIMEOUT)
+        self.surface.wait_settled(0.3)
+        return ok
+
     def _show_number(self, number: int, t0: int) -> int | None:
-        """Task 10에서 뱅크 이동으로 구현. 지금은 현재 뱅크만 본다."""
-        numbers = [s.number for s in self.surface.state.strips]
-        return numbers.index(number) if number in numbers else None
+        def visible() -> int | None:
+            numbers = [s.number for s in self.surface.state.strips]
+            return numbers.index(number) if number in numbers else None
+        if (ch := visible()) is not None:
+            return ch
+        self._move_bank(lambda: self._press_with_option(P.Note.BANK_LEFT))
+        for _ in range(32):
+            if (ch := visible()) is not None:
+                return ch
+            if not self._move_bank(lambda: self._press(P.Note.BANK_RIGHT)):
+                return None
+        return visible()
 
     def _set_led(self, action: str, note: int, want_on: bool, target: dict, before: dict,
                  after_fn: Callable[[], dict], t0: int) -> ToolResult:
@@ -251,3 +280,83 @@ class Commands:
             ok = parse_pan_text(after["value_text"]) == pan
             return self._result(action, ok, "verified" if ok else "unverified", t0, target=self._target(ch),
                                 before=before, after=after, note="" if ok else "LCD 팬 값이 목표와 다름")
+
+    def bank(self, action: str, number: int | None = None) -> ToolResult:
+        t0 = self._now_ms()
+        with self._lock:
+            if (r := self._require_ready(action, t0)) is not None:
+                return r
+            before = self._bank_view()
+            if action == "show":
+                if number is None:
+                    return self._result(action, False, "skipped", t0, note="show에는 number가 필요")
+                if number in before["visible_numbers"]:
+                    return self._result(action, True, "skipped", t0, before=before, after=before, note="already")
+                ch = self._show_number(number, t0)
+                after = self._bank_view()
+                if ch is None:
+                    return self._result(action, False, "unverified", t0, before=before, after=after,
+                                        note=f"번호 {number} 없음. 보이는 번호: {after['visible_numbers']}")
+                return self._result(action, True, "verified", t0, target={"strip": ch + 1, "number": number},
+                                    before=before, after=after)
+            if action == "first":
+                ok = self._move_bank(lambda: self._press_with_option(P.Note.BANK_LEFT))
+            elif action == "last":
+                ok = self._move_bank(lambda: self._press_with_option(P.Note.BANK_RIGHT))
+            elif action in self._BANK_NOTES:
+                ok = self._move_bank(lambda: self._press(self._BANK_NOTES[action]))
+            else:
+                return self._result(action, False, "skipped", t0, note=f"모르는 action {action}")
+            after = self._bank_view()
+            if action in ("first", "last") and not ok and before["visible_numbers"]:
+                return self._result(action, True, "skipped", t0, before=before, after=after, note="already")
+            return self._result(action, ok, "verified" if ok else "unverified", t0, before=before, after=after,
+                                note="" if ok else "LCD 변화 없음(끝에 닿았거나 트랙이 8개 이하)")
+
+    def configure(self) -> ToolResult:
+        action = "configure"
+        t0 = self._now_ms()
+        with self._lock:
+            st = self.surface.state
+            if st.connection.state not in ("ready", "animating"):
+                return self._result(action, False, "skipped", t0,
+                                    note=f"상태가 {st.connection.state}. Logic에서 프로젝트를 열면 자동 설치됨")
+            done: list[str] = []
+            # 1) 번호 접두사
+            if not any(s.number is not None for s in st.strips):
+                self._move_bank(lambda: self._press_with_option(P.Note.NAME_VALUE))
+                if not any(s.number is not None for s in self.surface.state.strips):
+                    return self._result(action, False, "unverified", t0, after=self.status(),
+                                        note="OPTION+NAME/VALUE 뒤에도 LCD에 번호가 없음")
+                done.append("numbers")
+            # 2) 값 표시 모드: 페이더 1을 현재값으로 다시 보내 dB 텍스트가 뜨는지 본다
+            def probe_value_mode() -> bool:
+                raw = self.surface.state.strips[0].fader_raw
+                for msg in P.fader_move(0, raw):
+                    self.surface.send(msg)
+                return self.surface.wait_for(lambda s: parse_db_text(s.strips[0].value_text) is not None, FADER_TIMEOUT)
+            if not probe_value_mode():
+                self._press(P.Note.NAME_VALUE)
+                self.surface.wait_settled(0.5)
+                if not probe_value_mode():
+                    return self._result(action, False, "unverified", t0, after=self.status(),
+                                        note="NAME/VALUE 뒤에도 LCD 2행에 dB 값이 안 보임")
+                done.append("value_mode")
+            # 3) Beats 클락
+            if self.surface.state.time.mode != "beats":
+                self._press(P.Note.SMPTE_BEATS)
+                if not self.surface.wait_for(lambda s: s.time.mode == "beats", LED_TIMEOUT):
+                    return self._result(action, False, "unverified", t0, after=self.status(),
+                                        note="SMPTE/BEATS 뒤에도 BEATS LED가 안 켜짐")
+                done.append("beats")
+            self.surface.wait_settled(0.5)
+            self.configured = True
+            return self._result(action, True, "verified" if done else "skipped", t0, after=self.status(),
+                                note=("changed: " + ", ".join(done)) if done else "already")
+
+    def wait_ready(self, timeout_s: float) -> ToolResult:
+        action = "wait_ready"
+        t0 = self._now_ms()
+        ok = self.surface.wait_for(lambda s: s.connection.state == "ready", timeout_s)
+        return self._result(action, ok, "verified" if ok else "timeout", t0, after=self.status(),
+                            note="" if ok else "Logic이 서피스를 설치하지 않음. Logic에서 프로젝트를 열거나 다시 여세요")

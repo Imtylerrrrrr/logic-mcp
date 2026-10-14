@@ -202,3 +202,121 @@ def test_set_pan_refused_outside_pan_mode_or_bad_text():
     r = cmds.mixer_pan(strip=1, number=None, pan=5)
     assert r.ok is False and "configure" in r.note and fake.sent == []
     assert cmds.mixer_pan(strip=1, number=None, pan=64).ok is False
+
+
+def lcd_row1(text: bytes) -> bytes:
+    return bytes.fromhex("F0 00 00 66 14 12 00") + text.ljust(56) + b"\xF7"
+
+
+class BankSim:
+    """번호 1..n 트랙을 8개씩 보여주는 Logic 흉내. OPTION+BANK◀=첫 세트, BANK▶=+8(끝에서 클램프)."""
+
+    def __init__(self, fake, n: int):
+        self.fake, self.n, self.start, self.option = fake, n, 1, False
+        fake.replies = self.replies
+
+    def row(self) -> bytes:
+        cols = [f"{i}:T{i}".ljust(7)[:7].encode() for i in range(self.start, self.start + 8) if i <= self.n]
+        return b"".join(cols)
+
+    def replies(self, data: bytes) -> list[bytes]:
+        if data == P.button_down(P.Note.OPTION):
+            self.option = True
+            return []
+        if data == P.button_up(P.Note.OPTION):
+            self.option = False
+            return []
+        if data == P.button_down(P.Note.BANK_RIGHT):
+            new = min(self.start + 8, max(1, self.n - 7)) if self.n > 8 else 1
+            if self.option:
+                new = max(1, self.n - 7)
+        elif data == P.button_down(P.Note.BANK_LEFT):
+            new = 1 if self.option else max(1, self.start - 8)
+        elif data == P.button_down(P.Note.CHANNEL_RIGHT):
+            new = min(self.start + 1, max(1, self.n - 7))
+        elif data == P.button_down(P.Note.CHANNEL_LEFT):
+            new = max(1, self.start - 1)
+        else:
+            return []
+        if new == self.start:
+            return []
+        self.start = new
+        return [lcd_row1(self.row())]
+
+
+def test_bank_right_left_first_last():
+    cmds, surface, fake = make_commands()
+    sim = BankSim(fake, 19)
+    fake.feed(lcd_row1(sim.row()))
+    r = cmds.bank("right")
+    assert r.ok and r.verified == "verified" and r.after["visible_numbers"][0] == 9
+    r = cmds.bank("right")
+    assert r.after["visible_numbers"] == list(range(12, 20))
+    r = cmds.bank("right")
+    assert r.ok is False and r.verified == "unverified" and "변화 없음" in r.note
+    r = cmds.bank("first")
+    assert r.ok and r.after["visible_numbers"][0] == 1
+    assert fake.sent[-3:] == [P.button_down(P.Note.BANK_LEFT), P.button_up(P.Note.BANK_LEFT), P.button_up(P.Note.OPTION)]
+    r = cmds.bank("last")
+    assert r.after["visible_numbers"][-1] == 19
+    r = cmds.bank("channel_left")
+    assert r.after["visible_numbers"][0] == 11
+
+
+def test_show_number_navigates_and_track_by_number_in_other_bank():
+    cmds, surface, fake = make_commands()
+    sim = BankSim(fake, 19)
+    fake.feed(lcd_row1(sim.row()))
+    r = cmds.bank("show", number=14)
+    assert r.ok and 14 in r.after["visible_numbers"]
+    r = cmds.bank("show", number=14)
+    assert r.verified == "skipped"
+    r = cmds.bank("show", number=40)
+    assert r.ok is False and "40" in r.note
+    # number 주소가 다른 뱅크에 있어도 track이 알아서 옮긴다
+    old = fake.replies
+    def replies(data: bytes) -> list[bytes]:
+        out = old(data)
+        if data == P.button_down(P.Note.MUTE + 2) and sim.start == 9:
+            out.append(P.button_down(P.Note.MUTE + 2))
+        return out
+    fake.replies = replies
+    r = cmds.track("mute", number=11)
+    assert r.ok and r.target == {"strip": 3, "number": 11, "name": "T11"}
+
+
+def test_configure_turns_on_numbers_and_value_mode_and_beats():
+    cmds, surface, fake = make_commands(ready=False)
+    fake.feed(lcd_row1(b"Audio 1St Out Master "))
+    fake.feed(P.button_down(P.Note.SMPTE_LED))
+    surface.tick()
+    state = {"numbers": False, "value": False, "beats": False}
+
+    def replies(data: bytes) -> list[bytes]:
+        if data == P.button_down(P.Note.NAME_VALUE) and P.button_down(P.Note.OPTION) in fake.sent[-2:]:
+            state["numbers"] = True
+            return [lcd_row1(b"1:Audio2:St Ou3:Maste")]
+        if data == P.button_down(P.Note.NAME_VALUE):
+            state["value"] = True
+            return []
+        if data[0] & 0xF0 == 0xE0:
+            return [lcd_row2(b"+0.0 dB" if state["value"] else b"Volume ")]
+        if data == P.button_down(P.Note.SMPTE_BEATS):
+            state["beats"] = True
+            return [P.button_up(P.Note.SMPTE_LED), P.button_down(P.Note.BEATS_LED)]
+        return []
+    fake.replies = replies
+    r = cmds.configure()
+    assert r.ok and state == {"numbers": True, "value": True, "beats": True}
+    assert cmds.status()["configured"] is True and cmds.status()["name_format_ok"] is True
+    r2 = cmds.configure()
+    assert r2.ok and r2.verified == "skipped"
+
+
+def test_wait_ready():
+    cmds, surface, fake = make_commands(ready=False)
+    r = cmds.wait_ready(0.05)
+    assert r.ok is False and r.verified == "timeout"
+    fake.feed(lcd_row1(b"1:1"))
+    surface.tick()
+    assert cmds.wait_ready(0.05).ok is True
