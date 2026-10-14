@@ -1,0 +1,4 @@
+{
+  "source": "provisional: spike 2026-10-14, replace with scripts/calibrate_fader.py output",
+  "points": [[0, null], [9990, -5.8], [12443, 0.0], [14845, 6.0]]
+}
