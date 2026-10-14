@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "logic": {
+      "command": "uv",
+      "args": ["run", "--directory", "/ABSOLUTE/PATH/TO/logic-mcp", "logic-mcp"]
+    }
+  }
+}
