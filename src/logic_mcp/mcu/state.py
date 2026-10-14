@@ -189,5 +189,11 @@ def reduce(state: SurfaceState, ev: P.Event, now: float) -> SurfaceState:
 
 
 def tick(state: SurfaceState, now: float) -> SurfaceState:
-    """시간 경과만으로 일어나는 전이. Task 5에서 완성."""
-    return state
+    conn = state.connection
+    if conn.state in ("handshake", "animating") and conn.last_display_change > 0 \
+            and now - conn.last_display_change >= READY_QUIET_S:
+        conn = replace(conn, state="ready")
+    stale = conn.state != "no_logic" and not state.transport.play and now - conn.last_rx >= STALE_S
+    if stale != conn.stale:
+        conn = replace(conn, stale=stale)
+    return state if conn is state.connection else replace(state, connection=conn)

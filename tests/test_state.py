@@ -95,3 +95,48 @@ def test_fixture_numbers_and_values():
     st = replay(4631.0)
     assert st.strips[0].value_text == "+5"
     assert st.strips[0].pan_ring == (1, 6, False)
+
+
+def test_time_display_parse_from_fixture():
+    st = replay(755.7)
+    assert st.transport.play is True and st.transport.stop is False
+    assert st.time.mode == "beats"
+    parsed = st.time.parsed()
+    assert parsed is not None and parsed["bars"] == 1
+    st = replay(757.2)
+    assert st.transport.stop is True and st.transport.play is False
+    assert st.time.parsed() == {"bars": 1, "beats": 4, "division": 1, "ticks": 66}
+
+
+def test_connection_rebind_without_handshake_becomes_ready():
+    # 픽스처 시작(183s)은 핸드셰이크 없이 LCD부터 온다(이름으로 재바인딩)
+    st = replay(184.5)
+    assert st.connection.state in ("animating", "ready")
+    st = replay(200.0)
+    assert st.connection.state == "ready"
+
+
+def test_connection_handshake_animating_ready_from_fixture():
+    st = replay(665.401)
+    assert st.connection.state == "handshake"
+    st = replay(666.5)  # 첫 LCD 쓰기는 666.122초
+    assert st.connection.state == "animating"
+    st = replay(719.5)
+    assert st.connection.state == "ready"
+    st = replay(754.3)
+    assert st.connection.state == "ready" and st.strips[0].mute
+
+
+def test_stale_flag():
+    st = S.initial_state()
+    st = S.reduce(st, P.LcdWrite(offset=0, text=b"1:1"), 100.0)
+    st = S.tick(st, 101.5)
+    assert st.connection.state == "ready" and not st.connection.stale
+    st = S.tick(st, 131.0)
+    assert st.connection.stale is True
+    st = S.reduce(st, P.Led(note=P.Note.PLAY, on=True), 131.0)
+    st = S.tick(st, 170.0)
+    assert st.connection.stale is False  # 재생 중엔 stale 아님
+    st = S.reduce(st, P.Led(note=P.Note.PLAY, on=False), 170.0)
+    st = S.tick(st, 201.0)
+    assert st.connection.stale is True
