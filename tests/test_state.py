@@ -154,3 +154,14 @@ def test_install_requires_long_quiet():
     assert st.connection.state == "animating" and st.connection.installing is True
     st = S.tick(st, 111.1)
     assert st.connection.state == "ready" and st.connection.installing is False
+
+
+def test_requery_after_ready_requires_install_quiet_again():
+    s = S.initial_state()
+    s = S.reduce(s, P.LcdWrite(offset=0, text=b"hi"), 100.0)
+    s = S.tick(s, 101.5)
+    assert s.connection.state == "ready"
+    s = S.reduce(s, P.DeviceQuery(device=P.DEVICE_ID), 200.0)
+    assert S.tick(s, 201.0).connection.state == "handshake"
+    assert S.tick(s, 209.0).connection.state != "ready"
+    assert S.tick(s, 210.1).connection.state == "ready"

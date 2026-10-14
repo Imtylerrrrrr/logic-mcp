@@ -126,7 +126,8 @@ def reduce(state: SurfaceState, ev: P.Event, now: float) -> SurfaceState:
 
     if isinstance(ev, P.DeviceQuery):
         if ev.device == P.DEVICE_ID:
-            st = replace(st, connection=replace(st.connection, state="handshake", installing=True))
+            st = replace(st, connection=replace(st.connection, state="handshake", installing=True,
+                                                     last_display_change=now))
         return st
 
     if isinstance(ev, P.LcdWrite):
