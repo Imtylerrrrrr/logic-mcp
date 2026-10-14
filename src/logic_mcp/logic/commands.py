@@ -261,12 +261,19 @@ class Commands:
             ch = self._resolve(strip, number, action, t0)
             if isinstance(ch, ToolResult):
                 return ch
+            before = self._strip_view(ch)
             current = parse_pan_text(self.surface.state.strips[ch].value_text)
+            revealed = False
+            if current is None:
+                self.surface.send(P.vpot_turn(ch, 1))
+                self.surface.wait_for(lambda s: parse_pan_text(s.strips[ch].value_text) is not None, PAN_TIMEOUT)
+                self.surface.wait_settled(0.3)
+                current = parse_pan_text(self.surface.state.strips[ch].value_text)
+                revealed = True
             if current is None:
                 return self._result(action, False, "skipped", t0, target=self._target(ch),
                                     note="LCD 2행이 팬 값이 아님. `logic_session configure`로 값 표시 모드 확인")
-            before = self._strip_view(ch)
-            if current == pan:
+            if current == pan and not revealed:
                 return self._result(action, True, "skipped", t0, target=self._target(ch), before=before,
                                     after=before, note="already")
             for _attempt in range(2):
@@ -279,7 +286,9 @@ class Commands:
             after = self._strip_view(ch)
             ok = parse_pan_text(after["value_text"]) == pan
             return self._result(action, ok, "verified" if ok else "unverified", t0, target=self._target(ch),
-                                before=before, after=after, note="" if ok else "LCD 팬 값이 목표와 다름")
+                                before=before, after=after,
+                                note=(("LCD에 팬 값을 드러내려고 +1 돌린 뒤 보정. " if revealed else "") +
+                                 ("" if ok else "LCD 팬 값이 목표와 다름")))
 
     def bank(self, action: str, number: int | None = None) -> ToolResult:
         t0 = self._now_ms()

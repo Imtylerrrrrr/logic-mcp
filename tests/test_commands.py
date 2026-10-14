@@ -200,7 +200,7 @@ def test_set_pan_refused_outside_pan_mode_or_bad_text():
     fake.feed(P.button_down(P.Note.PAN))
     fake.feed(lcd_row2(b"-      "))
     r = cmds.mixer_pan(strip=1, number=None, pan=5)
-    assert r.ok is False and "configure" in r.note and fake.sent == []
+    assert r.ok is False and "configure" in r.note and fake.sent == [P.vpot_turn(0, 1)]
     assert cmds.mixer_pan(strip=1, number=None, pan=64).ok is False
 
 
@@ -320,3 +320,32 @@ def test_wait_ready():
     fake.feed(lcd_row1(b"1:1"))
     surface.tick()
     assert cmds.wait_ready(0.05).ok is True
+
+
+def _reveal_setup():
+    cmds, surface, fake = make_commands()
+    fake.feed(lcd_row2(b"+0.0 dB"))
+    return cmds, surface, fake
+
+
+def test_set_pan_reveals_value_when_lcd_shows_db():
+    cmds, surface, fake = _reveal_setup()
+
+    def replies(d: bytes) -> list[bytes]:
+        if d == P.vpot_turn(0, 1):
+            return [lcd_row2(b"+1     ")]
+        if d == P.vpot_turn(0, 9):
+            return [lcd_row2(b"+10    ")]
+        return []
+    fake.replies = replies
+    r = cmds.mixer_pan(1, None, 10)
+    assert r.ok is True and r.verified == "verified" and "드러내려고" in r.note
+    assert fake.sent.index(P.vpot_turn(0, 1)) < fake.sent.index(P.vpot_turn(0, 9))
+
+
+def test_set_pan_skipped_when_reveal_shows_no_pan_text():
+    cmds, surface, fake = _reveal_setup()
+    fake.replies = lambda d: []
+    r = cmds.mixer_pan(1, None, 10)
+    assert r.verified == "skipped" and "LCD 2행이 팬 값이 아님" in r.note
+    assert fake.sent.count(P.vpot_turn(0, 1)) == 1 and len(fake.sent) == 1
