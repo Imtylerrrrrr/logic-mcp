@@ -8,6 +8,7 @@ from . import protocol as P
 
 SETTLE_S = 0.12          # 조각난 LCD·타임 디스플레이가 잠잠해졌다고 보는 시간
 READY_QUIET_S = 1.0      # 설치 애니메이션이 끝났다고 보는 조용한 시간
+INSTALL_QUIET_S = 10.0   # 설치 애니메이션의 3초 공백과 시작 전 7.6초 공백을 덮는 조용 시간(핸드셰이크 뒤에만 적용)
 STALE_S = 30.0           # 이 시간 동안 수신이 없으면 stale 표시
 LCD_COLS = 8
 COL_W = 7
@@ -77,6 +78,7 @@ class Connection:
     dirty_until: float = 0.0
     last_display_change: float = 0.0
     stale: bool = False
+    installing: bool = False
 
 
 @dataclass(frozen=True)
@@ -124,7 +126,7 @@ def reduce(state: SurfaceState, ev: P.Event, now: float) -> SurfaceState:
 
     if isinstance(ev, P.DeviceQuery):
         if ev.device == P.DEVICE_ID:
-            st = replace(st, connection=replace(st.connection, state="handshake"))
+            st = replace(st, connection=replace(st.connection, state="handshake", installing=True))
         return st
 
     if isinstance(ev, P.LcdWrite):
@@ -191,8 +193,8 @@ def reduce(state: SurfaceState, ev: P.Event, now: float) -> SurfaceState:
 def tick(state: SurfaceState, now: float) -> SurfaceState:
     conn = state.connection
     if conn.state in ("handshake", "animating") and conn.last_display_change > 0 \
-            and now - conn.last_display_change >= READY_QUIET_S:
-        conn = replace(conn, state="ready")
+            and now - conn.last_display_change >= (INSTALL_QUIET_S if conn.installing else READY_QUIET_S):
+        conn = replace(conn, state="ready", installing=False)
     stale = conn.state != "no_logic" and not state.transport.play and now - conn.last_rx >= STALE_S
     if stale != conn.stale:
         conn = replace(conn, stale=stale)

@@ -121,7 +121,11 @@ def test_connection_handshake_animating_ready_from_fixture():
     assert st.connection.state == "handshake"
     st = replay(666.5)  # 첫 LCD 쓰기는 666.122초
     assert st.connection.state == "animating"
-    st = replay(719.5)
+    st = replay(700.0)
+    assert st.connection.state == "animating"
+    st = replay(745.0)
+    assert st.connection.state == "animating"
+    st = replay(747.5)
     assert st.connection.state == "ready"
     st = replay(754.3)
     assert st.connection.state == "ready" and st.strips[0].mute
@@ -140,3 +144,13 @@ def test_stale_flag():
     st = S.reduce(st, P.Led(note=P.Note.PLAY, on=False), 170.0)
     st = S.tick(st, 201.0)
     assert st.connection.stale is True
+
+
+def test_install_requires_long_quiet():
+    st = S.initial_state()
+    st = S.reduce(st, P.DeviceQuery(device=P.DEVICE_ID), 100.0)
+    st = S.reduce(st, P.LcdWrite(offset=0, text=b"1:1"), 101.0)
+    st = S.tick(st, 103.0)
+    assert st.connection.state == "animating" and st.connection.installing is True
+    st = S.tick(st, 111.1)
+    assert st.connection.state == "ready" and st.connection.installing is False
