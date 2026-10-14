@@ -1,6 +1,6 @@
 # logic-mcp 스펙 1 — 코어 + MCU 제어 (설계)
 
-작성 2026-10-14. 상태: 사용자 리뷰 대기.
+작성 2026-10-14. 상태: 승인(2026-10-14). 계획: `docs/superpowers/plans/2026-10-14-logic-mcp-core.md`
 
 ## 1. 목적과 범위
 
@@ -48,12 +48,11 @@ Claude Code ──stdio──▶ logic-mcp ──CoreMIDI 가상 포트 "LogicMC
 **연결 상태 머신** (`logic://status`로 노출):
 
 ```
-no_logic ──디바이스 쿼리 수신, 0x14 응답──▶ handshake ──LCD 첫 그리기──▶ animating ──LCD·링 500ms 조용──▶ ready
-   ▲                                                                                              │
-   └──────────────── 30초 동안 수신 없음(재생 중 제외) 또는 포트 오류 ─────────────────────────────┘
+no_logic ──디바이스 쿼리 수신, 0x14 응답──▶ handshake ──LCD 첫 그리기──▶ animating ──LCD·링 1초 조용──▶ ready
+(핸드셰이크 없이 LCD부터 오면(이름 재바인딩) no_logic → animating → ready)
 ```
 
-30초 무수신·포트 오류 전이는 어느 상태에서든 일어난다. `session` 툴 외 모든 툴은 `ready`에서만 동작한다.
+30초 동안 수신이 없으면(재생 중 제외) 상태는 유지하되 `stale=true`로 표시한다. Logic이 멈췄을 때도 포트는 남아 있으므로 무수신만으로 `no_logic`으로 내리지 않는다. `logic://status`의 `logic_running`(프로세스 존재)으로 구분한다. `session` 툴 외 모든 툴은 `ready`에서만 동작한다.
 
 **스레드 모델.** rtmidi 콜백은 CoreMIDI 스레드에서 불린다. 콜백은 `(timestamp, bytes)`를 큐에 넣기만 한다. 리듀서 스레드 하나가 큐를 소비해 상태를 갱신하고 `threading.Condition`으로 대기자를 깨운다. MCP 툴 핸들러는 전역 명령 락을 잡고 상태를 읽거나 송신한다. 가상 포트 인스턴스(`MidiIn`, `MidiOut`)는 프로세스 수명 동안 하나씩 유지하고 종료 시 `.delete()`한다. 이름을 바꾸거나 다시 만들지 않는다.
 
@@ -80,7 +79,7 @@ no_logic ──디바이스 쿼리 수신, 0x14 응답──▶ handshake ──
 
 **리소스**(읽기 전용, `resources/list`에 노출):
 
-- `logic://status`: `state`, `port`, `last_rx_age_ms`, `settling`, `assignment_mode`, `flip`, `name_format_ok`(LCD 1행에 `번호:` 접두사가 있는지), `configured`(마지막 `configure` 성공 여부, `no_logic`이 되면 false).
+- `logic://status`: `state`, `stale`, `port`, `last_rx_age_ms`, `settling`, `assignment_mode`, `flip`, `name_format_ok`(LCD 1행에 `번호:` 접두사가 있는지), `configured`(마지막 `configure` 성공 여부), `logic_running`(Logic 프로세스 존재), `visible_numbers`.
 - `logic://transport`: LED 6개, `time.mode`(beats/smpte), `time.text`, `time.parsed`(bars, beats, division, ticks 또는 hh, mm, ss, ff). 재생 중에도 안정 대기 없이 최신값.
 - `logic://strips`: 스트립 8개. `strip`, `number`, `name`, `rec`, `solo`, `mute`, `select`, `fader_raw`, `fader_db`, `pan_ring`, `meter`, `value_text`.
 - `logic://lcd`: `row1`, `row2`(각 56자), `settling`.
@@ -123,7 +122,7 @@ note: str                # "already muted", "clamped to +6.0 dB", 실패 시 다
 
 **거부.** `set_pan`은 할당 모드 LED가 PAN일 때만 보낸다. 다른 모드면 같은 CC가 다른 파라미터를 돌리므로 `ok=false`. 페이더는 터치 ON → 피치벤드 → 터치 OFF 순서로만 보낸다(Logic 기본값이 터치 필요).
 
-**연결 끊김.** 포트 오류 또는 30초 무수신(재생 중은 타임 디스플레이가 계속 오므로 제외)이면 `no_logic`. 툴은 즉시 실패. 포트는 유지한다.
+**연결 끊김.** 30초 무수신(재생 중은 타임 디스플레이가 계속 오므로 제외)이면 `stale=true`만 표시하고 상태는 유지한다. 명령은 보내지며 피드백이 없으면 `timeout`으로 드러난다. 포트는 유지한다. Logic 프로세스 유무는 `logic_running`으로 따로 보여준다.
 
 ## 6. 상태 모델
 
