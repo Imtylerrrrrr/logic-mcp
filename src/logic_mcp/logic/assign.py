@@ -50,15 +50,22 @@ class EqCommands:
         self.b = base
         self.d = base.modes
 
+    def _eq_page_of(self) -> int | None:
+        """EQ 채널 뷰 1행 첫 열 이름으로 현재 페이지(1~4)를 판정한다. 마지막 페이지를 기억해 열리므로(실측 Q) 힌트를 쓰지 않는다."""
+        first = self.d.view.columns[0][0].strip()
+        return next((p for p in range(1, 5) if EQ_SHORT[2 * p - 1][0] == first), None)
+
     def _goto_page(self, band: int) -> None:
         page = (band + 1) // 2
         want = EQ_SHORT[2 * page - 1][0]
-        self.d.page_to(page)
-        if self.d.view.columns[0][0].strip() != want:
-            found = (self.d.page_until(lambda v: v.columns[0][0].strip() == want, forward=True, max_steps=4)
-                     or self.d.page_until(lambda v: v.columns[0][0].strip() == want, forward=False, max_steps=4))
-            if not found:
-                raise ModeError("page", f"{want} 열(밴드 {2 * page - 1})", self.d.view.columns[0][0].strip() or "빈 열")
+        cur = self._eq_page_of()
+        if cur is None:
+            raise ModeError("page", f"{want} 열(밴드 {2 * page - 1})을 찾을 현재 페이지", self.d.view.columns[0][0].strip() or "빈 열")
+        if cur == page:
+            return
+        found = self.d.page_until(lambda v: v.columns[0][0].strip() == want, forward=page > cur, max_steps=abs(page - cur))
+        if not found:
+            raise ModeError("page", f"{want} 열(밴드 {2 * page - 1})", self.d.view.columns[0][0].strip() or "빈 열")
 
     def _has_eq(self, ch: int) -> bool:
         """E1(EQ Mixer view)에서 해당 스트립 2행이 비어 있으면 Channel EQ 없음. 삽입을 일으키지 않는다."""
@@ -513,6 +520,9 @@ class PluginCommands:
                 rewind_to_empty(d, v)
                 d.tick(v, 2 * idx)                                   # `--`(0)에서 2·i틱 = i번째 항목(ceil 모델)
                 shown = strip_suffix(d.read_overlay_text(v))
+                if normalize(shown) != normalize(want):              # 오버레이가 늦게 올 수 있어 0.3초 뒤 한 번 더 읽는다(실측 S)
+                    d.pause(0.3)
+                    shown = strip_suffix(d.read_overlay_text(v))
                 for _ in range(3):                                   # 목록이 캐시와 조금 어긋나면 근처에서 찾는다
                     if normalize(shown) == normalize(want):
                         break

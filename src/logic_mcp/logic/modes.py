@@ -12,6 +12,8 @@ from .values import Value, parse_value
 
 OVERLAY_S = 2.0          # 모드 전환·값 변경 오버레이 지속(실측)
 MODE_TIMEOUT = 0.6
+ENTER_TIMEOUT = 3.0      # 모드 버튼 단계 대기. EQ 첫 진입(Channel EQ 자동 삽입)은 `E_`가 0.5~1.0초 지속(실측 P)
+TICK_QUIET_S = 0.4       # 틱 뒤 마지막 LCD 쓰기로부터 이만큼 조용해져야 오버레이를 읽는다(실측 S)
 LED_TIMEOUT = 0.5
 FADER_TIMEOUT = 0.8
 FEEDBACK_TIMEOUT = 0.6
@@ -73,6 +75,13 @@ class ModeDriver:
         ok = self.surface.wait_for(lambda s: s.connection.last_display_change >= self._since, FEEDBACK_TIMEOUT)
         self._settle()
         return ok
+
+    def settle_quiet(self) -> None:
+        """마지막 LCD 쓰기 뒤 TICK_QUIET_S 조용해질 때까지(늦게 도착하는 오버레이 쓰기를 기다림)."""
+        self._settle(extra=TICK_QUIET_S)
+
+    def pause(self, seconds: float) -> None:
+        self._sleep(seconds)
 
     def settle_overlay(self) -> None:
         """내 마지막 동작(_mark) 뒤 2.0초 오버레이가 지나 재묘사될 때까지."""
@@ -150,7 +159,7 @@ class ModeDriver:
             self._press(_FAMILY_BUTTON[fam])
             # EQ는 down에 `E_`(메뉴)가 먼저 뜨고 up 뒤에 뷰가 온다(실측 A). 메뉴·과도기(unknown)는 지나쳐 기다린다.
             if not self.surface.wait_for(lambda s: s.view.kind != before and not s.view.kind.endswith("_menu")
-                                         and s.view.kind != "unknown", MODE_TIMEOUT):
+                                         and s.view.kind != "unknown", ENTER_TIMEOUT):
                 raise ModeError("enter", kind, f"{before}에서 버튼 반응 없음({self.view.kind})")
         # 2자리 표시와 LCD가 따로 도착하는 과도기를 지나 목표 뷰가 되기를 잠깐 더 기다린다.
         if not self.surface.wait_for(lambda s: s.view.kind == kind, MODE_TIMEOUT):
@@ -224,13 +233,16 @@ class ModeDriver:
         return self.wait_view(pred, timeout)
 
     def tick(self, ch: int, steps: int) -> bool:
-        """V-Pot 틱(63씩 분할). LCD가 반응하면 True."""
+        """V-Pot 틱(63씩 분할). LCD가 반응하면 True. 직전 동작의 늦은 오버레이 쓰기가 반응으로 오인되거나
+        목표 틱의 오버레이를 읽기 전에 끝나지 않도록, 마지막 LCD 쓰기 뒤 TICK_QUIET_S 조용해질 때까지 기다린다(실측 S)."""
         if steps == 0:
             return True
         self._mark()
         for msg in P.vpot_turn_messages(ch, steps):
             self.surface.send(msg)
-        return self._wait_change()
+        ok = self._wait_change()
+        self.settle_quiet()
+        return ok
 
     def press_vpot(self, ch: int) -> bool:
         self._mark()

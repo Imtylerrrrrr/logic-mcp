@@ -16,6 +16,7 @@ def rewind_to_empty(d: ModeDriver, ch: int) -> None:
     for _ in range(MAX_REWIND):
         changed = d.tick(ch, REWIND_CHUNK)
         if d.read_overlay_text(ch) == "--":
+            d.settle_quiet()                          # 되감기의 `--` 쓰기가 늦게 와서 다음 읽기를 오염시키지 않도록(실측 S)
             return
         if not changed:
             break

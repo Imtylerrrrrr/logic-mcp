@@ -162,6 +162,7 @@ class Track:
     params: dict[int, list[Param]] = field(default_factory=dict)   # 슬롯 → 편집 뷰 파라미터
     eq: list[list[Param]] | None = None                           # Channel EQ 밴드(어느 슬롯에 있든)
     bypassed: set[int] = field(default_factory=set)
+    eq_page: int = 1                                              # EQ 채널 뷰가 기억하는 마지막 페이지(실측 Q)
 
     def insert(self, slot: int, name: str) -> None:
         if self.inserts[slot] == "Channel EQ":
@@ -342,7 +343,7 @@ class FakeLogic:
             o1 = o1[:start] + fit(name) + o1[start + 21:]
             o2 = r2[:start] + fit(value) + r2[start + 21:]
         self._emit([lcd_write(0, o1[:56] + o2[:56])] + digits(d))
-        self.pending.append(self.clock() + OVERLAY_S)
+        self.pending = [self.clock() + OVERLAY_S]           # 새 오버레이가 이전 만기를 대체한다(마지막 쓰기 뒤 2.0초)
 
     # ---------- 입력 ----------
     def replies(self, data: bytes) -> list[bytes]:
@@ -391,7 +392,7 @@ class FakeLogic:
                 t = self.tracks[self.selected]
                 if t.eq is None and t.first_empty():
                     t.insert(t.first_empty(), "Channel EQ")      # 실측: 채널 뷰 진입이 Channel EQ 삽입
-                self.view, self.page = "eq_channel", 1
+                self.view, self.page = "eq_channel", t.eq_page
                 self.redraw()
             elif self.view == "eq_channel":
                 self.view = "eq_mixer"
@@ -430,8 +431,12 @@ class FakeLogic:
             self._push(note - N.VPOT_PUSH)
 
     def _page(self, delta: int) -> None:
+        old = self.page
         if self.view == "eq_channel":
-            self.page = max(1, min(4, self.page + delta))
+            self.page = max(1, min(4, self.page + delta))      # 양 끝에서는 무반응(LCD 변화 없음, 실측 Q)
+            if self.page == old:
+                return
+            self.tracks[self.selected].eq_page = self.page
         elif self.view == "plugin_edit":
             self.page = max(1, min(self._edit_pages(), self.page + delta))
         else:

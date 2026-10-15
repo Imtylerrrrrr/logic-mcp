@@ -89,3 +89,25 @@ def test_eq_set_mode_error_still_leaves():            # Review Focus 4
     r = cmds.eq.set(1, None, 5, "gain", -2.0)
     assert r.ok is False and r.verified == "unverified" and "page" in r.note
     assert surface.state.view.kind == "pan" and not surface.state.assignment.flip
+
+
+def test_eq_set_band_from_remembered_last_page():             # 실측 Q: EQ 채널 뷰는 마지막 페이지(4)로 열린다
+    cmds, surface, fake, logic = make()
+    logic.tracks[0].insert(1, "Channel EQ")
+    logic.tracks[0].eq_page = 4
+    r = cmds.eq.set(strip=1, number=None, band=3, param="freq", value=1000.0)
+    assert r.ok and r.verified == "verified", r.note
+    assert abs(logic.tracks[0].eq[2][0].value - 1000.0) <= 10
+    assert logic.tracks[0].eq_page == 2                       # 밴드 3은 2페이지, 가짜가 마지막 위치를 기억
+    assert surface.state.view.kind == "pan"
+
+
+@pytest.mark.parametrize("start", [1, 2, 3, 4])
+def test_eq_get_reads_all_pages_from_any_start_page(start):
+    cmds, surface, fake, logic = make()
+    logic.tracks[0].insert(1, "Channel EQ")
+    logic.tracks[0].eq_page = start
+    r = cmds.eq.get(strip=1, number=None)
+    assert r.verified == "verified" and len(r.after["bands"]) == 8, r.note
+    b = r.after["bands"]
+    assert b["1"]["freq"] == 20.0 and b["5"]["freq"] == 1040.0 and b["8"]["slope"] == 24

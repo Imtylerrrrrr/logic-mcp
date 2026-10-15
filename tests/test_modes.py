@@ -216,3 +216,13 @@ def test_cursor_does_nothing_in_plugin_mixer_and_channel_views():  # 실측 B·C
             d._press(note)
         assert (surface.state.view, surface.state.assignment.display) == before
     d.leave()
+
+
+def test_tick_waits_quiet_before_return():                 # 실측 S: 틱 뒤 마지막 LCD 쓰기에서 0.4초 조용해져야 읽는다
+    d, surface, fake, logic = make()
+    d.focus(0)
+    d.enter("plugin_channel")
+    t0 = fake.now
+    assert d.tick(0, 2) is True
+    assert fake.now - t0 >= 0.4
+    d.leave()
