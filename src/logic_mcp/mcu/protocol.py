@@ -33,6 +33,12 @@ class Note:
     GLOBAL_VIEW = 0x33
     NAME_VALUE = 0x34
     SMPTE_BEATS = 0x35
+    F1 = 0x36  # F1-F8 = 0x36-0x3D
+    CURSOR_UP = 0x60
+    CURSOR_DOWN = 0x61
+    CURSOR_LEFT = 0x62
+    CURSOR_RIGHT = 0x63
+    ZOOM = 0x64
     SHIFT = 0x46
     OPTION = 0x47
     CONTROL = 0x48
@@ -225,3 +231,14 @@ def vpot_turn(channel: int, steps: int) -> bytes:
         raise ValueError("steps must be nonzero")
     mag = min(abs(steps), 63)
     return bytes([0xB0, 0x10 + channel, mag if steps > 0 else 0x40 | mag])
+
+
+def vpot_turn_messages(channel: int, steps: int) -> list[bytes]:
+    """크기 63 제한을 넘는 틱을 여러 메시지로 나눈다. 드라이버는 vpot_turn 대신 이것만 쓴다."""
+    out: list[bytes] = []
+    remaining, sign = abs(steps), (1 if steps > 0 else -1)
+    while remaining > 0:
+        n = min(remaining, 63)
+        out.append(vpot_turn(channel, sign * n))
+        remaining -= n
+    return out

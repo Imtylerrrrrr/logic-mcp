@@ -108,3 +108,23 @@ def test_button_and_fader_and_vpot_encoders():
         P.fader_move(0, 16384)
     with pytest.raises(ValueError):
         P.fader_move(9, 0)
+
+
+def test_cursor_and_function_notes():
+    assert (P.Note.CURSOR_UP, P.Note.CURSOR_DOWN, P.Note.CURSOR_LEFT, P.Note.CURSOR_RIGHT) == (0x60, 0x61, 0x62, 0x63)
+    assert P.Note.ZOOM == 0x64 and P.Note.F1 == 0x36
+    assert P.NOTE_NAMES[0x62] == "CURSOR_LEFT"
+
+
+def test_vpot_turn_messages_split_at_63():
+    assert P.vpot_turn_messages(0, 100) == [P.vpot_turn(0, 63), P.vpot_turn(0, 37)]
+    assert P.vpot_turn_messages(2, -130) == [P.vpot_turn(2, -63), P.vpot_turn(2, -63), P.vpot_turn(2, -4)]
+    assert P.vpot_turn_messages(0, 5) == [P.vpot_turn(0, 5)]
+    assert P.vpot_turn_messages(0, 0) == []
+
+
+def test_assign_fixtures_load():
+    rows = P.load_fixture(Path(__file__).parent / "fixtures" / "mcu" / "cap_assign2.log")
+    assert len(rows) > 800 and rows[0][1] == "RX"
+    kinds = {type(P.decode(data)).__name__ for _, _, data in rows}
+    assert {"LcdWrite", "AssignDigit", "FaderPos", "Led", "VpotRing"} <= kinds
