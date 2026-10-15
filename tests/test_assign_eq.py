@@ -1,0 +1,91 @@
+import pytest
+
+from logic_mcp.logic.commands import Commands
+from logic_mcp.logic.faders import FaderTable
+from logic_mcp.mcu import protocol as P
+from tests.fake_assign import make_assign_logic
+
+
+def make():
+    surface, fake, logic = make_assign_logic()
+    cmds = Commands(surface, FaderTable.load(), sleep=logic.sleep, logic_running=lambda: True)
+    return cmds, surface, fake, logic
+
+
+def test_eq_get_without_eq_does_not_insert():
+    cmds, surface, fake, logic = make()
+    r = cmds.eq.get(strip=2, number=None)
+    assert r.ok and r.verified == "verified" and r.after == {"has_eq": False, "bands": {}}
+    assert logic.tracks[1].eq is None and surface.state.view.kind == "pan"
+    assert r.target == {"strip": 2, "number": 16, "name": "DCl"}
+
+
+def test_eq_get_reads_all_bands_and_leaves():
+    cmds, surface, fake, logic = make()
+    logic.tracks[0].insert(1, "Channel EQ")
+    r = cmds.eq.get(strip=1, number=None)
+    assert r.verified == "verified" and r.after["has_eq"]
+    b = r.after["bands"]
+    assert len(b) == 8
+    assert b["1"]["freq"] == 20.0 and b["1"]["slope"] == 12 and b["1"]["on"] is False and b["1"]["q"] == 0.71
+    assert b["2"]["gain"] == 0.0 and b["5"]["freq"] == 1040.0 and b["8"]["slope"] == 24
+    assert b["3"]["text"] == ["100 Hz", "0.0 dB", "0.60", "On"]
+    assert surface.state.view.kind == "pan" and logic.selected == 0
+
+
+def test_eq_set_freq_inserts_when_allowed_and_verifies():
+    cmds, surface, fake, logic = make()
+    r = cmds.eq.set(strip=1, number=None, band=3, param="freq", value=1000.0)
+    assert r.ok and r.verified == "verified" and "Channel EQ 삽입됨" in r.note
+    assert abs(logic.tracks[0].eq[2][0].value - 1000.0) <= 10
+    assert r.before["text"] == "100 Hz" and r.after["value"] == pytest.approx(1000.0, abs=10)
+    assert surface.state.view.kind == "pan" and not surface.state.assignment.flip
+
+
+def test_eq_set_refuses_insert_when_not_allowed():
+    cmds, surface, fake, logic = make()
+    r = cmds.eq.set(strip=1, number=None, band=3, param="gain", value=-3.0, allow_insert=False)
+    assert r.verified == "skipped" and "allow_insert" in r.note
+    assert logic.tracks[0].eq is None and surface.state.view.kind == "pan"
+
+
+def test_eq_set_gain_slope_on_q():
+    cmds, surface, fake, logic = make()
+    logic.tracks[0].insert(1, "Channel EQ")
+    eq = logic.tracks[0].eq
+    assert cmds.eq.set(1, None, 2, "gain", -3.0).after["value"] == -3.0 and eq[1][1].value == -3.0
+    r = cmds.eq.set(1, None, 1, "slope", 36)
+    assert r.verified == "verified" and r.after["text"].startswith("36") and eq[0][1].value == 4
+    r = cmds.eq.set(1, None, 1, "on", True)
+    assert r.verified == "verified" and r.after["text"] == "On" and eq[0][3].value == 1
+    assert cmds.eq.set(1, None, 1, "on", True).verified == "skipped"            # already
+    r = cmds.eq.set(1, None, 4, "q", 2.0)
+    assert r.ok and abs(eq[3][2].value - 2.0) <= 0.05
+    assert surface.state.view.kind == "pan" and not surface.state.assignment.flip
+
+
+def test_eq_set_by_number_other_strip():
+    cmds, surface, fake, logic = make()
+    r = cmds.eq.set(None, 19, 2, "gain", 2.0)
+    assert r.ok and logic.tracks[4].eq[1][1].value == 2.0 and r.target["strip"] == 5
+    assert logic.selected == 0                                                   # 선택 복원
+
+
+def test_eq_set_validation_sends_nothing():
+    cmds, surface, fake, logic = make()
+    n = len(fake.sent)
+    assert cmds.eq.set(1, None, 9, "freq", 100.0).verified == "skipped"
+    assert cmds.eq.set(1, None, 1, "gain", 1.0).verified == "skipped"        # 밴드 1은 slope
+    assert cmds.eq.set(1, None, 3, "slope", 12).verified == "skipped"
+    assert cmds.eq.set(1, None, 1, "slope", 7).verified == "skipped"
+    assert cmds.eq.set(1, None, 3, "hue", 1.0).verified == "skipped"
+    assert len(fake.sent) == n
+
+
+def test_eq_set_mode_error_still_leaves():            # Review Focus 4
+    cmds, surface, fake, logic = make()
+    logic.tracks[0].insert(1, "Channel EQ")
+    logic.refuse.add(P.Note.CURSOR_RIGHT)
+    r = cmds.eq.set(1, None, 5, "gain", -2.0)
+    assert r.ok is False and r.verified == "unverified" and "page" in r.note
+    assert surface.state.view.kind == "pan" and not surface.state.assignment.flip

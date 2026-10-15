@@ -57,6 +57,9 @@ class Commands:
         self._lock = threading.Lock()
         self.configured = False
         self.modes = ModeDriver(surface, sleep)
+        from .assign import EqCommands, PluginCommands   # 지연 임포트(순환 방지)
+        self.eq = EqCommands(self)
+        self.plugin = PluginCommands(self)
 
     # ---------- 공통 ----------
     def _now_ms(self) -> int:
