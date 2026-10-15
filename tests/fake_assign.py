@@ -211,7 +211,7 @@ class FakeLogic:
         if due:
             self.pending = [t for t in self.pending if t > self.clock()]
             self.redraw()
-        elif self.pre and self.view == "plugin_mixer":
+        elif self.pre and self.view == "plugin_mixer" and not self.pending:   # 오버레이 유효 중엔 깜박임 재묘사로 덮지 않음
             self.redraw()
 
     def boot(self) -> None:

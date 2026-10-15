@@ -2,11 +2,14 @@
 모든 공개 메서드는 ToolResult를 돌려주고 finally에서 leave_safely()로 PAN·Flip off로 돌아간다."""
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 from .modes import ModeError
+from .plugins.cache import PluginCache
+from .plugins.match import find, normalize, strip_suffix
 from .setter import probe_mapping, set_enum, set_numeric
-from .values import Mapping, Value, parse_value, tolerance_for
+from .values import Mapping, Value, parse_value, tolerance_for, within
 
 if TYPE_CHECKING:
     from .commands import Commands, ToolResult
@@ -143,7 +146,288 @@ class EqCommands:
                 d.leave_safely()
 
 
+class SlotEmpty(Exception):
+    pass
+
+
+class ParamNotFound(Exception):
+    def __init__(self, note: str) -> None:
+        super().__init__(note)
+        self.note = note
+
+
+def _map_from(d: dict | None) -> Mapping | None:
+    if not d:
+        return None
+    return Mapping(d["type"], d.get("lo", 0.0), d.get("hi", 1.0), tuple(d.get("options", ())))
+
+
+def _map_to(m: Mapping) -> dict:
+    out: dict = {"type": m.type}
+    if m.type in ("log", "linear"):
+        out.update(lo=m.lo, hi=m.hi)
+    if m.type == "enum":
+        out["options"] = list(m.options)
+    return out
+
+
 class PluginCommands:
-    def __init__(self, base: "Commands") -> None:
+    def __init__(self, base: "Commands", cache: PluginCache | None = None) -> None:
         self.b = base
         self.d = base.modes
+        self.cache = cache or PluginCache.load()
+        self.inventory: dict[str, dict[str, dict | None]] = {}
+
+    # ---------- 공통 ----------
+    def _fresh(self) -> None:
+        """남은 미리 선택·Flip·NAME 모드를 지우고 PAN에서 시작한다."""
+        if self.d.view.kind != "pan" or self.b.surface.state.assignment.flip:
+            self.d.leave(keep_select=True)
+
+    def _slot_text(self, ch: int) -> str:
+        return self.d.read_column(ch)[1].text
+
+    def _open_edit(self, ch: int, slot: int) -> tuple[str, str, int]:
+        d = self.d
+        d.enter("plugin_mixer")
+        d.slot_to(slot)
+        abbrev = self._slot_text(ch)
+        if abbrev in ("", "--"):
+            raise SlotEmpty(slot)
+        d.tick(ch, 1)                                   # 반 항목: 현재 항목의 전체 이름이 오버레이로 뜬다(실측)
+        full = strip_suffix(d.read_overlay_text(ch))
+        d.press_vpot(ch)
+        if d.view.kind != "plugin_edit":
+            raise ModeError("edit", "plugin_edit", d.view.kind)
+        d.settle_smart()
+        if full and full != "--":
+            self.cache.learn_abbrev(abbrev, full)
+        d.toggle_name_value()                           # NAME 모드: 1행 헤더 `Page n/N`, 2행 축약명
+        pages = d.view.page[1] if d.view.page else 1
+        return full or abbrev, abbrev, pages
+
+    def _read_pages(self, pages: int) -> list[dict]:
+        """NAME 모드에서 시작. 페이지마다 축약명(NAME)과 값(VALUE)을 읽고 NAME 모드로 돌아온다."""
+        d, items = self.d, []
+        for page in range(1, pages + 1):
+            d.page_to(page)
+            shorts = [c[1].strip() for c in d.view.columns]
+            d.toggle_name_value()
+            values = [parse_value(c[1]) for c in d.view.columns]
+            d.toggle_name_value()
+            for i, short in enumerate(shorts):
+                if short:
+                    items.append({"index": (page - 1) * 8 + i + 1, "short": short, "value": values[i].number,
+                                  "text": values[i].text})
+        return items
+
+    def _table(self, full: str, pages: int) -> dict:
+        return self.cache.params.setdefault(full, {"pages": pages, "items": []})
+
+    def _merge_items(self, full: str, pages: int, observed: list[dict]) -> None:
+        table = self._table(full, pages)
+        table["pages"] = pages
+        by_index = {it["index"]: it for it in table["items"]}
+        for ob in observed:
+            it = by_index.get(ob["index"])
+            if it is None:
+                it = {"index": ob["index"], "short": ob["short"], "name": None, "map": None}
+                table["items"].append(it)
+                by_index[ob["index"]] = it
+            else:
+                it["short"] = ob["short"]
+        table["items"].sort(key=lambda x: x["index"])
+
+    def _locate(self, full: str, pages: int, param) -> dict:
+        """param(인덱스 또는 이름) → 표 항목 {"index","short","name","map"}. 표에 없으면 페이지를 읽어 채운다."""
+        table = self._table(full, pages)
+        if isinstance(param, int) or (isinstance(param, str) and param.strip().isdigit()):
+            index = int(param)
+            if not 1 <= index <= pages * 8:
+                raise ParamNotFound(f"index {index}는 1-{pages * 8} 밖")
+            it = next((x for x in table["items"] if x["index"] == index), None)
+            if it is None:
+                self._merge_items(full, pages, self._read_pages(pages))
+                it = next((x for x in table["items"] if x["index"] == index), None)
+            if it is None:
+                raise ParamNotFound(f"index {index} 자리가 비어 있음")
+            return it
+        q = normalize(str(param))
+
+        def hits(items: list[dict]) -> list[dict]:
+            out = []
+            for x in items:
+                n, s = normalize(x.get("name") or ""), normalize(x["short"])
+                if q and (n == q or s == q or (n and (n.startswith(q) or q.startswith(n))) or q.startswith(s) or s.startswith(q)):
+                    out.append(x)
+            return out
+        found = hits(table["items"])
+        if not found:
+            self._merge_items(full, pages, self._read_pages(pages))
+            found = hits(table["items"])
+        exact = [x for x in found if normalize(x.get("name") or "") == q or normalize(x["short"]) == q]
+        if len(exact) == 1:
+            return exact[0]
+        if len(found) == 1:
+            return found[0]
+        shorts = [x["short"] for x in table["items"]]
+        if not found:
+            raise ParamNotFound(f"{param!r}에 맞는 파라미터 없음. 축약명: {shorts}")
+        raise ParamNotFound(f"{param!r}가 여럿에 맞음: {[x['short'] for x in found]}")
+
+    def _goto_param(self, item: dict) -> int:
+        """NAME 모드에서 해당 페이지로 가고 VALUE 모드로 바꾼 뒤 열 번호를 돌려준다."""
+        page = (item["index"] - 1) // 8 + 1
+        self.d.page_to(page)
+        self.d.toggle_name_value()
+        return (item["index"] - 1) % 8
+
+    def _param_dict(self, full: str, slot: int, item: dict, v: Value) -> dict:
+        return {"plugin": full, "slot": slot, "index": item["index"], "short": item["short"],
+                "name": item.get("name"), "value": v.number, "text": v.text}
+
+    # ---------- 명령 ----------
+    def list(self, strip: int | None, number: int | None) -> "ToolResult":
+        b, d, action = self.b, self.d, "plugin_list"
+        t0 = b._now_ms()
+        with b._lock:
+            if (r := b._require_ready(action, t0)) is not None:
+                return r
+            only: int | None = None
+            if strip is not None or number is not None:
+                ch = b._resolve(strip, number, action, t0)
+                if not isinstance(ch, int):
+                    return ch
+                only = ch
+            try:
+                self._fresh()
+                d.enter("plugin_mixer")
+                tracks: dict[str, dict[str, dict | None]] = {}
+                for slot in range(1, 16):
+                    d.slot_to(slot)
+                    for ch, s in enumerate(b.surface.state.strips):
+                        if s.number is None or (only is not None and ch != only):
+                            continue
+                        text = d.view.columns[ch][1].strip()
+                        row = tracks.setdefault(str(s.number), {})
+                        row[str(slot)] = None if text in ("", "--") else {"text": text, "name": self.cache.abbrev.get(text)}
+                self.inventory.update(tracks)
+                return b._result(action, True, "verified", t0, after={"tracks": tracks})
+            except ModeError as e:
+                return b._result(action, False, "unverified", t0, note=str(e))
+            finally:
+                d.leave_safely()
+
+    def _begin(self, action: str, strip, number, slot, t0):
+        if not 1 <= slot <= 15:
+            return self.b._result(action, False, "skipped", t0, note="slot은 1-15")
+        ch = self.b._resolve(strip, number, action, t0)
+        return ch
+
+    def params(self, strip: int | None, number: int | None, slot: int) -> "ToolResult":
+        b, d, action = self.b, self.d, "plugin_params"
+        t0 = b._now_ms()
+        with b._lock:
+            if (r := b._require_ready(action, t0)) is not None:
+                return r
+            ch = self._begin(action, strip, number, slot, t0)
+            if not isinstance(ch, int):
+                return ch
+            target = {**b._target(ch), "slot": slot}
+            try:
+                self._fresh()
+                d.focus(ch)
+                full, abbrev, pages = self._open_edit(ch, slot)
+                observed = self._read_pages(pages)
+                self._merge_items(full, pages, observed)
+                self.cache.save()
+                table = {x["index"]: x for x in self._table(full, pages)["items"]}
+                out = [{"index": o["index"], "short": o["short"], "name": table[o["index"]].get("name"),
+                        "value": o["value"], "text": o["text"]} for o in observed]
+                return b._result(action, True, "verified", t0, target=target,
+                                 after={"plugin": full, "abbrev": abbrev, "slot": slot, "pages": pages, "params": out})
+            except SlotEmpty:
+                return b._result(action, False, "skipped", t0, target=target, note=f"슬롯 {slot}이 비어 있음")
+            except ModeError as e:
+                return b._result(action, False, "unverified", t0, target=target, note=str(e))
+            finally:
+                d.leave_safely()
+
+    def get(self, strip: int | None, number: int | None, slot: int, param) -> "ToolResult":
+        b, d, action = self.b, self.d, "plugin_get"
+        t0 = b._now_ms()
+        with b._lock:
+            if (r := b._require_ready(action, t0)) is not None:
+                return r
+            ch = self._begin(action, strip, number, slot, t0)
+            if not isinstance(ch, int):
+                return ch
+            target = {**b._target(ch), "slot": slot}
+            try:
+                self._fresh()
+                d.focus(ch)
+                full, _abbrev, pages = self._open_edit(ch, slot)
+                item = self._locate(full, pages, param)
+                col = self._goto_param(item)
+                v = d.read_column(col)[1]
+                return b._result(action, True, "verified", t0, target=target, after=self._param_dict(full, slot, item, v))
+            except SlotEmpty:
+                return b._result(action, False, "skipped", t0, target=target, note=f"슬롯 {slot}이 비어 있음")
+            except ParamNotFound as e:
+                return b._result(action, False, "skipped", t0, target=target, note=e.note)
+            except ModeError as e:
+                return b._result(action, False, "unverified", t0, target=target, note=str(e))
+            finally:
+                d.leave_safely()
+
+    def set(self, strip: int | None, number: int | None, slot: int, param, value,
+            tolerance: float | None = None) -> "ToolResult":
+        b, d, action = self.b, self.d, "plugin_set"
+        t0 = b._now_ms()
+        with b._lock:
+            if (r := b._require_ready(action, t0)) is not None:
+                return r
+            ch = self._begin(action, strip, number, slot, t0)
+            if not isinstance(ch, int):
+                return ch
+            target = {**b._target(ch), "slot": slot}
+            try:
+                self._fresh()
+                d.focus(ch)
+                full, _abbrev, pages = self._open_edit(ch, slot)
+                item = self._locate(full, pages, param)
+                col = self._goto_param(item)
+                before_v = d.read_column(col)[1]
+                before = self._param_dict(full, slot, item, before_v)
+                numeric = isinstance(value, (int, float)) and not isinstance(value, bool)
+                if not numeric and isinstance(value, str):
+                    try:
+                        value, numeric = float(value), True
+                    except ValueError:
+                        numeric = False
+                if numeric:
+                    mapping = _map_from(item.get("map"))
+                    if mapping is None:
+                        d.flip(True)
+                        mapping, _lo, _hi = probe_mapping(d, col)          # 범위를 모르면 페이더 1·16383으로 프로빙
+                        if mapping is not None:
+                            item["map"] = _map_to(mapping)
+                            self.cache.save()
+                    tol = tolerance if tolerance is not None else tolerance_for(float(value), before_v.unit)
+                    out = set_numeric(d, col, float(value), mapping, tol, b.faders)
+                else:
+                    want = ("On" if value else "Off") if isinstance(value, bool) else str(value)
+                    out = set_enum(d, col, want)
+                after = self._param_dict(full, slot, item, out.value)
+                if out.ok and out.note == "already":
+                    return b._result(action, True, "skipped", t0, target=target, before=before, after=after, note="already")
+                return b._result(action, out.ok, "verified" if out.ok else "unverified", t0, target=target,
+                                 before=before, after=after, note=out.note)
+            except SlotEmpty:
+                return b._result(action, False, "skipped", t0, target=target, note=f"슬롯 {slot}이 비어 있음")
+            except ParamNotFound as e:
+                return b._result(action, False, "skipped", t0, target=target, note=e.note)
+            except ModeError as e:
+                return b._result(action, False, "unverified", t0, target=target, note=str(e))
+            finally:
+                d.leave_safely()

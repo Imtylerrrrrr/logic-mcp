@@ -108,6 +108,11 @@ class ModeDriver:
         start = min(ch * S.COL_W, P.LCD_WIDTH - OVERLAY_WIDTH)
         return self.surface.state.lcd[0][start:start + OVERLAY_WIDTH].strip()
 
+    def read_overlay_text(self, ch: int) -> str:
+        """오버레이 2행(21칸) 원문. 플러그인 이름처럼 숫자가 아닌 값에 쓴다."""
+        start = min(ch * S.COL_W, P.LCD_WIDTH - OVERLAY_WIDTH)
+        return self.surface.state.lcd[1][start:start + OVERLAY_WIDTH].strip()
+
     # ---------- 조작 ----------
     def focus(self, ch: int) -> None:
         """대상 스트립 SELECT. 처음 한 번 이전 선택을 기억해 leave()에서 되돌린다."""

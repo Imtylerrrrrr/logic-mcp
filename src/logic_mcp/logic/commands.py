@@ -5,7 +5,7 @@ import subprocess
 import threading
 import time
 from collections.abc import Callable
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel
 
@@ -14,6 +14,9 @@ from ..mcu import state as S
 from ..mcu.surface import Surface
 from .faders import FaderTable, parse_db_text, parse_pan_text
 from .modes import ModeDriver
+
+if TYPE_CHECKING:
+    from .plugins.cache import PluginCache
 
 LED_TIMEOUT = 0.5
 FADER_TIMEOUT = 0.8
@@ -49,7 +52,8 @@ _TRACK_ACTIONS: dict[str, tuple[str, int, bool]] = {
 class Commands:
     def __init__(self, surface: Surface, faders: FaderTable,
                  sleep: Callable[[float], None] = time.sleep,
-                 logic_running: Callable[[], bool] = _logic_running) -> None:
+                 logic_running: Callable[[], bool] = _logic_running,
+                 plugin_cache: "PluginCache | None" = None) -> None:
         self.surface = surface
         self.faders = faders
         self._sleep = sleep
@@ -59,7 +63,7 @@ class Commands:
         self.modes = ModeDriver(surface, sleep)
         from .assign import EqCommands, PluginCommands   # 지연 임포트(순환 방지)
         self.eq = EqCommands(self)
-        self.plugin = PluginCommands(self)
+        self.plugin = PluginCommands(self, plugin_cache)
 
     # ---------- 공통 ----------
     def _now_ms(self) -> int:

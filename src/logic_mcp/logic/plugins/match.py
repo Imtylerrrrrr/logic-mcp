@@ -27,3 +27,8 @@ def find(items: list[str], query: str) -> tuple[int | None, list[str]]:
         if len(hits) > 1:
             return None, [items[i] for i in hits]
     return None, []
+
+
+def strip_suffix(name: str) -> str:
+    """`Channel EQ (s/s)` → `Channel EQ`. 잘린 `(s/` 도 떼어낸다."""
+    return _SUFFIX_RE.sub("", name.strip()).strip()
