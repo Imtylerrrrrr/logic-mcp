@@ -3,7 +3,9 @@
 시간은 sleep()으로만 흐른다: 오버레이 재묘사(2.0초 뒤)와 깜박임 위상, 확정 누름의 늦은 뷰 전환(실측 K)이 sleep에서 처리된다.
 EQ 버튼은 실측 A처럼 down에 `E_`(메뉴)를, up 뒤에 뷰를 그린다. up의 응답은 deferred에 쌓였다가 드라이버가
 기다리기 시작한 뒤(wait_for의 첫 판정 다음)나 다음 sleep·입력 때 도착한다.
-lcd_lag(실측 X)의 LCD 값 쓰기는 lagged에 쌓여 sleep으로는 오지 않고, 판정이 안 끝난 wait_for나 다음 입력 때만 도착한다."""
+lcd_lag(실측 X)의 LCD 값 쓰기는 lagged에 쌓여 sleep으로는 오지 않고, 판정이 안 끝난 wait_for나 다음 입력 때만 도착한다.
+drop_first_fader(실측 Z1)는 Flip을 켠 뒤 처음 오는 페이더 이동을, drop_first_flip(실측 Z2)은 처음 FLIP 누름을 한 번 무시한다.
+drop_all_faders는 페이더 이동을 항상 무시한다(반응 없는 Logic)."""
 from __future__ import annotations
 
 import math
@@ -226,6 +228,10 @@ class FakeLogic:
         self.plugin_list = list(PLUGIN_LIST)
         self.lcd_lag = False                           # True면 페이더 이동의 LCD 값 쓰기가 에코보다 늦게 도착(실측 X)
         self.lagged: list = []                         # lcd_lag 응답: sleep·입력으로는 안 오고, 드라이버가 판정 안 된 wait_for에 들어가야 도착
+        self.drop_first_fader = False                  # True면 Flip을 켠 뒤 처음 페이더 이동을 한 번 무시(에코·LCD 없음, 실측 Z1)
+        self._fader_armed = False
+        self.drop_all_faders = False                   # True면 페이더 이동을 항상 무시
+        self.drop_first_flip = False                   # True면 처음 FLIP 누름을 한 번 무시(LED 변화 없음, 실측 Z2)
         self.refuse: set[int] = set()                  # 반응하지 않을 노트(고장 흉내)
         fake.replies = self.replies
 
@@ -446,7 +452,11 @@ class FakeLogic:
         elif note == N.CURSOR_UP:
             self._slot(-1)
         elif note == N.FLIP:
+            if self.drop_first_flip:
+                self.drop_first_flip = False
+                return
             self.flip = not self.flip
+            self._fader_armed = self.flip
             self._emit([P.button_down(N.FLIP) if self.flip else P.button_up(N.FLIP)])
             if self.flip:
                 self._emit([fader_echo(ch, p.raw() if (p := self._column_param(ch)) else 0) for ch in range(8)])
@@ -577,6 +587,9 @@ class FakeLogic:
 
     def _fader(self, ch: int, raw: int) -> None:
         if not self.flip or raw == 0:                                   # raw 0 무시(실측 사례)
+            return
+        if self.drop_all_faders or (self.drop_first_fader and self._fader_armed):
+            self._fader_armed = False
             return
         p = self._column_param(ch)
         if p is None or not p.set_raw(raw):

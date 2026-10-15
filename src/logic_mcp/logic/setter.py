@@ -36,7 +36,8 @@ def probe_mapping(d: ModeDriver, ch: int) -> tuple[Mapping | None, Value, Value]
 def set_numeric(d: ModeDriver, ch: int, target: float, mapping: Mapping | None, tolerance: float,
                 faders: FaderTable | None = None) -> SetOutcome:
     cur = d.read_value(ch)
-    if (n := _num(cur)) is not None and within(n, target, tolerance):
+    before = _num(cur)
+    if before is not None and within(before, target, tolerance):
         return SetOutcome(True, cur, 0, "already")
     rounds = 0
     if mapping is not None:
@@ -46,9 +47,10 @@ def set_numeric(d: ModeDriver, ch: int, target: float, mapping: Mapping | None, 
         cur = d.read_value(ch)
         if (n := _num(cur)) is not None and within(n, target, tolerance):
             return SetOutcome(True, cur, 0, "fader")
-        if mapping.type in ("log", "linear") and (n := _num(cur)) is not None and n > 0 or mapping.type == "linear":
+        n = _num(cur)
+        reacted = n is None or n != before    # 값이 이동 전과 같으면 Logic이 반응하지 않은 것: 그 값으로 보정하면 폭주한다(실측 Z1)
+        if reacted and ((mapping.type == "log" and n is not None and n > 0) or mapping.type == "linear"):
             # 관측 오차로 페이더 위치를 한 번 보정(시컨트)
-            n = _num(cur)
             if n is not None:
                 if mapping.type == "log" and n > 0 and target > 0:
                     delta, span = math.log(target / n), math.log(mapping.hi / mapping.lo)

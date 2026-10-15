@@ -106,3 +106,21 @@ def test_probe_mapping_reads_min_max_with_lagging_lcd():             # 실측 X
     d.flip(True)
     m, lo, hi = probe_mapping(d, 1)
     assert lo.number == -60.0 and hi.number == 0.0 and m == Mapping("linear", -60.0, 0.0)
+
+
+def test_set_numeric_q_succeeds_when_first_fader_move_is_dropped():       # 실측 Z1
+    d, logic, eq = eq_driver()
+    logic.drop_first_fader = True
+    out = set_numeric(d, 2, 2.0, Mapping("log", 0.10, 100.0), tolerance=0.04)
+    assert out.ok and abs(eq[0][2].value - 2.0) <= 0.04
+
+
+def test_set_numeric_skips_secant_when_fader_has_no_effect():            # 실측 Z1: 이동 전 값으로 보정하지 않는다
+    d, logic, eq = eq_driver()
+    logic.drop_all_faders = True
+    fake = logic.fake
+    fake.sent.clear()
+    out = set_numeric(d, 2, 2.0, Mapping("log", 0.10, 100.0), tolerance=0.04)
+    assert out.ok and abs(eq[0][2].value - 2.0) <= 0.04
+    moves = [m for m in fake.sent if m[0] & 0xF0 == 0xE0]
+    assert len(moves) == 2 and len(set(moves)) == 1                      # fader()의 같은 이동 재전송뿐, 시컨트 이동 없음

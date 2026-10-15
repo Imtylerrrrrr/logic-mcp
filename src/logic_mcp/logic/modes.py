@@ -261,21 +261,28 @@ class ModeDriver:
         """Flip 상태에서 페이더로 절대값. 에코된 raw, 반응이 없으면 None. raw 0은 보내지 않는다."""
         raw = max(1, min(P.MAX_FADER, raw))
         before = self.surface.state.strips[ch].fader_raw
-        self._mark()
-        for msg in P.fader_move(ch, raw):
-            self.surface.send(msg)
-        ok = self.surface.wait_for(lambda s: s.strips[ch].fader_raw != before, FADER_TIMEOUT)
-        # 에코 뒤에 LCD 값 쓰기가 늦게 올 수 있다(실측 X): 에코만 보고 끝내면 이동 전 값을 읽는다. 값이 안 바뀌면 안 올 수도 있다.
-        self.surface.wait_for(lambda s: s.connection.last_display_change >= self._since, FEEDBACK_TIMEOUT)
+        ok = False
+        for _ in range(2):                    # 에코도 LCD도 없으면 이동이 통째로 무시된 것: 한 번 더 보낸다(실측 Z1)
+            self._mark()
+            for msg in P.fader_move(ch, raw):
+                self.surface.send(msg)
+            ok = self.surface.wait_for(lambda s: s.strips[ch].fader_raw != before, FADER_TIMEOUT)
+            # 에코 뒤에 LCD 값 쓰기가 늦게 올 수 있다(실측 X): 에코만 보고 끝내면 이동 전 값을 읽는다. 값이 안 바뀌면 안 올 수도 있다.
+            shown = self.surface.wait_for(lambda s: s.connection.last_display_change >= self._since, FEEDBACK_TIMEOUT)
+            if ok or shown:
+                break
         self._settle()
         return self.surface.state.strips[ch].fader_raw if ok else None
 
     def flip(self, on: bool) -> None:
         if self.surface.state.assignment.flip == on:
             return
-        self._mark()
-        self._press(P.Note.FLIP)
-        if not self.surface.wait_for(lambda s: s.assignment.flip == on, LED_TIMEOUT):
+        for _ in range(2):            # 누름이 무시되면 한 번 더 누른다(실측 Z2)
+            self._mark()
+            self._press(P.Note.FLIP)
+            if self.surface.wait_for(lambda s: s.assignment.flip == on, LED_TIMEOUT):
+                break
+        else:
             raise ModeError("flip", "on" if on else "off", "FLIP LED 변화 없음")
         self._sleep(0.1)                      # 페이더 위치 에코가 오는 시간
 

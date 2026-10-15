@@ -226,3 +226,31 @@ def test_tick_waits_quiet_before_return():                 # 실측 S: 틱 뒤 �
     assert d.tick(0, 2) is True
     assert fake.now - t0 >= 0.4
     d.leave()
+
+
+def _pitchbends(fake):
+    return [m for m in fake.sent if m[0] & 0xF0 == 0xE0]
+
+
+def test_fader_resends_when_first_move_is_dropped():            # 실측 Z1
+    d, surface, fake, logic = make()
+    logic.drop_first_fader = True
+    d.focus(0)
+    d.enter("eq_channel")
+    d.flip(True)
+    raw = logic.tracks[0].eq[0][0].raw()
+    target = raw + 500
+    fake.sent.clear()
+    assert d.fader(0, target) == surface.state.strips[0].fader_raw != raw
+    assert len(_pitchbends(fake)) == 2
+
+
+def test_flip_presses_again_when_first_press_is_dropped():      # 실측 Z2
+    d, surface, fake, logic = make()
+    logic.drop_first_flip = True
+    d.focus(0)
+    d.enter("eq_channel")
+    fake.sent.clear()
+    d.flip(True)
+    assert surface.state.assignment.flip and logic.flip
+    assert sum(1 for m in fake.sent if m == P.button_down(P.Note.FLIP)) == 2

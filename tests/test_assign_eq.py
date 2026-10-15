@@ -125,3 +125,13 @@ def test_eq_set_q_uses_log_mapping_without_probe(monkeypatch):
     eq = logic.tracks[0].eq
     r = cmds.eq.set(1, None, 4, "q", 2.0)
     assert r.ok and r.verified == "verified" and abs(eq[3][2].value - 2.0) <= 0.04
+
+
+def test_eq_set_q_survives_dropped_flip_and_dropped_first_fader():       # 실측 Z1·Z2
+    cmds, surface, fake, logic = make()
+    logic.tracks[0].insert(1, "Channel EQ")
+    eq = logic.tracks[0].eq
+    logic.drop_first_flip = True
+    logic.drop_first_fader = True
+    r = cmds.eq.set(1, None, 4, "q", 2.0)
+    assert r.ok and r.verified == "verified" and abs(eq[3][2].value - 2.0) <= 0.04
