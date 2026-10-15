@@ -80,6 +80,8 @@ def infer_mapping(lo: Value, hi: Value) -> Mapping | None:
 def tolerance_for(target: float, unit: str | None) -> float:
     if unit == "dB":
         return 0.1
+    if unit is None:                                   # Q 등 단위 없는 숫자: 표시가 유효숫자 3자리라 2 %(실측 T)
+        return round(max(abs(target) * 0.02, 0.01), 6)
     return round(max(abs(target), 1.0) * 0.01, 6)
 
 

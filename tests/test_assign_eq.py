@@ -111,3 +111,17 @@ def test_eq_get_reads_all_pages_from_any_start_page(start):
     assert r.verified == "verified" and len(r.after["bands"]) == 8, r.note
     b = r.after["bands"]
     assert b["1"]["freq"] == 20.0 and b["5"]["freq"] == 1040.0 and b["8"]["slope"] == 24
+
+
+def test_eq_set_q_uses_log_mapping_without_probe(monkeypatch):
+    """Q는 고정 log 0.10~100 매핑(실측 T): probe_mapping(Flip 페이더를 극값으로 보냄)을 부르지 않는다."""
+    from logic_mcp.logic import assign
+
+    def boom(*a, **k):
+        raise AssertionError("Q 설정에서 probe_mapping을 부름")
+    monkeypatch.setattr(assign, "probe_mapping", boom)
+    cmds, surface, fake, logic = make()
+    logic.tracks[0].insert(1, "Channel EQ")
+    eq = logic.tracks[0].eq
+    r = cmds.eq.set(1, None, 4, "q", 2.0)
+    assert r.ok and r.verified == "verified" and abs(eq[3][2].value - 2.0) <= 0.04

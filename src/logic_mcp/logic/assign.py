@@ -23,7 +23,9 @@ EQ_SHORT: dict[int, tuple[str, str, str, str]] = {   # 밴드 → (freq, gain|sl
     7: ("HiShF", "HiShGa", "HiShQ", "HSO/Of"), 8: ("HiCutF", "HiCutS", "HiCutQ", "HCO/Of"),
 }
 EQ_PARAM_COL = {"freq": 0, "gain": 1, "slope": 1, "q": 2, "on": 3}
-EQ_MAPPING = {"freq": Mapping("log", 20.0, 20000.0), "gain": Mapping("linear", -24.0, 24.0)}
+# Q는 실측 T: Flip 페이더 raw에 ln Q가 선형(0.10~100). 밴드 1·8(컷)은 미측정이라 같은 범위로 가정(실측 V)
+EQ_MAPPING = {"freq": Mapping("log", 20.0, 20000.0), "gain": Mapping("linear", -24.0, 24.0),
+              "q": Mapping("log", 0.10, 100.0)}
 SLOPES = ("6", "12", "18", "24", "36", "48")
 SLOPE_BANDS = (1, 8)
 
@@ -135,12 +137,8 @@ class EqCommands:
                     out = set_enum(d, col, want)
                 elif param == "slope":
                     out = set_enum(d, col, str(int(value)))
-                elif param == "q":
-                    d.flip(True)
-                    mapping, _lo, _hi = probe_mapping(d, col)             # Q 범위는 밴드마다 달라 프로빙(실측)
-                    out = set_numeric(d, col, float(value), mapping, tolerance_for(float(value), None))
                 else:
-                    unit = "Hz" if param == "freq" else "dB"
+                    unit = {"freq": "Hz", "gain": "dB"}.get(param)          # q는 단위 없음(실측 T 매핑, 프로빙 안 함)
                     out = set_numeric(d, col, float(value), EQ_MAPPING[param], tolerance_for(float(value), unit))
                 after = _value_dict(band, param, out.value)
                 note = ("Channel EQ 삽입됨. " if inserted else "") + out.note

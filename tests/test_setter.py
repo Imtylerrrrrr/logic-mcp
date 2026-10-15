@@ -80,3 +80,16 @@ def test_probe_mapping_reads_min_max():
 def test_enum_matches_truncated_slope_unit():
     assert enum_matches(parse_value("24 dB/O"), "24") is True
     assert enum_matches(parse_value("18 dB/O"), "24") is False
+
+
+def test_set_numeric_log_q_converges_from_2_8_to_2_0():
+    """실측 T·U: Q는 log 0.10~100, 틱당 ×1.06. 틱을 로그 영역에서 추정해야 2.8 → 2.0에 수렴한다."""
+    d, logic, eq = eq_driver()
+    q = eq[0][2]                                                   # 밴드 1 Q = 열 2
+    assert set_numeric(d, 2, 2.8, Mapping("log", 0.10, 100.0), tolerance=0.06).ok     # 시작점 2.8
+    out = set_numeric(d, 2, 2.0, Mapping("log", 0.10, 100.0), tolerance=0.04)
+    assert out.ok and abs(q.value - 2.0) <= 0.04
+    # 매핑 범위가 틀려 페이더가 빗나가도(시컨트 뒤 틱 보정) 로그 영역 틱 추정으로 수렴
+    assert set_numeric(d, 2, 2.8, Mapping("log", 0.10, 100.0), tolerance=0.06).ok
+    out = set_numeric(d, 2, 2.0, Mapping("log", 0.30, 30.0), tolerance=0.05)   # 틱 1칸 ≈ 6 %라 허용 오차에 여유
+    assert out.ok and abs(q.value - 2.0) <= 0.05 and out.rounds <= 4

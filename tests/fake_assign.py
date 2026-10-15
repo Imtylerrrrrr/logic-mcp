@@ -49,6 +49,7 @@ class Param:
     options: tuple[str, ...] = ()
     unit: str = ""              # Hz | dB | "" (enum이면 전체 값 접미사, 예 " dB/Oct")
     step: float = 1.0           # 틱당 변화: log면 비율, linear면 가산, enum이면 1
+    digits: int = 1             # log 값 반올림 자릿수(Q는 실측 T처럼 3자리 유효숫자에 가깝게 3)
 
     def text(self) -> str:
         """7칸 열 텍스트. 실측 형식: 20.0Hz / 100 Hz / 1040Hz / 20000 / 0.0 dB / 0.71 / On."""
@@ -87,7 +88,7 @@ class Param:
         if self.kind == "enum":
             self.value = round(f * (len(self.options) - 1))
         elif self.kind == "log":
-            self.value = round(self.lo * (self.hi / self.lo) ** f, 1)
+            self.value = round(self.lo * (self.hi / self.lo) ** f, self.digits)
         else:
             self.value = round(self.lo + f * (self.hi - self.lo), 2)
         return self.value != before
@@ -96,7 +97,7 @@ class Param:
         if self.kind == "enum":
             self.value = max(0, min(len(self.options) - 1, self.value + n))
         elif self.kind == "log":
-            self.value = round(max(self.lo, min(self.hi, self.value * self.step ** n)), 1)
+            self.value = round(max(self.lo, min(self.hi, self.value * self.step ** n)), self.digits)
         else:
             self.value = round(max(self.lo, min(self.hi, self.value + self.step * n)), 2)
 
@@ -120,7 +121,7 @@ def channel_eq() -> list[list[Param]]:
         gp = (Param(g, f"{name} Slope", "enum", options=SLOPES, value=SLOPES.index(str(gain)), unit=" dB/Oct")
               if is_slope else Param(g, f"{name} Gain", "linear", -24.0, 24.0, gain, unit="dB", step=0.5))
         bands.append([Param(f, f"{name} Frequency", "log", 20.0, 20000.0, freq, unit="Hz", step=1.08), gp,
-                      Param(q, f"{name} Q", "linear", 0.1, 10.0, qv, step=0.05),
+                      Param(q, f"{name} Q", "log", 0.10, 100.0, qv, step=1.06, digits=3),  # 실측 T·U: log 0.10~100, 틱당 ×≈1.06
                       Param(o, f"{name} On/Off", "enum", options=("Off", "On"), value=1 if on else 0)])
     return bands
 

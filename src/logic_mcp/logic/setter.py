@@ -60,8 +60,8 @@ def set_numeric(d: ModeDriver, ch: int, target: float, mapping: Mapping | None, 
                 rounds = 1
                 if (n := _num(cur)) is not None and within(n, target, tolerance):
                     return SetOutcome(True, cur, rounds, "fader+보정")
-    # 틱 미세 보정. Hz는 로그 영역에서 틱당 변화를 추정한다(실측: 20.0 → 21.6 Hz, 비율 일정)
-    log_domain = cur.unit == "Hz" and target > 0
+    # 틱 미세 보정. Hz·log 매핑(Q 등)은 로그 영역에서 틱당 변화를 추정한다(실측 U: 틱당 비율 일정)
+    log_domain = (cur.unit == "Hz" or (mapping is not None and mapping.type == "log")) and target > 0
     dom = (lambda v: math.log(v)) if log_domain else (lambda v: v)
     per_tick: float | None = None
     for _ in range(MAX_ROUNDS - rounds):

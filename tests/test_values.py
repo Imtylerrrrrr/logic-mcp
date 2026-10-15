@@ -57,6 +57,7 @@ def test_tolerance_and_within():
     assert tolerance_for(1000.0, "Hz") == 10.0
     assert tolerance_for(-3.0, "dB") == 0.1
     assert tolerance_for(0.5, None) == 0.01
+    assert tolerance_for(2.0, None) == 0.04 and tolerance_for(50.0, None) == 1.0   # 단위 없는 숫자(Q)는 2 %
     assert within(1004.0, 1000.0, 10.0) and not within(1011.0, 1000.0, 10.0)
     assert not within(math.nan, 1.0, 1.0)
 
