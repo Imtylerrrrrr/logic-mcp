@@ -307,11 +307,36 @@ class ModeDriver:
         self.settle_overlay()
 
     def leave(self, keep_select: bool = False) -> None:
-        """NAME 모드 복원 → Flip 해제 → PAN → (선택 복원). 모든 명령의 finally에서 호출."""
+        """NAME 모드 복원 → Flip 해제 → PAN → (선택 복원). 모든 명령의 finally에서 호출.
+        한 단계가 실패해도 나머지를 모두 시도하고, 실패는 모아 마지막에 ModeError 하나로 던진다(리뷰 I2)."""
+        errors: list[str] = []
+        steps: list[tuple[str, Callable[[], None]]] = [("name", self._leave_name), ("flip off", self._leave_flip),
+                                                       ("pan", self._leave_pan)]
+        for label, step in steps:
+            try:
+                step()
+            except ModeError as e:
+                errors.append(f"{label}: {e}")
+        if not keep_select and self._focused:
+            prev, self._focused, self._restore_select = self._restore_select, False, None   # 성공·실패와 무관하게 초기화(리뷰 m7)
+            strips = self.surface.state.strips
+            if prev is not None and strips[prev].number is not None and not strips[prev].select:
+                self._mark()
+                self._press(P.Note.SELECT + prev)
+                self.surface.wait_for(lambda s: s.strips[prev].select, LED_TIMEOUT)
+                self._settle()
+        if errors:
+            raise ModeError("leave", "pan/flip off/name", "; ".join(errors))
+
+    def _leave_name(self) -> None:
         if self._name_mode:
             self.toggle_name_value()
+
+    def _leave_flip(self) -> None:
         if self.surface.state.assignment.flip:
             self.flip(False)
+
+    def _leave_pan(self) -> None:
         if self.view.kind != "pan":
             for _ in range(2):
                 self._mark()
@@ -321,15 +346,6 @@ class ModeDriver:
             else:
                 raise ModeError("leave", "pan", self.view.kind)
             self.settle_overlay()
-        if keep_select or not self._focused:
-            return
-        prev, self._focused, self._restore_select = self._restore_select, False, None
-        strips = self.surface.state.strips
-        if prev is not None and strips[prev].number is not None and not strips[prev].select:
-            self._mark()
-            self._press(P.Note.SELECT + prev)
-            self.surface.wait_for(lambda s: s.strips[prev].select, LED_TIMEOUT)
-            self._settle()
 
     def leave_safely(self) -> None:
         try:

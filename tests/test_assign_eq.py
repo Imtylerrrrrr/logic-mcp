@@ -154,3 +154,22 @@ def test_eq_set_late_flip_led_never_moves_a_track_volume(drop_first):    # 리�
     logic.drop_first_flip = drop_first
     cmds.eq.set(1, None, 3, "gain", -3.0)           # ok 여부는 상관없다
     assert [t.volume for t in logic.tracks] == [None] * len(logic.tracks)
+
+
+def test_mixer_volume_turns_flip_off_first():                  # 리뷰 I1
+    cmds, surface, fake, logic = make()
+    cmds.modes.flip(True)
+    assert logic.flip
+    r = cmds.mixer_volume(2, None, -6.0)
+    assert r.ok and r.verified == "verified"
+    assert not logic.flip and logic.tracks[1].volume == cmds.faders.db_to_raw(-6.0)
+
+
+def test_mixer_volume_refuses_when_flip_cannot_be_turned_off():    # 리뷰 I1
+    cmds, surface, fake, logic = make()
+    cmds.modes.flip(True)
+    logic.drop_all_flips = True
+    eq_before = [t.volume for t in logic.tracks]
+    r = cmds.mixer_volume(2, None, -6.0)
+    assert not r.ok and r.verified == "unverified" and "Flip" in r.note
+    assert [t.volume for t in logic.tracks] == eq_before == [None] * len(logic.tracks)

@@ -239,6 +239,12 @@ class Commands:
             ch = self._resolve(strip, number, action, t0)
             if isinstance(ch, ToolResult):
                 return ch
+            st0 = self.surface.state
+            if st0.assignment.flip or st0.view.kind != "pan" or st0.assignment.mode != "pan":
+                self.modes.leave_safely()                 # Flip 켜진 채 페이더는 파라미터를 움직인다(리뷰 I1)
+            if self.surface.state.assignment.flip:
+                return self._result(action, False, "unverified", t0, target=self._target(ch),
+                                    note="Flip이 켜져 있어 볼륨 페이더를 보내지 않음")
             raw = self.faders.db_to_raw(db)
             note = f"clamped to +6.0 dB" if db > 6.0 else ""
             before = self._strip_view(ch)

@@ -277,3 +277,18 @@ def test_fader_does_not_resend_when_target_equals_current_raw():     # 리뷰 m2
     fake.sent.clear()
     d.fader(1, raw)
     assert len(_pitchbends(fake)) == 1
+
+
+def test_leave_tries_every_step_even_when_name_toggle_fails():    # 리뷰 I2
+    d, surface, fake, logic = make()
+    d.focus(2)
+    d.enter("eq_channel")
+    d.toggle_name_value()
+    d.flip(True)
+    logic.drop_all_name_value = True
+    with pytest.raises(ModeError) as ei:
+        d.leave()
+    assert "name" in str(ei.value)
+    assert not logic.flip and not surface.state.assignment.flip
+    assert surface.state.view.kind == "pan" and logic.view == "pan"
+    assert logic.selected == 0 and d._focused is False
