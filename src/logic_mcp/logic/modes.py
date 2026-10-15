@@ -19,6 +19,9 @@ PRESS_HOLD_S = 0.03
 HOLD_MENU_S = 0.4
 BLINK_RETRY_S = 0.4      # 미리 선택 깜박임 반주기(≈0.75초)보다 짧게
 OVERLAY_WIDTH = 21       # 오버레이가 쓰는 열 3칸
+EDIT_OPEN_S = 1.5        # 미리 선택 없이 차 있는 슬롯 누름 → 편집 뷰(실측 0.5초 안)
+CONFIRM_S = OVERLAY_S + 1.0   # 미리 선택 확정 누름 → 편집 뷰는 ≈2초 뒤(실측 K)
+POLL_S = 0.1
 _FAMILY_BUTTON = {"eq": P.Note.EQ, "plugin": P.Note.PLUGIN, "send": P.Note.SEND}
 _STEPS: dict[tuple[str, str], int] = {}
 for _fam in _FAMILY_BUTTON:
@@ -145,9 +148,12 @@ class ModeDriver:
             before = self.view.kind
             self._mark()
             self._press(_FAMILY_BUTTON[fam])
-            if not self.surface.wait_for(lambda s: s.view.kind != before, MODE_TIMEOUT):
-                raise ModeError("enter", kind, f"{before}에서 버튼 반응 없음")
-        if self.view.kind != kind:
+            # EQ는 down에 `E_`(메뉴)가 먼저 뜨고 up 뒤에 뷰가 온다(실측 A). 메뉴·과도기(unknown)는 지나쳐 기다린다.
+            if not self.surface.wait_for(lambda s: s.view.kind != before and not s.view.kind.endswith("_menu")
+                                         and s.view.kind != "unknown", MODE_TIMEOUT):
+                raise ModeError("enter", kind, f"{before}에서 버튼 반응 없음({self.view.kind})")
+        # 2자리 표시와 LCD가 따로 도착하는 과도기를 지나 목표 뷰가 되기를 잠깐 더 기다린다.
+        if not self.surface.wait_for(lambda s: s.view.kind == kind, MODE_TIMEOUT):
             raise ModeError("enter", kind, self.view.kind)
         self._page_hint = 1
         self.settle_overlay()
@@ -182,20 +188,40 @@ class ModeDriver:
             self.settle_smart()
         return pred(self.view)
 
-    def slot_to(self, slot: int) -> None:
-        """Cursor ▼로 다음 슬롯, ▲로 이전 슬롯. 1에서 ▲는 MIDI FX(M1)라 slot<1은 ModeError."""
-        for _ in range(20):
-            kind, cur = self.view.kind, self.view.index
-            if kind not in ("plugin_mixer", "plugin_edit", "empty_edit") or cur is None:
-                raise ModeError("slot_to", f"slot {slot}", kind)
-            if cur == slot:
-                return
-            self._mark()
-            self._press(P.Note.CURSOR_DOWN if cur < slot else P.Note.CURSOR_UP)
-            if not self.surface.wait_for(lambda s: s.view.index != cur or s.view.kind == "midi_fx", MODE_TIMEOUT):
-                raise ModeError("slot_to", f"slot {slot}", f"슬롯 {cur}에서 커서 반응 없음")
+    def probe_pages(self) -> int:
+        """편집 뷰 NAME 모드 1페이지에서 페이지 수. 헤더에 `Page n/N`이 보이면 N. 긴 헤더는 1페이지에서 잘리므로(실측 L)
+        Cursor ▶로 2페이지에 가서 `Page 2/N`을 읽고 ◀로 돌아온다. ▶에 LCD가 안 바뀌면 1페이지."""
+        if self.view.page:
+            return self.view.page[1]
+        lcd_before = self.surface.state.lcd
+        self._mark()
+        self._press(P.Note.CURSOR_RIGHT)
+        if not self.surface.wait_for(lambda s: s.lcd != lcd_before, MODE_TIMEOUT):
             self._settle()
-        raise ModeError("slot_to", f"slot {slot}", "20회 안에 못 감")
+            return 1
+        self.settle_smart()
+        if not self.view.page:
+            raise ModeError("pages", "2페이지 헤더 `Page 2/N`", self.surface.state.lcd[0].strip()[:40] or "빈 헤더")
+        pages = self.view.page[1]
+        self._page_hint = self.view.page[0]
+        self.page_to(1)
+        return pages
+
+    def wait_view(self, pred: Callable[[S.View], bool], timeout: float) -> bool:
+        """느린 뷰 전환(확정 누름 ≈2초)을 sleep 단위로 기다린다. 맞으면 조각 쓰기가 멈출 때까지 정착."""
+        end = self.surface.clock() + timeout
+        while not pred(self.view):
+            if self.surface.clock() >= end:
+                return False
+            self._sleep(POLL_S)
+        self._settle()
+        return True
+
+    def press_vpot_until(self, ch: int, pred: Callable[[S.View], bool], timeout: float) -> bool:
+        """V-Pot 누름 뒤 뷰 조건을 timeout까지 기다린다(편집 뷰 열기·확정)."""
+        self._mark()
+        self._press(P.Note.VPOT_PUSH + ch)
+        return self.wait_view(pred, timeout)
 
     def tick(self, ch: int, steps: int) -> bool:
         """V-Pot 틱(63씩 분할). LCD가 반응하면 True."""

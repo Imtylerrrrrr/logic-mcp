@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 from ..modes import ModeDriver, ModeError
+from .match import strip_suffix
 
-ITEM_TICKS = 2          # 1항목 = 2틱(실측)
+ITEM_TICKS = 2          # 1항목 = 2틱. 위치 모델은 ceil: 표시 항목 = (틱 위치 + 1) // 2, `--`=0(실측 E)
 REWIND_CHUNK = -63
 MAX_REWIND = 80         # ≈ 2520항목
 MAX_ITEMS = 2000
@@ -22,13 +23,14 @@ def rewind_to_empty(d: ModeDriver, ch: int) -> None:
 
 
 def scan_list(d: ModeDriver, ch: int) -> list[str]:
-    """plugin_mixer 뷰에서 호출. `--`부터 한 항목씩 전진하며 21자 이름을 모은다. 끝나면 호출자가 leave()로 취소한다."""
+    """plugin_mixer(또는 plugin_channel) 뷰에서 호출. `--`부터 2틱씩 전진하며 21자 이름을 모은다(`(s/s)` 같은
+    채널 구성 접미는 슬롯마다 달라 떼어 둔다). 끝나면 호출자가 leave()로 취소한다."""
     rewind_to_empty(d, ch)
     names = ["--"]
     stale = 0
     while len(names) < MAX_ITEMS:
         changed = d.tick(ch, ITEM_TICKS)
-        text = d.read_overlay_text(ch)
+        text = strip_suffix(d.read_overlay_text(ch))
         if not changed or text == names[-1] or not text or "Plug-in" not in d.read_overlay_name(ch):   # 오버레이가 끝나 열 재묘사로 돌아간 글자는 이름이 아니다
             stale += 1
             if stale >= STALE_LIMIT:

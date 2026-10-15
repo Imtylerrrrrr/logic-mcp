@@ -12,7 +12,7 @@ from ..logic.commands import Commands, ToolResult
 
 Strip = Annotated[int | None, Field(ge=1, le=8, description="현재 뱅크의 스트립 1-8. number와 둘 중 하나만")]
 Number = Annotated[int | None, Field(ge=1, description="LCD에 찍히는 Logic 채널 번호(절대 주소). strip과 둘 중 하나만")]
-Slot = Annotated[int | None, Field(ge=1, le=15, description="인서트 슬롯 1-15")]
+Slot = Annotated[int | None, Field(ge=1, le=8, description="인서트 슬롯 1-8(Plug-in Channel 뷰에서 닿는 슬롯)")]
 
 
 def register_tools(mcp: MCPServer, commands: Commands) -> None:
@@ -113,7 +113,7 @@ def register_tools(mcp: MCPServer, commands: Commands) -> None:
         if action == "list":
             return commands.plugin.list(strip, number)
         if slot is None:
-            return ToolResult(ok=False, verified="skipped", action=name, note="slot(1-15)이 필요")
+            return ToolResult(ok=False, verified="skipped", action=name, note="slot(1-8)이 필요")
         if action == "params":
             return commands.plugin.params(strip, number, slot)
         if action == "get":

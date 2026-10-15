@@ -1,6 +1,6 @@
 import pytest
 
-from logic_mcp.logic.modes import ModeDriver, ModeError
+from logic_mcp.logic.modes import CONFIRM_S, EDIT_OPEN_S, ModeDriver, ModeError
 from logic_mcp.mcu import protocol as P
 from tests.fake_assign import make_assign_logic
 
@@ -53,7 +53,7 @@ def test_read_column_retries_blank_blink():                     # Review Focus 2
     logic.redraw()
     assert surface.state.view.columns[1][1].strip() == ""
     name, v = d.read_column(1)
-    assert v.text == "Parame"                                    # 가짜의 6자 축약("Parametric EQ")
+    assert v.text == "ParEQ"                                     # 실측 축약("Parametric EQ")
 
 
 def test_tick_splits_at_63_and_fader_never_sends_zero():        # Review Focus 5
@@ -103,16 +103,34 @@ def test_mode_error_when_logic_ignores_button_and_leave_safely():
     assert surface.state.view.kind == "pan" and d.last_leave_error == ""
 
 
-def test_slot_page_name_value_navigation_and_restore():
+def test_enter_eq_waits_out_hold_menu():                          # 실측 A
+    d, surface, fake, logic = make()
+    surface.send(P.button_down(P.Note.EQ))
+    assert surface.state.view.kind == "eq_menu"                      # down 즉시 `E_`
+    surface.send(P.button_up(P.Note.EQ))
+    assert surface.state.view.kind == "eq_menu"                      # up의 응답은 기다리기 시작한 뒤에 온다
+    d.leave()
+    d.enter("eq_mixer")
+    assert surface.state.view.kind == "eq_mixer" and surface.state.view.index == 1
+    d.focus(0)
+    d.enter("eq_channel")                                            # 두 번째 누름도 `E_`를 거친다
+    assert surface.state.view.kind == "eq_channel"
+    d.leave()
+    assert surface.state.view.kind == "pan"
+
+
+def test_plugin_channel_view_edit_page_name_value_and_restore():
     d, surface, fake, logic = make()
     logic.tracks[0].insert(2, "Compressor")
     d.focus(0)
-    d.enter("plugin_mixer")
-    d.slot_to(2)
-    assert surface.state.view.index == 2 and surface.state.view.columns[0][1] == "Compre "
-    assert d.press_vpot(0) and surface.state.view.kind == "plugin_edit"
+    d.enter("plugin_channel")
+    assert surface.state.view.kind == "plugin_channel" and surface.state.view.columns[1][1] == "Comprs "
+    fake.sent.clear()
+    assert d.press_vpot_until(1, lambda v: v.kind == "plugin_edit" and v.index == 2, EDIT_OPEN_S)
+    assert not [m for m in fake.sent if m[0] == 0xB0] and not logic.pre       # 틱 없이 누름 = 값 보존 편집 뷰(실측 F)
     d.toggle_name_value()
     assert surface.state.view.page == (1, 2) and 'Ins.2 "Compressor (s/s)"' in surface.state.view.header
+    assert d.probe_pages() == 2                                      # 헤더에 보이면 그대로
     d.page_to(2)
     assert surface.state.view.page == (2, 2)
     d.toggle_name_value()
@@ -122,11 +140,79 @@ def test_slot_page_name_value_navigation_and_restore():
     assert surface.state.view.kind == "pan" and logic.name_mode is False   # NAME 모드도 되돌림
 
 
-def test_slot_up_from_one_reaches_midi_fx_and_back():
+def test_probe_pages_with_truncated_page1_header():                 # 실측 L
     d, surface, fake, logic = make()
-    d.enter("plugin_mixer")
-    with pytest.raises(ModeError):
-        d.slot_to(0)
-    assert surface.state.view.kind == "midi_fx"
+    logic.tracks[0].name = "Deluxe Classic"
+    logic.tracks[0].insert(1, "Compressor")
+    d.focus(0)
+    d.enter("plugin_channel")
+    assert d.press_vpot_until(0, lambda v: v.kind == "plugin_edit", EDIT_OPEN_S)
+    d.toggle_name_value()
+    assert surface.state.view.page is None and 'Ins.1 "Compressor (s/s)"' in surface.state.lcd[0]
+    assert d.probe_pages() == 2 and logic.page == 1                  # 2페이지에서 읽고 1페이지로 돌아옴
+    logic.tracks[0].insert(2, "Tuner")
     d.leave()
-    assert surface.state.view.kind == "pan"
+    d.enter("plugin_channel")
+    assert d.press_vpot_until(1, lambda v: v.kind == "plugin_edit" and v.index == 2, EDIT_OPEN_S)
+    d.toggle_name_value()
+    assert d.probe_pages() == 1                                      # ▶에 반응 없으면 1페이지
+    d.leave()
+
+
+def test_preselect_ceil_model_reveal_minus_one_is_current_plus_one_is_next():   # 실측 E
+    d, surface, fake, logic = make()
+    logic.tracks[0].insert(1, "Parametric EQ")
+    d.focus(0)
+    d.enter("plugin_channel")
+    d.tick(0, -1)
+    assert d.read_overlay_name(0) == "Insert 1 Plug-in" and d.read_overlay_text(0) == "Parametric EQ (s/s)"
+    d.leave(keep_select=True)
+    d.enter("plugin_channel")
+    d.tick(0, 1)
+    assert d.read_overlay_text(0) == "Low Pass Filter (s/s)"         # +1은 다음 항목(누르면 교체됨)
+    d.leave(keep_select=True)
+    d.enter("plugin_channel")
+    d.tick(1, -1)
+    assert d.read_overlay_text(1) == "--"                            # 빈 슬롯은 0에서 포화
+    for steps, want in ((1, "Parametric EQ (s/s)"), (1, "Parametric EQ (s/s)"), (1, "Low Pass Filter (s/s)"),
+                        (-1, "Parametric EQ (s/s)")):
+        d.tick(1, steps)
+        assert d.read_overlay_text(1) == want
+    d.leave()
+    assert logic.tracks[0].inserts[1] == "Parametric EQ" and logic.tracks[0].inserts[2] is None
+
+
+@pytest.mark.parametrize("vpot", [5, 6, 7])
+def test_overlay_slots_6_to_8_share_columns_35_to_55(vpot):         # 실측 D
+    d, surface, fake, logic = make()
+    d.focus(0)
+    d.enter("plugin_channel")
+    d.tick(vpot, 2)
+    assert d.read_overlay_name(vpot) == f"Insert {vpot + 1} Plug-in"
+    assert d.read_overlay_text(vpot) == "Parametric EQ (s/s)"
+    if vpot >= 6:
+        assert surface.state.lcd[1][35:56] == " Parametric EQ (s/s) "   # 오른쪽 정렬 + 끝 공백 1
+    d.leave()
+
+
+def test_confirm_press_edit_view_arrives_after_overlay():          # 실측 K
+    d, surface, fake, logic = make()
+    d.focus(0)
+    d.enter("plugin_channel")
+    d.tick(2, 2)
+    assert not d.press_vpot_until(2, lambda v: v.kind == "plugin_edit", 0.6)   # 0.6초에는 아직 PL
+    assert surface.state.view.kind == "plugin_channel"
+    assert d.wait_view(lambda v: v.kind == "plugin_edit" and v.index == 3, CONFIRM_S)
+    assert logic.tracks[0].inserts[3] == "Parametric EQ"
+    d.leave()
+
+
+def test_cursor_does_nothing_in_plugin_mixer_and_channel_views():  # 실측 B·C
+    d, surface, fake, logic = make()
+    for kind in ("plugin_mixer", "plugin_channel"):
+        d.enter(kind)
+        before = (surface.state.view, surface.state.assignment.display)
+        for note in (P.Note.CURSOR_DOWN, P.Note.CURSOR_UP, P.Note.CURSOR_RIGHT, P.Note.CURSOR_LEFT):
+            d._press(note)
+        assert (surface.state.view, surface.state.assignment.display) == before
+    d.leave()

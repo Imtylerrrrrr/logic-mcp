@@ -12,7 +12,7 @@
            "EVOC 20 Filterbank", "Distortion II", "Scanner Vibrato", "Space Designer", "Pitch Correction",
            "Channel EQ", "Tuner", "Linear Phase EQ", "Guitar Amp Pro", "Match EQ", "Delay Designer",
            "Vocal Transformer", "Grooveshifter", "Ringshifter", "Test Oscillator", "Level Meter", "Bass Amp"],
-  "abbrev": {"Cha EQ": "Channel EQ", "Distrt": "Distortion"},
+  "abbrev": {"Cha EQ": "Channel EQ", "Distrt": "Distortion", "ParEQ": "Parametric EQ", "Comprs": "Compressor"},
   "params": {
     "Channel EQ": {
       "pages": 6,

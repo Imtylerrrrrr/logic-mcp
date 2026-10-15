@@ -2,10 +2,11 @@
 모든 공개 메서드는 ToolResult를 돌려주고 finally에서 leave_safely()로 PAN·Flip off로 돌아간다."""
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from .modes import ModeError
+from .modes import CONFIRM_S, EDIT_OPEN_S, ModeError
 from .plugins.cache import PluginCache
 from .plugins.scan import rewind_to_empty, scan_list
 from .plugins.match import find, normalize, strip_suffix
@@ -147,6 +148,22 @@ class EqCommands:
                 d.leave_safely()
 
 
+MAX_SLOT = 8            # 2a는 Plug-in Channel 뷰(PL)의 슬롯 1~8만(실측 C: 9~15 접근 경로 미확인)
+EMPTY_TEXTS = ("", "--")  # PL·Mixer 2행에서 빈 슬롯(`--` 또는 갱신 전 공백, 실측 C·H)
+_HEADER_RE = re.compile(r'Ins\.(\d+) "([^"]*)("?)')
+_PAGE_TAIL_RE = re.compile(r"\s*Page\s*\d+/\d+.*$")
+
+
+def _header_name(row1: str) -> tuple[int | None, str, bool]:
+    """NAME 모드 1행 → (인서트 번호, 이름, 닫는 따옴표까지 보였는지). 56자 잘림으로 따옴표·`(s/s)`·Page가
+    빠지거나 이름이 잘릴 수 있다(실측 G·L)."""
+    m = _HEADER_RE.search(row1)
+    if not m:
+        return None, "", False
+    text = _PAGE_TAIL_RE.sub("", m.group(2))
+    return int(m.group(1)), strip_suffix(text).rstrip(" ("), m.group(3) == '"'
+
+
 class SlotEmpty(Exception):
     pass
 
@@ -185,27 +202,43 @@ class PluginCommands:
         if self.d.view.kind != "pan" or self.b.surface.state.assignment.flip:
             self.d.leave(keep_select=True)
 
-    def _slot_text(self, ch: int) -> str:
-        return self.d.read_column(ch)[1].text
+    def _slot_text(self, slot: int) -> str:
+        """PL 2행의 슬롯 열(축약). `--`·공백은 빈 슬롯."""
+        return self.d.read_column(slot - 1)[1].text
+
+    def _channel(self, ch: int) -> None:
+        """대상 트랙을 선택하고 Plug-in Channel 뷰(PL)로 간다. 2행 = 선택 트랙의 슬롯 1~8, V-Pot n = 슬롯 n(실측 C·D)."""
+        self.d.focus(ch)
+        self.d.enter("plugin_channel")
+
+    def _complete(self, name: str) -> str:
+        """잘렸을 수 있는 이름(오버레이 21칸·헤더 56칸)을 목록의 전체 이름으로 채운다. 못 채우면 그대로."""
+        j, _c = find(self.cache.items, name)
+        if j is not None and normalize(self.cache.items[j]).startswith(normalize(name)):
+            return self.cache.items[j]
+        return name
 
     def _open_edit(self, ch: int, slot: int) -> tuple[str, str, int]:
+        """PL에서 틱 없이 슬롯 V-Pot을 눌러 값이 보존된 편집 뷰를 연다(실측 F(2)). NAME 모드로 두고
+        (전체 이름, 축약, 페이지 수)를 돌려준다. 틱을 보내지 않으므로 미리 선택·교체가 생기지 않는다."""
         d = self.d
-        d.enter("plugin_mixer")
-        d.slot_to(slot)
-        abbrev = self._slot_text(ch)
-        if abbrev in ("", "--"):
+        self._channel(ch)
+        abbrev = self._slot_text(slot)
+        if abbrev in EMPTY_TEXTS:
             raise SlotEmpty(slot)
-        d.tick(ch, 1)                                   # 반 항목: 현재 항목의 전체 이름이 오버레이로 뜬다(실측)
-        full = strip_suffix(d.read_overlay_text(ch))
-        d.press_vpot(ch)
-        if d.view.kind != "plugin_edit":
-            raise ModeError("edit", "plugin_edit", d.view.kind)
+        if not d.press_vpot_until(slot - 1, lambda v: v.kind == "plugin_edit" and v.index == slot, EDIT_OPEN_S):
+            raise ModeError("edit", f"plugin_edit 슬롯 {slot}", f"{d.view.kind} {d.view.index or ''}".strip())
         d.settle_smart()
-        if full and full != "--":
-            self.cache.learn_abbrev(abbrev, full)
-        d.toggle_name_value()                           # NAME 모드: 1행 헤더 `Page n/N`, 2행 축약명
-        pages = d.view.page[1] if d.view.page else 1
-        return full or abbrev, abbrev, pages
+        d.toggle_name_value()                           # NAME 모드: 1행 헤더(1페이지에 전체 이름), 2행 축약명
+        row1 = self.b.surface.state.lcd[0]
+        num, name, complete = _header_name(row1)
+        if num != slot or not name:
+            raise ModeError("header", f'Ins.{slot} "이름"', row1.strip()[:48] or "빈 헤더")
+        key = abbrev.lstrip("*")
+        full = name if complete else (self.cache.abbrev.get(key) or self._complete(name))
+        self.cache.learn_abbrev(key, full)
+        pages = d.probe_pages()
+        return full, abbrev, pages
 
     def _read_pages(self, pages: int) -> list[dict]:
         """NAME 모드에서 시작. 페이지마다 축약명(NAME)과 값(VALUE)을 읽고 NAME 모드로 돌아온다."""
@@ -302,16 +335,36 @@ class PluginCommands:
                 only = ch
             try:
                 self._fresh()
-                d.enter("plugin_mixer")
+                targets = [only] if only is not None else [
+                    ch for ch, s in enumerate(b.surface.state.strips) if s.number is not None]
                 tracks: dict[str, dict[str, dict | None]] = {}
-                for slot in range(1, 16):
-                    d.slot_to(slot)
-                    for ch, s in enumerate(b.surface.state.strips):
-                        if s.number is None or (only is not None and ch != only):
+                learned = False
+                for ch in targets:
+                    num = b.surface.state.strips[ch].number     # PL은 1행이 채널명이 아니라 PAN에서 읽은 번호를 쓴다
+                    self._channel(ch)
+                    d.settle_overlay()
+                    texts = [d.view.columns[i][1].strip() for i in range(MAX_SLOT)]
+                    row: dict[str, dict | None] = {}
+                    revealed = False
+                    for i, text in enumerate(texts):
+                        if text in EMPTY_TEXTS:
+                            row[str(i + 1)] = None
                             continue
-                        text = d.view.columns[ch][1].strip()
-                        row = tracks.setdefault(str(s.number), {})
-                        row[str(slot)] = None if text in ("", "--") else {"text": text, "name": self.cache.abbrev.get(text)}
+                        name = self.cache.abbrev.get(text.lstrip("*"))
+                        if name is None:
+                            d.tick(i, -1)                       # ceil 모델: -1 = 현재 항목, +1은 다음 항목(실측 E)
+                            shown = strip_suffix(d.read_overlay_text(i))
+                            revealed = True
+                            if shown and shown != "--":
+                                name = self._complete(shown)
+                                self.cache.learn_abbrev(text.lstrip("*"), name)
+                                learned = True
+                        row[str(i + 1)] = {"text": text, "name": name}
+                    tracks[str(num)] = row
+                    if revealed:
+                        d.leave(keep_select=True)               # 드러낸 미리 선택은 누르지 않고 모드 전환으로 취소
+                if learned:
+                    self.cache.save()
                 self.inventory.update(tracks)
                 return b._result(action, True, "verified", t0, after={"tracks": tracks})
             except ModeError as e:
@@ -320,8 +373,9 @@ class PluginCommands:
                 d.leave_safely()
 
     def _begin(self, action: str, strip, number, slot, t0):
-        if not 1 <= slot <= 15:
-            return self.b._result(action, False, "skipped", t0, note="slot은 1-15")
+        if not 1 <= slot <= MAX_SLOT:
+            return self.b._result(action, False, "skipped", t0,
+                                  note=f"slot은 1-{MAX_SLOT}(Plug-in Channel 뷰에서 닿는 슬롯만 지원)")
         ch = self.b._resolve(strip, number, action, t0)
         return ch
 
@@ -337,7 +391,6 @@ class PluginCommands:
             target = {**b._target(ch), "slot": slot}
             try:
                 self._fresh()
-                d.focus(ch)
                 full, abbrev, pages = self._open_edit(ch, slot)
                 observed = self._read_pages(pages)
                 self._merge_items(full, pages, observed)
@@ -366,7 +419,6 @@ class PluginCommands:
             target = {**b._target(ch), "slot": slot}
             try:
                 self._fresh()
-                d.focus(ch)
                 full, _abbrev, pages = self._open_edit(ch, slot)
                 item = self._locate(full, pages, param)
                 col = self._goto_param(item)
@@ -394,7 +446,6 @@ class PluginCommands:
             target = {**b._target(ch), "slot": slot}
             try:
                 self._fresh()
-                d.focus(ch)
                 full, _abbrev, pages = self._open_edit(ch, slot)
                 item = self._locate(full, pages, param)
                 col = self._goto_param(item)
@@ -450,39 +501,42 @@ class PluginCommands:
                 return ch
             target = {**b._target(ch), "slot": slot}
             want = self.cache.items[idx]
+            v = slot - 1
             try:
                 self._fresh()
-                d.focus(ch)
-                d.enter("plugin_mixer")
-                d.slot_to(slot)
-                current = self._slot_text(ch)
-                occupied = current not in ("", "--")
+                self._channel(ch)
+                current = self._slot_text(slot)
+                occupied = current not in EMPTY_TEXTS
                 if occupied and not replace:
                     return b._result(action, False, "skipped", t0, target=target,
                                      note=f"슬롯 {slot}에 {current!r}가 있음. 교체하려면 replace=true")
-                rewind_to_empty(d, ch)
-                d.tick(ch, 2 * idx)
-                shown = strip_suffix(d.read_overlay_text(ch))
+                rewind_to_empty(d, v)
+                d.tick(v, 2 * idx)                                   # `--`(0)에서 2·i틱 = i번째 항목(ceil 모델)
+                shown = strip_suffix(d.read_overlay_text(v))
                 for _ in range(3):                                   # 목록이 캐시와 조금 어긋나면 근처에서 찾는다
                     if normalize(shown) == normalize(want):
                         break
                     j, _c = find(self.cache.items, shown)
                     if j is None:
                         break
-                    d.tick(ch, 2 * (idx - j))
-                    shown = strip_suffix(d.read_overlay_text(ch))
-                if normalize(shown) != normalize(want):
+                    d.tick(v, 2 * (idx - j))
+                    shown = strip_suffix(d.read_overlay_text(v))
+                if normalize(shown) != normalize(want):              # 누르지 않는다: finally의 leave가 미리 선택을 취소
                     return b._result(action, False, "unverified", t0, target=target,
                                      note=f"목록 위치 {idx}에 {shown!r}가 보임(기대 {want!r}). 설치된 플러그인이 달라진 듯. `logic_plugin scan` 권장")
-                d.press_vpot(ch)
-                if d.view.kind != "plugin_edit":
+                if not d.press_vpot_until(v, lambda w: w.kind == "plugin_edit" and w.index == slot, CONFIRM_S):
                     return b._result(action, False, "unverified", t0, target=target,
-                                     note=f"확인 뒤 편집 뷰가 아니라 {d.view.kind}")
+                                     note=f"확정 뒤 {CONFIRM_S:.0f}초 안에 편집 뷰가 아니라 {d.view.kind}")
                 d.settle_smart()
-                d.enter("plugin_mixer")
-                d.slot_to(slot)
-                abbrev = self._slot_text(ch)
-                self.cache.learn_abbrev(abbrev, want)
+                d.toggle_name_value()
+                num, name, _complete = _header_name(b.surface.state.lcd[0])
+                d.toggle_name_value()
+                if num != slot or not name or not normalize(want).startswith(normalize(name)):
+                    return b._result(action, False, "unverified", t0, target=target,
+                                     note=f"확정 뒤 편집 뷰 헤더가 Ins.{num} {name!r}(기대 Ins.{slot} {want!r})")
+                d.enter("plugin_channel")
+                abbrev = self._slot_text(slot)
+                self.cache.learn_abbrev(abbrev.lstrip("*"), want)
                 self.cache.save()
                 return b._result(action, True, "verified", t0, target=target, before={"slot": slot, "text": current},
                                  after={"slot": slot, "plugin": want, "abbrev": abbrev,
@@ -504,18 +558,17 @@ class PluginCommands:
             target = {**b._target(ch), "slot": slot}
             try:
                 self._fresh()
-                d.focus(ch)
-                d.enter("plugin_mixer")
-                d.slot_to(slot)
-                current = self._slot_text(ch)
-                if current in ("", "--"):
+                self._channel(ch)
+                current = self._slot_text(slot)
+                if current in EMPTY_TEXTS:
                     return b._result(action, True, "skipped", t0, target=target, note="already")
-                rewind_to_empty(d, ch)
-                d.press_vpot(ch)                                     # `--` 확정 = 제거(실측: 빈 편집 뷰 상태가 됨)
-                d.enter("plugin_mixer")
-                d.slot_to(slot)
-                after = self._slot_text(ch)
-                ok = after in ("", "--")
+                rewind_to_empty(d, slot - 1)                         # 오버레이 `--` 확인까지
+                if not d.press_vpot_until(slot - 1, lambda w: w.kind == "empty_edit" and w.index == slot, CONFIRM_S):
+                    return b._result(action, False, "unverified", t0, target=target, before={"slot": slot, "text": current},
+                                     note=f"`--` 확정 뒤 {CONFIRM_S:.0f}초 안에 빈 편집 뷰가 아니라 {d.view.kind}")
+                d.enter("plugin_channel")
+                after = self._slot_text(slot)
+                ok = after in EMPTY_TEXTS
                 return b._result(action, ok, "verified" if ok else "unverified", t0, target=target,
                                  before={"slot": slot, "text": current}, after={"slot": slot, "text": after},
                                  note="" if ok else "제거 뒤에도 슬롯에 이름이 보임")
@@ -536,16 +589,17 @@ class PluginCommands:
             target = {**b._target(ch), "slot": slot}
             try:
                 self._fresh()
-                d.focus(ch)
-                d.enter("plugin_mixer")
-                d.slot_to(slot)
-                current = self._slot_text(ch)
-                if current in ("", "--"):
+                self._channel(ch)
+                current = self._slot_text(slot)
+                if current in EMPTY_TEXTS:
                     return b._result(action, False, "skipped", t0, target=target, note=f"슬롯 {slot}이 비어 있음")
                 if current.startswith("*") == on:
                     return b._result(action, True, "skipped", t0, target=target, after={"slot": slot, "text": current}, note="already")
-                d.shift_press_vpot(ch)
-                after = self._slot_text(ch)
+                d.shift_press_vpot(slot - 1)                         # PL에서 SHIFT+V-Pot = 바이패스 토글, 뷰 그대로(실측 N)
+                if d.view.kind != "plugin_channel":
+                    return b._result(action, False, "unverified", t0, target=target, before={"slot": slot, "text": current},
+                                     note=f"SHIFT+V-Pot 뒤 뷰가 {d.view.kind}")
+                after = self._slot_text(slot)
                 ok = after.startswith("*") == on
                 return b._result(action, ok, "verified" if ok else "unverified", t0, target=target,
                                  before={"slot": slot, "text": current}, after={"slot": slot, "text": after},
@@ -566,27 +620,23 @@ class PluginCommands:
                                  note=f"already: {self.cache.scanned_at}에 스캔한 {len(self.cache.user_list)}개. 다시 하려면 force=true")
             try:
                 self._fresh()
-                d.enter("plugin_mixer")
-                found: tuple[int, int] | None = None
-                for slot in range(1, 16):
-                    d.slot_to(slot)
-                    for ch, s in enumerate(b.surface.state.strips):
-                        if s.number is not None and d.view.columns[ch][1].strip() == "--":
-                            found = (ch, slot)
-                            break
-                    if found:
-                        break
-                if found is None:
-                    return b._result(action, False, "skipped", t0, note="스캔에 쓸 빈 슬롯이 보이는 뱅크에 없음. 빈 슬롯이 있는 트랙을 뱅크에 띄우고 다시")
-                ch, slot = found
+                d.enter("plugin_mixer")                              # P1 Mixer: 스트립 ch의 V-Pot = 그 트랙의 슬롯 1
+                slot = d.view.index or 1
+
+                def empty_strips() -> list[int]:
+                    return [ch for ch, s in enumerate(b.surface.state.strips)
+                            if s.number is not None and d.view.columns[ch][1].strip() in EMPTY_TEXTS]
+                found = empty_strips()
+                if not found:
+                    return b._result(action, False, "skipped", t0, note=f"스캔에 쓸 빈 슬롯 {slot}이 보이는 뱅크에 없음. 슬롯 {slot}이 빈 트랙을 뱅크에 띄우고 다시")
+                ch = found[0]
                 names = scan_list(d, ch)
                 self.cache.user_list = names
                 self.cache.scanned_at = datetime.now().isoformat(timespec="seconds")
                 self.cache.save()
                 d.leave(keep_select=True)                            # 미리 선택 취소(삽입 없음)
                 d.enter("plugin_mixer")
-                d.slot_to(slot)
-                still_empty = d.view.columns[ch][1].strip() == "--"
+                still_empty = ch in empty_strips()
                 return b._result(action, still_empty, "verified" if still_empty else "unverified", t0,
                                  after={"count": len(names), "path": str(self.cache.path), "strip": ch + 1, "slot": slot},
                                  note="" if still_empty else "스캔 뒤 슬롯이 비어 있지 않음(확인 누름이 섞였을 수 있음)")

@@ -128,6 +128,6 @@ async def test_spec2_calls_via_client(assign_setup):
         plugins = json.loads((await client.read_resource("logic://plugins")).contents[0].text)
         assert plugins["items"][6] == {"index": 6, "name": "Compressor"} and plugins["source"] == "bundled"
         inserts = json.loads((await client.read_resource("logic://inserts")).contents[0].text)
-        assert inserts["16"]["2"]["text"] == "Compre"
+        assert inserts["16"]["2"]["text"] == "Comprs"
         status = await client.call_tool("logic_session", {"action": "status"})
         assert status.structured_content["after"]["view_kind"] == "pan"

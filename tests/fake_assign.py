@@ -1,6 +1,8 @@
 """어사인먼트 모드(PAN·EQ·PLUG-IN·FLIP)를 흉내 내는 가짜 Logic. FakeTransport.replies에 꽂아 쓴다.
 2자리 코드·레이아웃은 스펙 2 부록 A 실측을 따르고, 값 모델(틱당 변화·범위)은 단순화했다.
-시간은 sleep()으로만 흐른다: 오버레이 재묘사(2.0초 뒤)와 깜박임 위상이 sleep에서 처리된다."""
+시간은 sleep()으로만 흐른다: 오버레이 재묘사(2.0초 뒤)와 깜박임 위상, 확정 누름의 늦은 뷰 전환(실측 K)이 sleep에서 처리된다.
+EQ 버튼은 실측 A처럼 down에 `E_`(메뉴)를, up 뒤에 뷰를 그린다. up의 응답은 deferred에 쌓였다가 드라이버가
+기다리기 시작한 뒤(wait_for의 첫 판정 다음)나 다음 sleep·입력 때 도착한다."""
 from __future__ import annotations
 
 import math
@@ -16,6 +18,7 @@ MAX = P.MAX_FADER
 SLOPES = ("6", "12", "18", "24", "36", "48")
 PLUGIN_LIST = ["--", "Parametric EQ", "Low Pass Filter", "High Pass Filter", "Chorus", "Flanger",
                "Compressor", "Channel EQ", "Tuner", "Limiter", "Noise Gate", "Space Designer", "DeEsser"]
+ABBREV = {"Parametric EQ": "ParEQ", "Channel EQ": "Cha EQ", "Compressor": "Comprs"}   # PL·Mixer 2행 축약(실측 C·M)
 
 
 def lcd_write(offset: int, text: str) -> bytes:
@@ -196,8 +199,11 @@ class FakeLogic:
         self.blink_on = True
         self.mode_note = P.Note.PAN
         self.before_midi = "plugin_mixer"
-        self.pre: dict[int, int] = {}                  # 스트립 → 미리 선택 위치(반 항목 단위, 0..2·(목록-1)로 포화)
+        self.pre: dict[int, int] = {}                  # V-Pot → 미리 선택 틱 위치(0 = `--`, 0..2·(목록-1)로 포화)
         self.pending: list[float] = []                 # 재묘사 예정 시각
+        self.timers: list[tuple[float, object]] = []   # (시각, 할 일): 확정 누름 ≈2초 뒤 편집 뷰(실측 K)
+        self.deferred: list = []                       # 드라이버가 기다리기 시작한 뒤 도착할 응답(EQ up)
+        self.eq_held = False                           # EQ 버튼 down 중: 2자리 `E_`(실측 A)
         self.plugin_list = list(PLUGIN_LIST)
         self.refuse: set[int] = set()                  # 반응하지 않을 노트(고장 흉내)
         fake.replies = self.replies
@@ -205,14 +211,23 @@ class FakeLogic:
     # ---------- 시간 ----------
     def sleep(self, s: float) -> None:
         """드라이버의 sleep 훅. 시간을 보내고, 만기된 재묘사와 깜박임 위상을 처리한다."""
+        self.flush()
         self.fake.now += s
         self.blink_on = not self.blink_on
+        for t, fn in [x for x in self.timers if x[0] <= self.clock()]:
+            self.timers.remove((t, fn))
+            fn()
         due = [t for t in self.pending if t <= self.clock()]
         if due:
             self.pending = [t for t in self.pending if t > self.clock()]
             self.redraw()
-        elif self.pre and self.view == "plugin_mixer" and not self.pending:   # 오버레이 유효 중엔 깜박임 재묘사로 덮지 않음
+        elif self.pre and self.view in ("plugin_mixer", "plugin_channel") and not self.pending:   # 오버레이 유효 중엔 깜박임 재묘사로 덮지 않음
             self.redraw()
+
+    def flush(self) -> None:
+        """미뤄 둔 응답을 지금 보낸다."""
+        while self.deferred:
+            self.deferred.pop(0)()
 
     def boot(self) -> None:
         self._emit([P.button_down(P.Note.PAN), P.button_down(P.Note.BEATS_LED), P.button_down(P.Note.SELECT)])
@@ -236,10 +251,17 @@ class FakeLogic:
     def _abbrev(self, name: str | None, slot: int, track: Track) -> str:
         if name is None:
             return col("--")
-        return col(("*" if slot in track.bypassed else "") + name.replace(" ", "")[:6])
+        short = ABBREV.get(name) or name.replace(" ", "")[:6]
+        return col("*" + short[:5] if slot in track.bypassed else short)     # 바이패스: `*` + 5자(실측 N)
 
     def _pre_index(self, ch: int) -> int:
-        return self.pre[ch] // 2                                # 1항목 = 2틱(실측)
+        return (self.pre[ch] + 1) // 2                          # ceil 모델: 1항목 = 2틱, 홀수 틱은 다음 항목(실측 E)
+
+    def _pre_cell(self, ch: int, fallback: str) -> str:
+        """미리 선택 중인 열: 깜박이는 축약."""
+        if ch not in self.pre:
+            return fallback
+        return self._abbrev(self.plugin_list[self._pre_index(ch)], 0, self.tracks[self.selected]) if self.blink_on else col("")
 
     def _edit_params(self) -> list[Param]:
         return self.tracks[self.selected].params.get(self.slot, [])
@@ -272,31 +294,41 @@ class FakeLogic:
             ps = [p for band in t.eq[2 * self.page - 2:2 * self.page] for p in band]
             return "".join(col(p.short) for p in ps).ljust(56), "".join(p.text() for p in ps).ljust(56), "EQ"
         if self.view == "plugin_mixer":
-            cells = []
-            for ch, tr in enumerate(self.tracks[:8]):
-                if ch in self.pre:
-                    cells.append(self._abbrev(self.plugin_list[self._pre_index(ch)], 0, tr) if self.blink_on else col(""))
-                else:
-                    cells.append(self._abbrev(tr.inserts[self.slot], self.slot, tr))
+            cells = [self._pre_cell(ch, self._abbrev(tr.inserts[self.slot], self.slot, tr))
+                     for ch, tr in enumerate(self.tracks[:8])]
             return self._names_row(), "".join(cells).ljust(56), self._slot_digits()
-        if self.view == "plugin_channel":
+        if self.view == "plugin_channel":                       # 선택 트랙의 슬롯 1~8(실측 C)
             r1 = "".join(col(f"Ins{i}Pl") for i in range(1, 9))
-            r2 = "".join(self._abbrev(t.inserts[i], i, t) for i in range(1, 9))
+            r2 = "".join(self._pre_cell(i - 1, self._abbrev(t.inserts[i], i, t)) for i in range(1, 9))
             return r1, r2, "PL"
         if self.view == "plugin_edit":
             ps = self._edit_page()
             names = "".join(col(p.short) for p in ps).ljust(56)
             if self.name_mode:
-                header = f'Track {t.number} "{t.number}:{t.name}" Ins.{self.slot} "{t.inserts[self.slot]} (s/s)"'
-                return header[:48].ljust(48) + f"Page {self.page}/{self._edit_pages()}".rjust(8), names, self._slot_digits()
+                return self._header(t), names, self._slot_digits()
             return names, "".join(p.text() for p in ps).ljust(56), self._slot_digits()
         if self.view in ("empty_edit", "midi_fx"):
             return "-      " * 8, " " * 56, "M1" if self.view == "midi_fx" else self._slot_digits()
         raise AssertionError(self.view)
 
+    def _header(self, t: Track) -> str:
+        """NAME 모드 1행(56칸). 짧으면 `Page n/N`이 오른쪽에 보인다. 길면 1페이지는 56칸에서 잘려 Page가 안 보이고,
+        2페이지부터는 이름이 잘리고 `Page n/N `이 보인다(실측 G·L)."""
+        prefix = f'Track {t.number} "{t.number}:{t.name}" Ins.{self.slot} "'
+        full = prefix + f'{t.inserts[self.slot]} (s/s)"'
+        page = f"Page {self.page}/{self._edit_pages()}"
+        if len(full) <= 48:
+            return full.ljust(48) + page.rjust(8)
+        if self.page == 1:
+            return (full + " " + page)[:56]
+        tail = page + " "
+        return (prefix + t.inserts[self.slot])[:56 - len(tail) - 5].ljust(56 - len(tail)) + tail
+
     def redraw(self, overlay: tuple[int, str, str] | None = None, mode_overlay: str | None = None) -> None:
         """정착 화면을 그린다. 오버레이가 있으면 오버레이 판을 지금 그리고 2.0초 뒤 재묘사를 예약한다."""
         r1, r2, d = self._rows()
+        if self.eq_held:
+            d = "E_"
         if overlay is None and mode_overlay is None:
             self._emit([lcd_write(0, r1 + r2)] + digits(d))
             return
@@ -306,13 +338,15 @@ class FakeLogic:
         if overlay:
             ch, name, value = overlay
             start = min(ch * 7, 56 - 21)
-            o1 = o1[:start] + name[:21].ljust(21) + o1[start + 21:]
-            o2 = r2[:start] + value[:21].ljust(21) + r2[start + 21:]
+            fit = (lambda s: s[:20].rjust(20) + " ") if ch >= 6 else (lambda s: s[:21].ljust(21))   # 7·8: 오른쪽 정렬 + 끝 공백(실측 D)
+            o1 = o1[:start] + fit(name) + o1[start + 21:]
+            o2 = r2[:start] + fit(value) + r2[start + 21:]
         self._emit([lcd_write(0, o1[:56] + o2[:56])] + digits(d))
         self.pending.append(self.clock() + OVERLAY_S)
 
     # ---------- 입력 ----------
     def replies(self, data: bytes) -> list[bytes]:
+        self.flush()
         st = data[0] & 0xF0
         if st == 0x90:
             note, on = data[1], data[2] != 0
@@ -320,6 +354,12 @@ class FakeLogic:
                 return []
             if note == P.Note.SHIFT:
                 self.shift = on
+            elif note == P.Note.EQ:                              # 실측 A: down → `E_`, up 뒤 50 ms 안에 뷰
+                self.eq_held = on
+                if on:
+                    self._emit(digits("E_"))
+                else:
+                    self.deferred.append(lambda: self._button(P.Note.EQ))
             elif on:
                 self._button(note)
         elif st == 0xB0 and 0x10 <= data[1] <= 0x17:
@@ -399,10 +439,11 @@ class FakeLogic:
         self.redraw()
 
     def _slot(self, delta: int) -> None:
+        """편집 뷰의 커서 ▲▼(스파이크 실측). Plug-in Mixer·Channel 뷰에서는 무반응(실측 B·C)."""
         if self.view == "midi_fx":
             if delta > 0:
                 self.view, self.slot = self.before_midi, 1
-        elif self.view in ("plugin_mixer", "plugin_edit", "empty_edit"):
+        elif self.view in ("plugin_edit", "empty_edit"):
             new = self.slot + delta
             if new < 1:
                 self.before_midi, self.view = self.view, "midi_fx"      # 실측: P1에서 ▲ → M1
@@ -415,15 +456,23 @@ class FakeLogic:
             return
         self.redraw()
 
+    def _preselect(self, ch: int, current: str | None, slot: int, ticks: int) -> None:
+        """미리 선택 틱. 차 있는 슬롯의 시작 위치는 2·항목(-1 → 현재 항목, +1 → 다음 항목, 실측 E)."""
+        if ch not in self.pre:                                          # 실측: 다른 V-Pot의 미리 선택은 취소됨
+            self.pre = {ch: 2 * self.plugin_list.index(current or "--")}
+        self.pre[ch] = max(0, min(2 * (len(self.plugin_list) - 1), self.pre[ch] + ticks))
+        name = self.plugin_list[self._pre_index(ch)]
+        self.redraw(overlay=(ch, f"Insert {slot} Plug-in", name if name == "--" else f"{name} (s/s)"))
+
     def _vpot(self, ch: int, ticks: int) -> None:
         if self.view == "plugin_mixer":
             t = self._track(ch)
             if t is None:
                 return
-            if ch not in self.pre:                                      # 실측: 다른 스트립의 미리 선택은 취소됨
-                self.pre = {ch: 2 * self.plugin_list.index(t.inserts[self.slot] or "--")}
-            self.pre[ch] = max(0, min(2 * (len(self.plugin_list) - 1), self.pre[ch] + ticks))
-            self.redraw(overlay=(ch, f"Insert {self.slot} Plug-in", self.plugin_list[self._pre_index(ch)]))
+            self._preselect(ch, t.inserts[self.slot], self.slot, ticks)
+            return
+        if self.view == "plugin_channel":                               # V-Pot n = 슬롯 n(실측 D)
+            self._preselect(ch, self.tracks[self.selected].inserts[ch + 1], ch + 1, ticks)
             return
         if self.view == "eq_mixer":
             t = self._track(ch)
@@ -436,6 +485,9 @@ class FakeLogic:
         self.redraw(overlay=(ch, p.name, p.full()))
 
     def _push(self, ch: int) -> None:
+        if self.view == "plugin_channel":
+            self._push_channel(ch)
+            return
         if self.view != "plugin_mixer":
             return                                                      # 실측: 편집 뷰 누름은 기본값 리셋 안 함
         t = self._track(ch)
@@ -462,6 +514,34 @@ class FakeLogic:
             self.view, self.page = "plugin_edit", 1
             self.redraw()
 
+    def _push_channel(self, ch: int) -> None:
+        """PL에서 V-Pot n 누름. SHIFT면 바이패스 토글(실측 N). 미리 선택이 있으면 확정 → ≈2초 뒤 편집 뷰(실측 K),
+        없으면 차 있는 슬롯은 곧바로 값 보존 편집 뷰, 빈 슬롯은 무반응(실측 F)."""
+        t, slot = self.tracks[self.selected], ch + 1
+        if self.shift:
+            t.bypassed ^= {slot}
+            self.redraw()
+            return
+        if ch in self.pre:
+            name = self.plugin_list[self._pre_index(ch)]
+            self.pre.clear()
+
+            def commit() -> None:
+                self.slot, self.page = slot, 1
+                if name == "--":
+                    t.remove(slot)
+                    self.view = "empty_edit"
+                else:
+                    if name != t.inserts[slot]:
+                        t.insert(slot, name)
+                    self.view = "plugin_edit"
+                self.redraw()
+            self.timers.append((self.clock() + OVERLAY_S, commit))
+        elif t.inserts[slot]:
+            self.slot, self.page = slot, 1
+            self.view = "plugin_edit"
+            self.redraw()
+
     def _fader(self, ch: int, raw: int) -> None:
         if not self.flip or raw == 0:                                   # raw 0 무시(실측 사례)
             return
@@ -482,6 +562,14 @@ def make_assign_logic(tracks: list[Track] | None = None) -> tuple[Surface, FakeT
     surface = Surface(fake, clock=lambda: fake.now + 1.0, tick_interval=0.01)
     logic = FakeLogic(fake, tracks or default_tracks(), surface.clock)
     logic.boot()
+    wait_for = surface.wait_for
+
+    def late_wait_for(pred, timeout: float) -> bool:
+        """미뤄 둔 응답은 첫 판정 뒤에 도착한다(실측 A의 `E_` → E1 순서를 드라이버가 기다려야 함)."""
+        if logic.deferred and not pred(surface.state):
+            logic.flush()
+        return wait_for(pred, timeout)
+    surface.wait_for = late_wait_for
     fake.now += 1.0                 # 조용 1초 → ready
     surface.tick()
     assert surface.state.connection.state == "ready"
