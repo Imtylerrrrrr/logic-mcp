@@ -36,7 +36,7 @@ async def test_tool_list_and_names(setup):
     async with Client(mcp, raise_exceptions=True) as client:
         tools = await client.list_tools()
         names = {t.name for t in tools.tools}
-        assert names == {"logic_transport", "logic_track", "logic_mixer", "logic_bank", "logic_session", "logic_eq", "logic_plugin"}
+        assert names == {"logic_transport", "logic_track", "logic_mixer", "logic_bank", "logic_session", "logic_eq", "logic_plugin", "logic_send"}
         track = next(t for t in tools.tools if t.name == "logic_track")
         assert set(track.input_schema["properties"]) == {"action", "strip", "number"}
         assert "mute" in track.input_schema["properties"]["action"]["enum"]
@@ -129,3 +129,25 @@ async def test_spec2_calls_via_client(assign_setup):
         assert inserts["16"]["2"]["text"] == "Comprs"
         status = await client.call_tool("logic_session", {"action": "status"})
         assert status.structured_content["after"]["view_kind"] == "pan"
+
+
+@pytest.mark.anyio
+async def test_send_tool_via_client(assign_setup):
+    mcp, logic = assign_setup
+    async with Client(mcp) as client:
+        tools = {t.name: t for t in (await client.list_tools()).tools}
+        assert set(tools["logic_send"].input_schema["properties"]) >= {"action", "strip", "number", "send", "dest", "db", "pos", "on"}
+        r = await client.call_tool("logic_send", {"action": "set_dest", "strip": 2, "send": 1, "dest": "Bus 1"})
+        assert r.structured_content["verified"] == "verified" and logic.tracks[1].sends[1].dest == "Bus 1"
+        r = await client.call_tool("logic_send", {"action": "set_level", "strip": 2, "send": 1, "db": "-inf"})
+        assert r.structured_content["verified"] == "verified"
+        r = await client.call_tool("logic_send", {"action": "set_level", "strip": 2, "send": 1, "db": -6})
+        assert r.structured_content["verified"] == "verified"
+        r = await client.call_tool("logic_send", {"action": "get", "strip": 2})
+        assert r.structured_content["after"]["sends"]["1"]["bus"] == 1 and r.structured_content["after"]["sends"]["1"]["level_db"] == -6.0
+        r = await client.call_tool("logic_send", {"action": "mute", "strip": 2})
+        assert r.structured_content["verified"] == "skipped" and "send" in r.structured_content["note"]
+        r = await client.call_tool("logic_send", {"action": "set_pos", "strip": 2, "send": 1})
+        assert r.structured_content["verified"] == "skipped" and "pos" in r.structured_content["note"]
+        r = await client.call_tool("logic_send", {"action": "remove", "strip": 2, "send": 1})
+        assert r.structured_content["verified"] == "verified" and logic.tracks[1].sends[1] is None

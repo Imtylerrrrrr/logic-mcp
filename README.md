@@ -61,6 +61,7 @@ logic_mixer {"action": "set_volume", "strip": 3, "db": -6.0}
 | `logic_session` | 연결 상태, 서피스 설치 대기, configure |
 | `logic_eq` | Channel EQ 밴드 8개의 주파수·게인·Q·슬로프·온/오프 읽기·쓰기 |
 | `logic_plugin` | 인서트 슬롯 1~8의 목록·삽입·제거·바이패스, 파라미터 읽기·쓰기, 플러그인 스캔 |
+| `logic_send` | 센드 1~8의 목적지(버스)·레벨·위치·뮤트 읽기·쓰기 |
 
 리소스: `logic://status`, `logic://transport`, `logic://strips`, `logic://lcd`, `logic://plugins`, `logic://inserts`, `logic://view`.
 

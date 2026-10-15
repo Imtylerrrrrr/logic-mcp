@@ -133,3 +133,41 @@ def register_tools(mcp: MCPServer, commands: Commands) -> None:
         if on is None:
             return ToolResult(ok=False, verified="skipped", action=name, note="bypass에는 on(true/false)이 필요")
         return commands.plugin.bypass(strip, number, slot, on)
+
+    @mcp.tool(name="logic_send", annotations=ToolAnnotations(idempotent_hint=True),
+              description="센드 1-8. get: 8개 전체(목적지 버스·레벨 dB·위치·뮤트). set_dest: dest는 버스 번호(\"Bus 3\"·\"3\"·3) 또는 "
+                          "\"--\"(제거). set_level: db(-inf..+6.0). set_pos: pre|post|post_pan. mute: on. remove. 버스 센드를 새로 만들면 "
+                          "Logic이 Aux 트랙을 자동 생성해 뒤 트랙 번호가 바뀔 수 있다. 출력·Master 스트립은 지원하지 않는다(skipped). "
+                          "끝나면 PAN 모드로 돌아간다.")
+    def logic_send(
+        action: Literal["get", "set_dest", "set_level", "set_pos", "mute", "remove"],
+        strip: Strip = None,
+        number: Number = None,
+        send: Annotated[int | None, Field(ge=1, le=8, description="센드 1-8")] = None,
+        dest: Annotated[str | int | None, Field(description="set_dest: \"Bus 3\", \"3\", 3 또는 \"--\"")] = None,
+        db: Annotated[float | Literal["-inf"] | None, Field(description="set_level: dB. 문자열 \"-inf\" 허용")] = None,
+        pos: Literal["pre", "post", "post_pan"] | None = None,
+        on: Annotated[bool | None, Field(description="mute: true=뮤트")] = None,
+    ) -> ToolResult:
+        name = f"send_{action}"
+        if action == "get":
+            return commands.send.get(strip, number)
+        if send is None:
+            return ToolResult(ok=False, verified="skipped", action=name, note="send(1-8)가 필요")
+        if action == "set_dest":
+            if dest is None:
+                return ToolResult(ok=False, verified="skipped", action=name, note="set_dest에는 dest가 필요(버스 번호 또는 \"--\")")
+            return commands.send.set_dest(strip, number, send, dest)
+        if action == "remove":
+            return commands.send.remove(strip, number, send)
+        if action == "set_level":
+            if db is None:
+                return ToolResult(ok=False, verified="skipped", action=name, note="set_level에는 db가 필요. 예: -6.0, 0, \"-inf\"")
+            return commands.send.set_level(strip, number, send, -math.inf if db == "-inf" else float(db))
+        if action == "set_pos":
+            if pos is None:
+                return ToolResult(ok=False, verified="skipped", action=name, note="set_pos에는 pos(pre|post|post_pan)가 필요")
+            return commands.send.set_pos(strip, number, send, pos)
+        if on is None:
+            return ToolResult(ok=False, verified="skipped", action=name, note="mute에는 on(true/false)이 필요")
+        return commands.send.mute(strip, number, send, on)
