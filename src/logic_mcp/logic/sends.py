@@ -23,6 +23,8 @@ FIELDS = ("dest", "level", "pos", "mute")
 POS_ORDER = ("pre", "post", "post_pan")                  # 틱 +1 방향(실측 S8)
 DEST_PREFIX = 2                                           # `--` 뒤 `1`, `2` 다음이 `Bus 1`(실측 S4). 다르면 보정 루프가 맞춘다
 EMPTY = ("", "--")
+CONFIRM_READS = 3                                         # 확정 판정 읽기 횟수: 0·0.45·0.9초. 처음과 끝이 깜박임 반주기(0.8초)보다
+CONFIRM_GAP_S = 0.45                                      # 길게 떨어지고, 간격이 반주기보다 짧아 꺼진 위상을 놓치지 않는다(리뷰 I2)
 _POS_TEXT = {"pre": "pre", "post": "post", "pospan": "post_pan", "postpa": "post_pan", "postpan": "post_pan"}
 _SEN_RE = re.compile(r"Sen(\d+)")
 _BUS_RE = re.compile(r"Bus\s*(\d+)")
@@ -68,6 +70,14 @@ def parse_send(columns, send: int) -> dict:
     return {"send": send, "present": True, "dest": dest, "bus": bus_number(texts[0]),
             "level_db": level.number if level.kind == "number" else None, "pos": pos_of_text(texts[2]),
             "muted": texts[0].startswith("*") or texts[3] == "muted", "text": texts}
+
+
+def dest_done(row: dict, want: int) -> bool:
+    """확정이 끝난 행인가(리뷰 I1·I2). 제거: dest·level·pos 열이 모두 빈다. 버스: dest가 `Bus want`이고 pos 열이 채워진다
+    (미리 선택 깜박임은 dest 열만 그리므로, 새 센드라면 pos가 비어 있는 동안은 확정되지 않은 것)."""
+    if want == 0:
+        return not row["present"] and not row["text"][1] and not row["text"][2]
+    return row["present"] and row["bus"] == want and row["pos"] is not None
 
 
 def dest_query(dest) -> int | None:
@@ -175,7 +185,7 @@ class SendCommands:
                 self._channel(ch)
                 self._goto_page(send)
                 before = self._row(send)
-                if (before["bus"] or 0) == want:
+                if (not before["present"]) if want == 0 else (before["present"] and before["bus"] == want):
                     return b._result(action, True, "skipped", t0, target=target, before=before, after=before, note="already")
                 rewind_to_empty(d, col)                                  # 오버레이 `--`까지(1틱 = 1항목이라 -63이면 넉넉, 실측 S4)
                 if want > 0:
@@ -189,15 +199,20 @@ class SendCommands:
                     if shown != want:                                    # 누르지 않는다: finally의 leave가 미리 선택을 취소(S4)
                         return b._result(action, False, "unverified", t0, target=target, before=before,
                                          note=f"목적지 오버레이가 {d.read_overlay_text(col)!r}(기대 Bus {want}). 확정하지 않음")
-                ok = d.press_vpot_until(col, lambda v: (parse_send(v.columns, send)["bus"] or 0) == want
-                                        and (want == 0 or parse_send(v.columns, send)["present"]), CONFIRM_S)
+                ok = d.press_vpot_until(col, lambda v: dest_done(parse_send(v.columns, send), want), CONFIRM_S)
                 d.settle_overlay()                                       # `Send n Instantiate` 오버레이가 지나간 뒤 읽는다(S5)
-                after = self._row(send)
-                ok = ok and (after["bus"] or 0) == want
+                reads = [self._row(send)]
+                for _ in range(CONFIRM_READS - 1):                       # 누름이 드롭되면 미리 선택이 계속 깜박인다(S4):
+                    d.pause(CONFIRM_GAP_S)                               # 켜진 위상 한 번만 보고 판정하지 않는다
+                    reads.append(self._row(send))
+                after = reads[-1]
+                stable = all(r["text"] == after["text"] for r in reads)
+                ok = ok and stable and dest_done(after, want)
                 if ok:
                     note = "버스 센드를 새로 만들면 Logic이 Aux 트랙을 자동 생성해 뒤 스트립 번호가 바뀔 수 있음(실측 S5)" if want else ""
                 else:
-                    note = f"확정 뒤 {CONFIRM_S:.0f}초 안에 목적지가 {after['text'][0]!r}(기대 {'--' if want == 0 else f'Bus {want}'})"
+                    note = (f"확정 뒤 {CONFIRM_S:.0f}초 안에 행이 {[r['text'] for r in reads]!r}"
+                            f"(기대 {'--' if want == 0 else f'Bus {want}'}). 확정 누름이 무시된 듯(미리 선택 깜박임, 실측 S4)")
                 return b._result(action, ok, "verified" if ok else "unverified", t0, target=target, before=before,
                                  after=after, note=note)
             except (StripUnsupported, ModeError, ValueError) as e:
@@ -232,6 +247,8 @@ class SendCommands:
                 clamp = "clamped to +6.0 dB" if db > 6.0 else ""
                 goal = min(db, 6.0)
                 if goal == -math.inf:
+                    if before["level_db"] == -math.inf:
+                        return b._result(action, True, "skipped", t0, target=target, before=before, after=before, note="already")
                     d.flip(True)
                     d.fader(col, 1)                                        # raw 1 → `-oo dB`(실측 S6)
                     d.settle_overlay()

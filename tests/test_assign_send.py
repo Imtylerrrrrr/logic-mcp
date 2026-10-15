@@ -84,6 +84,27 @@ def test_set_dest_already_and_remove():
     assert r.verified == "skipped" and r.note == "already"
 
 
+def test_remove_non_bus_destination_is_verified_by_presence():                    # 리뷰 I1
+    cmds, surface, fake, logic = make()
+    logic.tracks[0].sends[1] = Send("1")                                              # 버스가 아닌 목적지(실측 S4 앞 항목)
+    r = cmds.send.remove(strip=1, number=None, send=1)
+    assert r.ok and r.verified == "verified" and r.action == "send_remove"
+    assert logic.tracks[0].sends[1] is None and r.before["present"] is True and r.after["present"] is False
+
+
+@pytest.mark.parametrize("existing,dest", [(None, "Bus 2"), (Send("Bus 1"), "Bus 2"), (Send("Bus 2"), "--")])
+def test_set_dest_unverified_when_confirm_push_is_dropped(existing, dest):          # 리뷰 I2: 미리 선택 깜박임은 계속됨(S4)
+    cmds, surface, fake, logic = make()
+    logic.tracks[0].sends[1] = existing
+    cmds.strips.follows(cmds.modes, surface.state, 0)           # 스트립 종류 판별(TRACK 메뉴 누름)은 미리 끝내 둔다
+    logic.refuse = {P.Note.VPOT_PUSH + 0}                                             # dest 열 확정 누름 드롭
+    r = cmds.send.set_dest(strip=1, number=None, send=1, dest=dest)
+    assert not r.ok and r.verified == "unverified" and "깜박임" in r.note
+    s = logic.tracks[0].sends[1]
+    assert (s.dest if s else None) == (existing.dest if existing else None) and not logic.timers
+    assert surface.state.view.kind == "pan" and not logic.pre
+
+
 def test_set_dest_rejects_bad_dest_and_send():
     cmds, surface, fake, logic = make()
     r = cmds.send.set_dest(strip=1, number=None, send=1, dest="Aux 1")
@@ -119,6 +140,15 @@ def test_set_level_minus_inf_and_clamp():
     r = cmds.send.set_level(strip=1, number=None, send=2, db=9.0)
     assert r.verified == "verified" and r.after["level_db"] == 6.0 and "clamped" in r.note
     assert cmds.send.set_level(strip=1, number=None, send=2, db=float("nan")).verified == "skipped"
+
+
+def test_set_level_minus_inf_when_already_minus_inf_is_skipped():                 # 리뷰 M8
+    cmds, surface, fake, logic = make()
+    logic.tracks[0].sends[1] = Send("Bus 1")                                          # 새 센드 기본값 -∞(실측 S5)
+    n0 = len(fake.sent)
+    r = cmds.send.set_level(strip=1, number=None, send=1, db=float("-inf"))
+    assert r.ok and r.verified == "skipped" and r.note == "already"
+    assert not any(m[0] == 0x90 and m[1] == P.Note.FLIP for m in fake.sent[n0:])     # Flip을 켜지 않는다
 
 
 def test_set_level_without_send_is_skipped():

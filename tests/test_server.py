@@ -140,7 +140,7 @@ async def test_send_tool_via_client(assign_setup):
         r = await client.call_tool("logic_send", {"action": "set_dest", "strip": 2, "send": 1, "dest": "Bus 1"})
         assert r.structured_content["verified"] == "verified" and logic.tracks[1].sends[1].dest == "Bus 1"
         r = await client.call_tool("logic_send", {"action": "set_level", "strip": 2, "send": 1, "db": "-inf"})
-        assert r.structured_content["verified"] == "verified"
+        assert r.structured_content["verified"] == "skipped" and r.structured_content["note"] == "already"   # 새 센드는 -∞(S5, 리뷰 M8)
         r = await client.call_tool("logic_send", {"action": "set_level", "strip": 2, "send": 1, "db": -6})
         assert r.structured_content["verified"] == "verified"
         r = await client.call_tool("logic_send", {"action": "get", "strip": 2})
