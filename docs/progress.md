@@ -50,7 +50,7 @@ bank first   ok=True skipped    1049ms already
 ## 스펙 2a
 - Task 1~11 완료.
 - 실기 결과 (scripts/live_check2.py, 트랙 22채널 테스트 프로젝트): 4차 17/17(1332fad), 5차 15/17·6차 17/17(2115946), 7차 17/17(7cc4d34). EQ 반복 프로브 11/12 → 12/12. 플러그인 스캔 153개 75 s.
-  - 미검증 경로(실기에서 밟은 적 없음): `insert replace=true`, 슬롯 3~8, enum 플러그인 파라미터 set, index 로 get, `list` 뱅크 전체, Flip·페이더 재시도 경로의 실기 발동.
+  - 미검증 경로(실기에서 밟은 적 없음): `insert replace=true`, 슬롯 3~8, enum 플러그인 파라미터 set, index 로 get, `list` 뱅크 전체(8차: 인벤토리 오류 → 수정 7, 9차 재확인 필요), Flip·페이더 재시도 경로의 실기 발동.
   - 확인 대상: EQ 밴드 7·8 축약명, bypass의 `*` 표시, 스트립 7·8 오버레이 시작 열, plugin params 페이지 헤더, `--scan` 소요 시간·항목 수
 - 실기 1차(2026-10-15, Logic 12.0.1, 트랙 15~24 뱅크): EQ·플러그인 명령 전부 실패.
   - EQ: `enter`가 버튼 down의 `E_` 메뉴에서 대기를 끝내 "기대 eq_mixer, 관측 eq_menu".
@@ -65,4 +65,5 @@ bank first   ok=True skipped    1049ms already
 - 수정 4(fix-4): 실기 4차 결함 2건. 편집 뷰 마지막 페이지 오른쪽 정렬 겹침 제거(W, `params` 20항목·index 1..16,21..24, 캐시의 겹침 항목은 전체 읽기 때 삭제), `ModeDriver.fader`가 에코 뒤 LCD 변화도 기다림(X, Thrs 매핑 오학습 방지). 가짜 Compressor를 실측 20개 모델로, `live_check2`의 Thrs 목표를 -24로.
 - 수정 5(fix-5): 실기 5차 간헐 실패 2건(Z1·Z2). `fader()`는 에코·LCD 모두 없으면 이동 재전송, `flip()`은 LED 무변화면 재누름, `set_numeric`은 이동 전과 같은 값이면 시컨트 건너뜀. 가짜에 `drop_first_fader`·`drop_all_faders`·`drop_first_flip`.
 - 수정 6(fix-6, 최종 리뷰 반영): C1 `flip()` 재누름 제거(LED 대기 1.0 s, 늦은 LED와 겹치면 Flip이 꺼진 채 페이더가 트랙 볼륨을 움직임)와 `fader()` 송신 직전 Flip 확인·같은 위치 재전송 안 함, I1 `mixer_volume` Flip 가드, I2 `leave()` 전 단계 시도, I3 EQ 입력 검증·enum 파라미터 숫자 입력·`ValueError` → skipped, I4 프로빙 실패 시 원위치 복원, m5 실패한 map 무효화, I5 캐시 손상 파일 격리(`.bad-*`)·원자적 저장. `live_check2`에 미검증 경로 추가. m4(번들 갱신이 저장된 사용자 캐시에 반영 안 됨)는 2b로 이월.
+- 수정 7(fix-7, 리뷰 m6): 뱅크 전체 `plugin list` 가 첫 트랙 외에는 슬롯 대신 트랙 이름 조각을 읽던 문제(실기 8차, Z3). `_channel()` 이 이미 PL 이고 다른 스트립이면 PAN 으로 나가 다시 들어가도록 수정, 가짜 Logic 에 `pl_select_stale` 옵션과 회귀 테스트 추가, `live_check2` 에 식별 안 된 슬롯 검사 추가. 9차 실기 확인 필요.
 - 다음: 2b (센드·번들 생성·스킬)

@@ -329,3 +329,23 @@ def test_map_is_cleared_and_saved_when_numeric_set_fails(tmp_path):             
     assert [it["map"] for it in cache.param_table("Compressor")["items"] if it["index"] == 2] == [None]
     saved = json.loads(cache.path.read_text())
     assert [it["map"] for it in saved["params"]["Compressor"]["items"] if it["index"] == 2] == [None]
+
+
+def test_list_bank_reenters_pl_per_track(tmp_path):
+    """실기 8차: PL 안에서 SELECT 만 누르면 2행이 새 트랙을 따라오지 않는다 → 트랙마다 PAN 에서 재진입해야 인벤토리가 맞다."""
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.pl_select_stale = True
+    logic.tracks[0].insert(1, "Channel EQ")
+    logic.tracks[2].insert(3, "Compressor")
+    cache.learn_abbrev("Cha EQ", "Channel EQ")
+    cache.learn_abbrev("Comprs", "Compressor")
+    n0 = len(fake.sent)
+    r = cmds.plugin.list(None, None)
+    assert r.verified == "verified"
+    t = r.after["tracks"]
+    assert t["15"]["1"] == {"text": "Cha EQ", "name": "Channel EQ"}
+    assert t["16"]["1"] is None and all(v is None for v in t["16"].values())
+    assert t["17"]["3"] == {"text": "Comprs", "name": "Compressor"}
+    pan_presses = [m for m in fake.sent[n0:] if m[0] == 0x90 and m[1] == P.Note.PAN and m[2]]
+    assert len(pan_presses) >= 8                       # 트랙마다 PAN 으로 나갔다 (재진입)
+    assert surface.state.view.kind == "pan" and logic.selected == 0

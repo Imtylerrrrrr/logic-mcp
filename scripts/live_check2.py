@@ -35,6 +35,9 @@ try:
     r = run("plugin list (bank)", lambda: commands.plugin.list(None, None))      # 뱅크 전체(m6 실기 확인)
     for n, row in ((r.after or {}).get("tracks") or {}).items():
         print(f"  track {n}:", {s: v["text"] for s, v in row.items() if v} or "(빈 인서트)")
+    unresolved = {n: [v["text"] for v in row.values() if v and v["name"] is None] for n, row in ((r.after or {}).get("tracks") or {}).items()}
+    unresolved = {n: xs for n, xs in unresolved.items() if xs}
+    print("  bank list 식별 안 된 슬롯:", unresolved or "없음 (기대: 없음)")
     run("plugin insert Compressor s2", lambda: commands.plugin.insert(strip, None, 2, "Compressor"))
     r = run("plugin params s2", lambda: commands.plugin.params(strip, None, 2))
     print("  pages:", r.after and r.after.get("pages"))

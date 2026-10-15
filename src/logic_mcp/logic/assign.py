@@ -234,7 +234,11 @@ class PluginCommands:
         return self.d.read_column(slot - 1)[1].text
 
     def _channel(self, ch: int) -> None:
-        """대상 트랙을 선택하고 Plug-in Channel 뷰(PL)로 간다. 2행 = 선택 트랙의 슬롯 1~8, V-Pot n = 슬롯 n(실측 C·D)."""
+        """대상 트랙을 선택하고 Plug-in Channel 뷰(PL)로 간다. 2행 = 선택 트랙의 슬롯 1~8, V-Pot n = 슬롯 n(실측 C·D).
+        PL 안에서 SELECT 만 눌러 트랙을 바꾸면 2행이 그 트랙의 슬롯으로 바뀌지 않는다(실기 8차: 트랙 이름 조각이 읽힘, 실측 Z3)
+        → 이미 PL 이고 다른 스트립이면 PAN 으로 나가 다시 들어간다."""
+        if self.d.view.kind != "pan" and not self.b.surface.state.strips[ch].select:
+            self.d.leave(keep_select=True)
         self.d.focus(ch)
         self.d.enter("plugin_channel")
 

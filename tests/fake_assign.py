@@ -221,6 +221,8 @@ class FakeLogic:
         self.fake, self.tracks, self.clock = fake, tracks, clock
         self.view = "pan"
         self.selected = 0
+        self.pl_track = 0                              # PL 뷰 2행이 보여 주는 트랙
+        self.pl_select_stale = False                   # 켜면 PL 안에서 SELECT 해도 2행이 이전 트랙 슬롯을 유지(실기 8차 Z3 근사)
         self.slot = 1
         self.page = 1
         self.flip = False
@@ -349,7 +351,8 @@ class FakeLogic:
             return self._names_row(), "".join(cells).ljust(56), self._slot_digits()
         if self.view == "plugin_channel":                       # 선택 트랙의 슬롯 1~8(실측 C)
             r1 = "".join(col(f"Ins{i}Pl") for i in range(1, 9))
-            r2 = "".join(self._pre_cell(i - 1, self._abbrev(t.inserts[i], i, t)) for i in range(1, 9))
+            pt = self.tracks[self.pl_track]
+            r2 = "".join(self._pre_cell(i - 1, self._abbrev(pt.inserts[i], i, pt)) for i in range(1, 9))
             return r1, r2, "PL"
         if self.view == "plugin_edit":
             ps = self._edit_page()
@@ -431,6 +434,8 @@ class FakeLogic:
         if N.SELECT <= note < N.SELECT + 8:
             old, self.selected = self.selected, note - N.SELECT
             self._emit([P.button_up(N.SELECT + old), P.button_down(N.SELECT + self.selected)])
+            if not (self.pl_select_stale and self.view == "plugin_channel"):
+                self.pl_track = self.selected
             self.pre.clear()
             self.redraw()
         elif note == N.PAN:
@@ -452,6 +457,7 @@ class FakeLogic:
         elif note == N.PLUGIN:
             if self.view == "plugin_mixer":
                 self.view = "plugin_channel"
+                self.pl_track = self.selected
             elif self.view in ("plugin_channel", "plugin_edit", "empty_edit", "midi_fx"):
                 self.view = "plugin_mixer"
             else:
