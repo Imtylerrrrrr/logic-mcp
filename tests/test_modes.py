@@ -292,3 +292,29 @@ def test_leave_tries_every_step_even_when_name_toggle_fails():    # 리뷰 I2
     assert not logic.flip and not surface.state.assignment.flip
     assert surface.state.view.kind == "pan" and logic.view == "pan"
     assert logic.selected == 0 and d._focused is False
+
+
+def test_enter_track_reads_outputs_and_restores_volume():               # 실측 Z5
+    from tests.fake_assign import Track
+    tracks = [Track(1, "1"), Track(2, "DeCl"), Track(3, "StOu", kind="output"), Track(6, "Mast", kind="master")]
+    surface, fake, logic = make_assign_logic(tracks)
+    d = ModeDriver(surface, sleep=logic.sleep)
+    outs = d.read_strip_outputs()
+    assert outs == ["St Out", "St Out", "", "", "", "", "", ""]
+    assert logic.cs_param == 0 and surface.state.view.kind == "pan" and logic.view == "pan"
+    pushes = [m for m in fake.sent if m[0] == 0x90 and P.Note.VPOT_PUSH <= m[1] < P.Note.VPOT_PUSH + 8 and m[2]]
+    assert [m[1] - P.Note.VPOT_PUSH for m in pushes] == [4, 0]           # Output 선택 → Volume 복원, 그 밖은 누르지 않음
+
+
+def test_track_param_refuses_when_menu_label_differs():                 # Review Focus 5
+    from tests.fake_assign import Track
+    surface, fake, logic = make_assign_logic([Track(1, "1"), Track(2, "DeCl")])
+    logic.menu_labels = ["Volume", "Pan", "TrkFmt", "Input", "DisplP", "Auto", "Output", "Setup"]   # 다른 Logic 버전 흉내
+    d = ModeDriver(surface, sleep=logic.sleep)
+    with pytest.raises(ModeError):
+        d.read_strip_outputs()
+    pushes = [m for m in fake.sent if m[0] == 0x90 and P.Note.VPOT_PUSH <= m[1] < P.Note.VPOT_PUSH + 8 and m[2]]
+    assert pushes == [] and logic.cs_param == 0
+    assert not logic.track_held                                          # 버튼을 놓고 나온다
+    d.leave_safely()
+    assert surface.state.view.kind == "pan"

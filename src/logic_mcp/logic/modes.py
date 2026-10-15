@@ -25,13 +25,15 @@ OVERLAY_WIDTH = 21       # 오버레이가 쓰는 열 3칸
 EDIT_OPEN_S = 1.5        # 미리 선택 없이 차 있는 슬롯 누름 → 편집 뷰(실측 0.5초 안)
 CONFIRM_S = OVERLAY_S + 1.0   # 미리 선택 확정 누름 → 편집 뷰는 ≈2초 뒤(실측 K)
 POLL_S = 0.1
-_FAMILY_BUTTON = {"eq": P.Note.EQ, "plugin": P.Note.PLUGIN, "send": P.Note.SEND}
-_STEPS: dict[tuple[str, str], int] = {}
-for _fam in _FAMILY_BUTTON:
+_FAMILY_BUTTON = {"eq": P.Note.EQ, "plugin": P.Note.PLUGIN, "send": P.Note.SEND, "track": P.Note.TRACK}
+_STEPS: dict[tuple[str, str], int] = {("pan", "track"): 1}
+for _fam in ("eq", "plugin", "send"):
     _STEPS.update({("pan", f"{_fam}_mixer"): 1, ("pan", f"{_fam}_channel"): 2,
                    (f"{_fam}_mixer", f"{_fam}_channel"): 1, (f"{_fam}_channel", f"{_fam}_mixer"): 1})
 _STEPS.update({("plugin_edit", "plugin_mixer"): 1, ("empty_edit", "plugin_mixer"): 1,
                ("plugin_edit", "plugin_channel"): 2, ("empty_edit", "plugin_channel"): 2})
+TRACK_MENU_OUTPUT = (4, "Output")      # TRACK 홀드 메뉴 항목(실측 Z5). 6(DisplP)·7(Setup)은 뱅크 구성을 바꾸므로 금지
+TRACK_MENU_VOLUME = (0, "Volume")
 
 
 class ModeError(Exception):
@@ -305,6 +307,41 @@ class ModeDriver:
         self.surface.send(P.button_up(button))
         self._wait_change()
         self.settle_overlay()
+
+    def track_param(self, index: int, label: str) -> list[str]:
+        """TRACK 버튼을 누른 채 홀드 메뉴(`C_`, 2행 라벨 8개)에서 index 항목을 고른다. 2행 index 열 라벨이 label과
+        다르면 누르지 않고 버튼을 놓은 뒤 ModeError(항목 6 DisplP·7 Setup은 뱅크 구성을 바꾼다, 실측 Z5).
+        고른 뒤 CS 뷰 2행(스트립별 값 8개, strip)을 돌려준다."""
+        self.enter("track")
+        self._mark()
+        self.surface.send(P.button_down(P.Note.TRACK))
+        self._sleep(HOLD_MENU_S)
+        shown = self.view.columns[index][1].strip() if self.view.kind == "track_menu" else ""
+        if shown != label:
+            self.surface.send(P.button_up(P.Note.TRACK))
+            self._wait_change()
+            raise ModeError("track_menu", f"항목 {index} = {label!r}", f"{self.view.kind} {shown!r}")
+        self._press(P.Note.VPOT_PUSH + index)
+        self._sleep(0.1)
+        self.surface.send(P.button_up(P.Note.TRACK))
+        self._wait_change()
+        self.settle_overlay()
+        return [c[1].strip() for c in self.view.columns]
+
+    def read_strip_outputs(self) -> list[str]:
+        """스트립 8개의 Output 텍스트(`St Out` 등). 출력·Master 스트립은 빈칸(실측 Z5). Output을 골랐으면 Volume으로 되돌리고,
+        어느 경우든 PAN으로 나간다."""
+        changed = False
+        try:
+            outs = self.track_param(*TRACK_MENU_OUTPUT)
+            changed = True
+            return outs
+        finally:
+            try:
+                if changed:
+                    self.track_param(*TRACK_MENU_VOLUME)
+            finally:
+                self.leave(keep_select=True)
 
     def leave(self, keep_select: bool = False) -> None:
         """NAME 모드 복원 → Flip 해제 → PAN → (선택 복원). 모든 명령의 finally에서 호출.

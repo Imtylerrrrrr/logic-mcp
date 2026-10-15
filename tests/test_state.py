@@ -248,6 +248,16 @@ def test_view_send_kinds_and_menus():
         assert (st.view.kind, st.view.index) == (kind, idx), d
 
 
+def test_view_track_menu_and_channel_strip_codes():                 # 실측 Z5
+    st = ready_pan()
+    st = apply(st, digit_evs("C_") + [lcd_ev(0, " " * 56 + "Volume Pan    TrkFmt Input  Output Auto   DisplP Setup  ")])
+    assert (st.view.kind, st.view.index) == ("track_menu", None)
+    assert st.strips[0].number == 15                                  # 홀드 메뉴 1행(빈칸)은 채널명이 아님
+    st = apply(st, digit_evs("CS") + [lcd_ev(0, ROW_NAMES + "+0.0dB +0.0dB +0.0dB +0.0dB                             ")])
+    assert (st.view.kind, st.view.index) == ("track", None)
+    assert st.strips[0].value_text == "+0.0dB"
+
+
 def test_view_unknown_display_keeps_spec1_behaviour():
     st = apply(S.initial_state(), [lcd_ev(0, ROW_NAMES + PAN_ROW2)])      # 2자리 표시가 아직 없음
     assert st.view.kind == "pan" and st.strips[0].number == 15 and st.strips[0].value_text == "0"

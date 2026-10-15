@@ -21,7 +21,7 @@ _TRANSPORT = {P.Note.PLAY: "play", P.Note.STOP: "stop", P.Note.RECORD: "record",
 OVERLAY_MARK = "arameter:"   # "EQ 1 Parameter: …", "Pan/Surround parameter:" 모드 전환 오버레이 공통 조각
 _PAGE_RE = re.compile(r"Page\s*(\d+)/(\d+)")
 _NO_NAME_VIEWS = frozenset({"eq_channel", "eq_menu", "send_channel", "send_menu", "plugin_channel",
-                            "plugin_edit", "empty_edit", "midi_fx"})          # 1행이 채널명이 아닌 뷰
+                            "plugin_edit", "empty_edit", "midi_fx", "track_menu"})          # 1행이 채널명이 아닌 뷰
 _VALUE_VIEWS = frozenset({"pan", "track", "unknown"})                        # 2행이 볼륨·팬 값인 뷰
 
 
@@ -145,6 +145,10 @@ def classify_view(display: str, lcd: tuple[str, str], mode: str | None) -> tuple
         return "send_mixer", int(d[1])
     if d[0] == "D" and d[1].isdigit():
         return "send_destlevel", int(d[1])
+    if d == "C_":
+        return "track_menu", None     # TRACK down: 2행이 홀드 메뉴(실측 Z5)
+    if d == "CS":
+        return "track", None          # Channel Strip 뷰: 1행 이름, 2행 스트립별 값(실측 Z5)
     if d == "PL":
         return "plugin_channel", None    # 코드만으로 판정: 슬롯 1 오버레이가 1행 `Ins1Pl`을 덮어도 `PL`은 그대로(실측 J)
     if d[0] == "M" and d[1].isdigit():

@@ -35,6 +35,8 @@ def digits(d: str) -> list[bytes]:
     """2자리 표시: CC 0x4B(왼쪽), 0x4A(오른쪽). 문자 코드는 ASCII & 0x3F (protocol.seg_char의 역)."""
     return [bytes([0xB0, 0x4B, ord(d[0].upper()) & 0x3F]), bytes([0xB0, 0x4A, ord(d[1].upper()) & 0x3F])]
 
+TRACK_MENU = ["Volume", "Pan", "TrkFmt", "Input", "Output", "Auto", "DisplP", "Setup"]   # TRACK 홀드 메뉴(실측 Z5)
+
 
 def col(text: str) -> str:
     return text[:7].ljust(7)
@@ -192,6 +194,11 @@ class Track:
     bypassed: set[int] = field(default_factory=set)
     volume: int | None = None                                     # 페이더 raw. Flip이 꺼진 상태의 페이더 이동이 바꾼다(None = 건드린 적 없음)
     eq_page: int = 1                                              # EQ 채널 뷰가 기억하는 마지막 페이지(실측 Q)
+    kind: str = "track"                                           # track | output | master (실측 Z4: 출력·Master는 채널 뷰가 안 따라감)
+
+    @property
+    def follows(self) -> bool:
+        return self.kind == "track"
 
     def insert(self, slot: int, name: str) -> None:
         if self.inserts[slot] == "Channel EQ":
@@ -230,6 +237,9 @@ class FakeLogic:
         self.shift = False
         self.blink_on = True
         self.mode_note = P.Note.PAN
+        self.cs_param = 0                              # TRACK 모드가 보여 주는 채널 스트립 파라미터(TRACK_MENU 인덱스)
+        self.menu_labels = list(TRACK_MENU)
+        self.track_held = False                        # TRACK 버튼 down 중: 2자리 `C_` + 2행 메뉴(실측 Z5)
         self.before_midi = "plugin_mixer"
         self.pre: dict[int, int] = {}                  # V-Pot → 미리 선택 틱 위치(0 = `--`, 0..2·(목록-1)로 포화)
         self.pending: list[float] = []                 # 재묘사 예정 시각
@@ -337,6 +347,20 @@ class FakeLogic:
     def _rows(self) -> tuple[str, str, str]:
         """정착 화면 (1행, 2행, 2자리)."""
         t = self.tracks[self.selected]
+        if self.view == "track_menu":
+            return " " * 56, "".join(col(x) for x in self.menu_labels).ljust(56), "C_"
+        if self.view == "track":
+            cells = []
+            for tr in self.tracks[:8]:
+                if self.cs_param == 0:
+                    cells.append(col("+0.0dB"))
+                elif self.cs_param == 1:
+                    cells.append(col("" if tr.kind == "master" else "0"))
+                elif self.cs_param == 4:
+                    cells.append(col("St Out" if tr.follows else ""))          # 출력·Master는 빈칸(실측 Z5)
+                else:
+                    cells.append(col(""))
+            return self._names_row(), "".join(cells).ljust(56), "CS"
         if self.view == "pan":
             return self._names_row(), "".join(col("0") for _ in self.tracks[:8]).ljust(56), "PN"
         if self.view == "eq_mixer":
@@ -407,6 +431,13 @@ class FakeLogic:
                 return []
             if note == P.Note.SHIFT:
                 self.shift = on
+            elif note == P.Note.TRACK:                           # 실측 Z5: down → `C_` 메뉴, up 뒤 CS 뷰
+                self.track_held = on
+                if on:
+                    self.view = "track_menu"
+                    self.redraw()
+                else:
+                    self.deferred.append(lambda: self._button(P.Note.TRACK))
             elif note == P.Note.EQ:                              # 실측 A: down → `E_`, up 뒤 50 ms 안에 뷰
                 self.eq_held = on
                 if on:
@@ -438,6 +469,9 @@ class FakeLogic:
                 self.pl_track = self.selected
             self.pre.clear()
             self.redraw()
+        elif note == N.TRACK:
+            self._set_mode("track", N.TRACK)
+            self.redraw(mode_overlay="Channel Strip parameter:")
         elif note == N.PAN:
             self._set_mode("pan", N.PAN)
             self.redraw(mode_overlay="    Pan/Surround parameter:")
@@ -497,6 +531,9 @@ class FakeLogic:
             self.name_mode = not self.name_mode
             self.redraw()
         elif N.VPOT_PUSH <= note < N.VPOT_PUSH + 8:
+            if self.track_held and self.view == "track_menu":
+                self.cs_param = note - N.VPOT_PUSH               # 홀드 메뉴 선택. 6(DisplP)·7(Setup)의 부작용은 흉내 내지 않음
+                return
             self._push(note - N.VPOT_PUSH)
 
     def _page(self, delta: int) -> None:
