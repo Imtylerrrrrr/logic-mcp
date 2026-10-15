@@ -99,3 +99,64 @@ def test_param_missing_or_ambiguous(tmp_path):
     assert r.verified == "skipped" and "Thresh" in r.note and surface.state.view.kind == "pan"
     assert cmds.plugin.get(1, None, 2, 11).verified == "skipped"     # 인덱스 범위 밖
     assert cmds.plugin.get(1, None, 16, 1).verified == "skipped"     # 슬롯 범위 밖
+
+
+def test_insert_by_name_rewinds_and_confirms(tmp_path):
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    r = cmds.plugin.insert(strip=2, number=None, slot=1, plugin="compressor")
+    assert r.verified == "verified" and logic.tracks[1].inserts[1] == "Compressor"
+    assert r.after == {"slot": 1, "plugin": "Compressor", "abbrev": "Compre", "replaced": None}
+    assert cache.abbrev["Compre"] == "Compressor" and surface.state.view.kind == "pan" and logic.selected == 0
+
+
+def test_insert_refuses_occupied_then_replaces_with_flag(tmp_path):
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[1].insert(1, "Channel EQ")
+    r = cmds.plugin.insert(2, None, 1, "Compressor")
+    assert r.verified == "skipped" and "replace" in r.note and logic.tracks[1].inserts[1] == "Channel EQ"
+    r = cmds.plugin.insert(2, None, 1, "Compressor", replace=True)
+    assert r.verified == "verified" and logic.tracks[1].inserts[1] == "Compressor" and r.after["replaced"] == "Channe"
+
+
+def test_insert_unknown_or_ambiguous_name_sends_nothing(tmp_path):
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    n = len(fake.sent)
+    r = cmds.plugin.insert(2, None, 1, "Zebra")
+    assert r.verified == "skipped" and "scan" in r.note
+    r = cmds.plugin.insert(2, None, 1, "EQ")
+    assert r.verified == "skipped" and "Parametric EQ" in r.note and "Channel EQ" in r.note
+    assert len(fake.sent) == n
+
+
+def test_remove_and_bypass(tmp_path):
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(1, "Channel EQ")
+    r = cmds.plugin.bypass(1, None, 1, True)
+    assert r.verified == "verified" and 1 in logic.tracks[0].bypassed and r.after["text"].startswith("*")
+    assert cmds.plugin.bypass(1, None, 1, True).verified == "skipped"
+    assert cmds.plugin.bypass(1, None, 1, False).verified == "verified" and not logic.tracks[0].bypassed
+    r = cmds.plugin.remove(1, None, 1)
+    assert r.verified == "verified" and logic.tracks[0].inserts[1] is None and logic.tracks[0].eq is None
+    assert cmds.plugin.remove(1, None, 1).verified == "skipped"
+    assert cmds.plugin.bypass(1, None, 1, True).verified == "skipped"
+    assert surface.state.view.kind == "pan"
+
+
+def test_scan_builds_list_without_inserting(tmp_path):
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    r = cmds.plugin.scan()
+    assert r.verified == "verified" and r.after["count"] == len(PLUGIN_LIST) and r.after["slot"] == 1
+    assert cache.items == PLUGIN_LIST and cache.source == "scan" and cache.path.exists() and cache.scanned_at
+    assert all(v is None for t in logic.tracks for v in t.inserts.values())
+    assert surface.state.view.kind == "pan"
+    assert cmds.plugin.scan().verified == "skipped"
+    assert cmds.plugin.scan(force=True).verified == "verified"
+
+
+def test_scan_needs_an_empty_slot(tmp_path):
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    for t in logic.tracks:
+        for i in range(1, 16):
+            t.insert(i, "Tuner")
+    r = cmds.plugin.scan()
+    assert r.verified == "skipped" and "빈 슬롯" in r.note and surface.state.view.kind == "pan"

@@ -2,14 +2,15 @@
 모든 공개 메서드는 ToolResult를 돌려주고 finally에서 leave_safely()로 PAN·Flip off로 돌아간다."""
 from __future__ import annotations
 
-import re
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from .modes import ModeError
 from .plugins.cache import PluginCache
+from .plugins.scan import rewind_to_empty, scan_list
 from .plugins.match import find, normalize, strip_suffix
 from .setter import probe_mapping, set_enum, set_numeric
-from .values import Mapping, Value, parse_value, tolerance_for, within
+from .values import Mapping, Value, parse_value, tolerance_for
 
 if TYPE_CHECKING:
     from .commands import Commands, ToolResult
@@ -429,5 +430,167 @@ class PluginCommands:
                 return b._result(action, False, "skipped", t0, target=target, note=e.note)
             except ModeError as e:
                 return b._result(action, False, "unverified", t0, target=target, note=str(e))
+            finally:
+                d.leave_safely()
+
+    def insert(self, strip: int | None, number: int | None, slot: int, plugin: str,
+               replace: bool = False) -> "ToolResult":
+        b, d, action = self.b, self.d, "plugin_insert"
+        t0 = b._now_ms()
+        with b._lock:
+            if (r := b._require_ready(action, t0)) is not None:
+                return r
+            idx, cands = find(self.cache.items, plugin)
+            if idx is None:
+                note = (f"{plugin!r}가 여럿에 맞음: {cands}" if cands
+                        else f"{plugin!r}가 목록({self.cache.source}, {len(self.cache.items)}개)에 없음. `logic_plugin scan` 뒤 다시 시도")
+                return b._result(action, False, "skipped", t0, note=note)
+            ch = self._begin(action, strip, number, slot, t0)
+            if not isinstance(ch, int):
+                return ch
+            target = {**b._target(ch), "slot": slot}
+            want = self.cache.items[idx]
+            try:
+                self._fresh()
+                d.focus(ch)
+                d.enter("plugin_mixer")
+                d.slot_to(slot)
+                current = self._slot_text(ch)
+                occupied = current not in ("", "--")
+                if occupied and not replace:
+                    return b._result(action, False, "skipped", t0, target=target,
+                                     note=f"슬롯 {slot}에 {current!r}가 있음. 교체하려면 replace=true")
+                rewind_to_empty(d, ch)
+                d.tick(ch, 2 * idx)
+                shown = strip_suffix(d.read_overlay_text(ch))
+                for _ in range(3):                                   # 목록이 캐시와 조금 어긋나면 근처에서 찾는다
+                    if normalize(shown) == normalize(want):
+                        break
+                    j, _c = find(self.cache.items, shown)
+                    if j is None:
+                        break
+                    d.tick(ch, 2 * (idx - j))
+                    shown = strip_suffix(d.read_overlay_text(ch))
+                if normalize(shown) != normalize(want):
+                    return b._result(action, False, "unverified", t0, target=target,
+                                     note=f"목록 위치 {idx}에 {shown!r}가 보임(기대 {want!r}). 설치된 플러그인이 달라진 듯. `logic_plugin scan` 권장")
+                d.press_vpot(ch)
+                if d.view.kind != "plugin_edit":
+                    return b._result(action, False, "unverified", t0, target=target,
+                                     note=f"확인 뒤 편집 뷰가 아니라 {d.view.kind}")
+                d.settle_smart()
+                d.enter("plugin_mixer")
+                d.slot_to(slot)
+                abbrev = self._slot_text(ch)
+                self.cache.learn_abbrev(abbrev, want)
+                self.cache.save()
+                return b._result(action, True, "verified", t0, target=target, before={"slot": slot, "text": current},
+                                 after={"slot": slot, "plugin": want, "abbrev": abbrev,
+                                        "replaced": current if occupied else None})
+            except ModeError as e:
+                return b._result(action, False, "unverified", t0, target=target, note=str(e))
+            finally:
+                d.leave_safely()
+
+    def remove(self, strip: int | None, number: int | None, slot: int) -> "ToolResult":
+        b, d, action = self.b, self.d, "plugin_remove"
+        t0 = b._now_ms()
+        with b._lock:
+            if (r := b._require_ready(action, t0)) is not None:
+                return r
+            ch = self._begin(action, strip, number, slot, t0)
+            if not isinstance(ch, int):
+                return ch
+            target = {**b._target(ch), "slot": slot}
+            try:
+                self._fresh()
+                d.focus(ch)
+                d.enter("plugin_mixer")
+                d.slot_to(slot)
+                current = self._slot_text(ch)
+                if current in ("", "--"):
+                    return b._result(action, True, "skipped", t0, target=target, note="already")
+                rewind_to_empty(d, ch)
+                d.press_vpot(ch)                                     # `--` 확정 = 제거(실측: 빈 편집 뷰 상태가 됨)
+                d.enter("plugin_mixer")
+                d.slot_to(slot)
+                after = self._slot_text(ch)
+                ok = after in ("", "--")
+                return b._result(action, ok, "verified" if ok else "unverified", t0, target=target,
+                                 before={"slot": slot, "text": current}, after={"slot": slot, "text": after},
+                                 note="" if ok else "제거 뒤에도 슬롯에 이름이 보임")
+            except ModeError as e:
+                return b._result(action, False, "unverified", t0, target=target, note=str(e))
+            finally:
+                d.leave_safely()
+
+    def bypass(self, strip: int | None, number: int | None, slot: int, on: bool) -> "ToolResult":
+        b, d, action = self.b, self.d, "plugin_bypass"
+        t0 = b._now_ms()
+        with b._lock:
+            if (r := b._require_ready(action, t0)) is not None:
+                return r
+            ch = self._begin(action, strip, number, slot, t0)
+            if not isinstance(ch, int):
+                return ch
+            target = {**b._target(ch), "slot": slot}
+            try:
+                self._fresh()
+                d.focus(ch)
+                d.enter("plugin_mixer")
+                d.slot_to(slot)
+                current = self._slot_text(ch)
+                if current in ("", "--"):
+                    return b._result(action, False, "skipped", t0, target=target, note=f"슬롯 {slot}이 비어 있음")
+                if current.startswith("*") == on:
+                    return b._result(action, True, "skipped", t0, target=target, after={"slot": slot, "text": current}, note="already")
+                d.shift_press_vpot(ch)
+                after = self._slot_text(ch)
+                ok = after.startswith("*") == on
+                return b._result(action, ok, "verified" if ok else "unverified", t0, target=target,
+                                 before={"slot": slot, "text": current}, after={"slot": slot, "text": after},
+                                 note="" if ok else "SHIFT+V-Pot 뒤 `*` 표시가 기대와 다름")
+            except ModeError as e:
+                return b._result(action, False, "unverified", t0, target=target, note=str(e))
+            finally:
+                d.leave_safely()
+
+    def scan(self, force: bool = False) -> "ToolResult":
+        b, d, action = self.b, self.d, "plugin_scan"
+        t0 = b._now_ms()
+        with b._lock:
+            if (r := b._require_ready(action, t0)) is not None:
+                return r
+            if self.cache.user_list and not force:
+                return b._result(action, True, "skipped", t0, after=self.cache.to_resource(),
+                                 note=f"already: {self.cache.scanned_at}에 스캔한 {len(self.cache.user_list)}개. 다시 하려면 force=true")
+            try:
+                self._fresh()
+                d.enter("plugin_mixer")
+                found: tuple[int, int] | None = None
+                for slot in range(1, 16):
+                    d.slot_to(slot)
+                    for ch, s in enumerate(b.surface.state.strips):
+                        if s.number is not None and d.view.columns[ch][1].strip() == "--":
+                            found = (ch, slot)
+                            break
+                    if found:
+                        break
+                if found is None:
+                    return b._result(action, False, "skipped", t0, note="스캔에 쓸 빈 슬롯이 보이는 뱅크에 없음. 빈 슬롯이 있는 트랙을 뱅크에 띄우고 다시")
+                ch, slot = found
+                names = scan_list(d, ch)
+                self.cache.user_list = names
+                self.cache.scanned_at = datetime.now().isoformat(timespec="seconds")
+                self.cache.save()
+                d.leave(keep_select=True)                            # 미리 선택 취소(삽입 없음)
+                d.enter("plugin_mixer")
+                d.slot_to(slot)
+                still_empty = d.view.columns[ch][1].strip() == "--"
+                return b._result(action, still_empty, "verified" if still_empty else "unverified", t0,
+                                 after={"count": len(names), "path": str(self.cache.path), "strip": ch + 1, "slot": slot},
+                                 note="" if still_empty else "스캔 뒤 슬롯이 비어 있지 않음(확인 누름이 섞였을 수 있음)")
+            except ModeError as e:
+                return b._result(action, False, "unverified", t0, note=str(e))
             finally:
                 d.leave_safely()

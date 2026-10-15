@@ -211,6 +211,14 @@ class ModeDriver:
         self._press(P.Note.VPOT_PUSH + ch)
         return self._wait_change()
 
+    def shift_press_vpot(self, ch: int) -> bool:
+        """SHIFT를 누른 채 V-Pot 누름(플러그인 바이패스 토글, Apple 문서·라이브 체크 대상)."""
+        self._mark()
+        self.surface.send(P.button_down(P.Note.SHIFT))
+        self._press(P.Note.VPOT_PUSH + ch)
+        self.surface.send(P.button_up(P.Note.SHIFT))
+        return self._wait_change()
+
     def fader(self, ch: int, raw: int) -> int | None:
         """Flip 상태에서 페이더로 절대값. 에코된 raw, 반응이 없으면 None. raw 0은 보내지 않는다."""
         raw = max(1, min(P.MAX_FADER, raw))
