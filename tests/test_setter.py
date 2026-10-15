@@ -75,3 +75,8 @@ def test_probe_mapping_reads_min_max():
     assert m == Mapping("linear", -24.0, 24.0) and lo.text == "-24.0 dB" and hi.text == "+24.0 dB"
     m2, lo2, hi2 = probe_mapping(d, 0)
     assert m2 == Mapping("log", 20.0, 20000.0)
+
+
+def test_enum_matches_truncated_slope_unit():
+    assert enum_matches(parse_value("24 dB/O"), "24") is True
+    assert enum_matches(parse_value("18 dB/O"), "24") is False

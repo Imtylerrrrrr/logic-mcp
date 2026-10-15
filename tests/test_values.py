@@ -59,3 +59,10 @@ def test_tolerance_and_within():
     assert tolerance_for(0.5, None) == 0.01
     assert within(1004.0, 1000.0, 10.0) and not within(1011.0, 1000.0, 10.0)
     assert not within(math.nan, 1.0, 1.0)
+
+
+def test_parse_number_with_unknown_or_truncated_unit():       # 실측 R: `24 dB/O`가 enum이 되어 슬로프 매칭 실패
+    v = parse_value("24 dB/O")
+    assert v.kind == "number" and v.number == 24.0 and v.unit == "dB/Oct"
+    v = parse_value("3 foo")
+    assert v.kind == "number" and v.number == 3.0 and v.unit == "foo"

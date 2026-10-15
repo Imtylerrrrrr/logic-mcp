@@ -10,6 +10,7 @@ from .faders import FaderTable
 
 _NUM_RE = re.compile(r"^\s*([+-]?\d+(?:\.\d+)?|-oo)\s*([A-Za-z/%]*)\s*$")
 _UNITS = {"": None, "hz": "Hz", "khz": "kHz", "db": "dB", "d": "dB", "db/oct": "dB/Oct",
+          "db/o": "dB/Oct", "db/oc": "dB/Oct",        # 7자 열에서 잘린 `18 dB/O`(실측 R)
           "ms": "ms", "s": "s", "%": "%", "st": "st", "ct": "ct", "smp": "smp"}
 
 
@@ -27,8 +28,10 @@ def parse_value(text: str) -> Value:
     if not t:
         return Value("none", text="")
     m = _NUM_RE.match(t)
-    if m and m.group(2).lower() in _UNITS:
-        num, unit = m.group(1), _UNITS[m.group(2).lower()]
+    if m:
+        # 앞 토큰이 숫자면 단위가 표에 없어도 숫자로 읽는다(단위 표는 정규화만 맡음, 실측 R)
+        num, raw_unit = m.group(1), m.group(2)
+        unit = _UNITS[raw_unit.lower()] if raw_unit.lower() in _UNITS else raw_unit
         n = -math.inf if num == "-oo" else float(num)
         if unit == "kHz":
             n, unit = n * 1000.0, "Hz"
