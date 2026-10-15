@@ -40,7 +40,7 @@ bank first   ok=True skipped    1049ms already
 - dB 파서: 7칸 열에 `-55.0 d`로 잘림, 최저 `-120 dB`(정수). 1차 캘리브레이션은 115점만 잡혔고 수정 후 233점.
 
 ## 다음
-- Task 12 Step 6: 트랙 9개 이상 프로젝트에서 `bank right`가 8칸 움직이는지 확인(BANK 0x2E/0x2F vs CHANNEL 0x30/0x31 판별). 사용자 Logic 조작 필요.
+- ~~Task 12 Step 6~~ 완료(2026-10-15): 트랙 22채널 프로젝트에서 bank left/right = 8칸 페이지(끝 클램프, 15→9→15), channel_left/right = 1칸 모두 verified. 코드 변경 없음.
 - 스펙 2: Send/EQ/Plug-in 모드 + Flip (`logic_assign`)
 
 ## 메모

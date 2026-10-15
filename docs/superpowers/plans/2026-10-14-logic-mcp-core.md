@@ -2810,7 +2810,9 @@ Expected: `wait_ready` ok(Logic에서 프로젝트를 다시 열어야 할 수 �
 
 실패하는 줄이 있으면 `scripts/capture.py`로 원시 로그를 떠서 원인을 찾고 코드를 고친 뒤 다시 돈다. 모두 통과한 출력을 `docs/progress.md`에 붙인다.
 
-- [ ] **Step 6: BANK/CHANNEL 노트 번호 확인 (트랙 9개 이상 프로젝트)**
+- [x] **Step 6: BANK/CHANNEL 노트 번호 확인 (트랙 9개 이상 프로젝트)**
+
+결과(2026-10-15, 트랙 22채널): bank left 15→9, bank right 9→15(끝 클램프), channel_right 9→10, channel_left 10→9. 표준 맵 2E/2F/30/31 그대로 맞음, 코드 변경 없음.
 
 Logic에서 트랙을 9개 이상 만든 뒤:
 ```bash
