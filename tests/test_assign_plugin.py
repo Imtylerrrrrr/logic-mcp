@@ -4,7 +4,7 @@ from logic_mcp.logic.commands import Commands
 from logic_mcp.logic.faders import FaderTable
 from logic_mcp.logic.plugins.cache import PluginCache
 from logic_mcp.mcu import protocol as P
-from tests.fake_assign import PLUGIN_LIST, make_assign_logic
+from tests.fake_assign import PLUGIN_LIST, Param, make_assign_logic
 
 
 def make(tmp_path):
@@ -281,3 +281,51 @@ def test_params_drops_stale_overlap_entries_keeps_learned_map(tmp_path):
     assert [x["index"] for x in items] == list(range(1, 17)) + [21, 22, 23, 24]
     assert items[1]["short"] == "Thrs" and items[1]["map"] == thrs_map
     assert len(r.after["params"]) == 20
+
+
+@pytest.mark.parametrize("value", [24, "24", 24.0])
+def test_set_numeric_input_on_enum_param_takes_enum_path(tmp_path, value):       # 리뷰 I3: 번들 Channel EQ LoCutS는 enum 맵
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    cache.params.update(PluginCache.load(version="t", user_dir=tmp_path).params)
+    logic.tracks[0].insert(1, "Channel EQ")
+    s = cmds.plugin.set(1, None, 1, "LoCutS", value)
+    assert s.ok and s.verified == "verified" and s.after["text"].startswith("24")
+    assert logic.tracks[0].eq[0][1].options[int(logic.tracks[0].eq[0][1].value)] == "24"
+
+
+def test_plugin_value_error_returns_skipped_not_exception(tmp_path):               # 리뷰 I3
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    cache.params.update(PluginCache.load(version="t", user_dir=tmp_path).params)
+    logic.tracks[0].insert(1, "Channel EQ")
+    s = cmds.plugin.set(1, None, 1, "LoCutS", "13")                                # 선택지 밖
+    assert not s.ok and surface.state.view.kind == "pan"
+
+
+def test_failed_probe_restores_original_position(tmp_path):                        # 리뷰 I4: 양 끝이 숫자가 아닌 파라미터
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Compressor")
+    thr = Param("Thrs", "Threshold", "linear", -60.0, 0.0, -20.0, unit="n1", step=0.5, ends=("Min", "Max"))
+    logic.tracks[0].params[2][1] = thr
+    raw0 = thr.raw()
+    n0 = len(fake.sent)
+    s = cmds.plugin.set(1, None, 2, "Thrs", -30.0)
+    assert not s.ok and s.verified == "unverified" and "복원" in s.note
+    assert thr.value == -20.0
+    bends = [m for m in fake.sent[n0:] if m[0] & 0xF0 == 0xE0]
+    assert bends[-1] == [m for m in P.fader_move(1, raw0) if m[0] & 0xF0 == 0xE0][0]   # 마지막 페이더 송신 = 원래 위치
+    assert [it["map"] for it in cache.param_table("Compressor")["items"] if it["index"] == 2] == [None]
+    assert surface.state.view.kind == "pan" and not surface.state.assignment.flip
+
+
+def test_map_is_cleared_and_saved_when_numeric_set_fails(tmp_path):                  # 리뷰 m5
+    import json
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Compressor")
+    logic.tracks[0].params[2][1] = Param("Thrs", "Threshold", "linear", -60.0, 0.0, -20.0, unit="n1", step=0.0)
+    cache.params["Compressor"] = {"pages": 3, "items": [
+        {"index": 2, "short": "Thrs", "name": "Threshold", "map": {"type": "linear", "lo": -60.0, "hi": -30.0}}]}
+    s = cmds.plugin.set(1, None, 2, "Thrs", -50.0)
+    assert not s.ok and s.verified == "unverified"
+    assert [it["map"] for it in cache.param_table("Compressor")["items"] if it["index"] == 2] == [None]
+    saved = json.loads(cache.path.read_text())
+    assert [it["map"] for it in saved["params"]["Compressor"]["items"] if it["index"] == 2] == [None]

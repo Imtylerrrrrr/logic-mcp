@@ -173,3 +173,23 @@ def test_mixer_volume_refuses_when_flip_cannot_be_turned_off():    # 리뷰 I1
     r = cmds.mixer_volume(2, None, -6.0)
     assert not r.ok and r.verified == "unverified" and "Flip" in r.note
     assert [t.volume for t in logic.tracks] == eq_before == [None] * len(logic.tracks)
+
+
+@pytest.mark.parametrize("band,param,value", [(3, "freq", 0), (3, "freq", float("inf")), (3, "q", -1),
+                                              (3, "gain", float("nan")), (1, "slope", 12.7), (3, "on", 2)])
+def test_eq_set_rejects_invalid_values_as_skipped(band, param, value):          # 리뷰 I3
+    cmds, surface, fake, logic = make()
+    r = cmds.eq.set(1, None, band, param, value)
+    assert not r.ok and r.verified == "skipped" and r.note
+    assert logic.tracks[0].eq is None and surface.state.view.kind == "pan"
+
+
+def test_eq_set_on_accepts_one_and_bool():                                      # 리뷰 I3
+    cmds, surface, fake, logic = make()
+    logic.tracks[0].insert(1, "Channel EQ")
+    eq = logic.tracks[0].eq
+    assert eq[2][3].value == 1
+    r = cmds.eq.set(1, None, 3, "on", 0.0)
+    assert r.ok and eq[2][3].value == 0
+    r = cmds.eq.set(1, None, 3, "on", 1)
+    assert r.ok and eq[2][3].value == 1

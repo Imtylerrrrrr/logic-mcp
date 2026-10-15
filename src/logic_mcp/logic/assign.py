@@ -2,6 +2,7 @@
 모든 공개 메서드는 ToolResult를 돌려주고 finally에서 leave_safely()로 PAN·Flip off로 돌아간다."""
 from __future__ import annotations
 
+import math
 import re
 from datetime import datetime
 from typing import TYPE_CHECKING
@@ -41,6 +42,23 @@ def _band_dict(columns, band: int) -> dict:
     else:
         out["gain"] = vals[1].number
     return out
+
+
+def _eq_value_problem(param: str, value) -> str | None:
+    """EQ 값 검증. 문제가 있으면 이유를, 없으면 None."""
+    if param == "on":
+        return None if value in (0, 1) else "on은 true/false 또는 0/1"
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return f"{param} 값이 숫자가 아님: {value!r}"
+    if not math.isfinite(v):
+        return f"{param} 값이 유한하지 않음: {value!r}"
+    if param in ("freq", "q") and v <= 0:
+        return f"{param}는 0보다 커야 함: {value!r}"
+    if param == "slope" and (not v.is_integer() or str(int(v)) not in SLOPES):
+        return f"slope는 {SLOPES} 중 하나(정수)"
+    return None
 
 
 def _value_dict(band: int, param: str, v: Value) -> dict:
@@ -97,6 +115,8 @@ class EqCommands:
                 return b._result(action, True, "verified", t0, target=target, after={"has_eq": True, "bands": bands})
             except ModeError as e:
                 return b._result(action, False, "unverified", t0, target=target, note=str(e))
+            except ValueError as e:
+                return b._result(action, False, "skipped", t0, target=target, note=f"값 오류: {e}")
             finally:
                 d.leave_safely()
 
@@ -114,8 +134,8 @@ class EqCommands:
             if (band in SLOPE_BANDS) != (param == "slope") and param in ("gain", "slope"):
                 return b._result(action, False, "skipped", t0,
                                  note=f"밴드 {band}는 {'slope' if band in SLOPE_BANDS else 'gain'}만 받음")
-            if param == "slope" and str(int(value)) not in SLOPES:
-                return b._result(action, False, "skipped", t0, note=f"slope는 {SLOPES} 중 하나")
+            if (why := _eq_value_problem(param, value)) is not None:
+                return b._result(action, False, "skipped", t0, note=why)
             ch = b._resolve(strip, number, action, t0)
             if not isinstance(ch, int):
                 return ch
@@ -133,7 +153,7 @@ class EqCommands:
                 col = (0 if band % 2 == 1 else 4) + EQ_PARAM_COL[param]
                 before = _value_dict(band, param, d.read_column(col)[1])
                 if param == "on":
-                    want = "On" if (value is True or str(value).lower() in ("on", "true", "1")) else "Off"
+                    want = "On" if value == 1 else "Off"
                     out = set_enum(d, col, want)
                 elif param == "slope":
                     out = set_enum(d, col, str(int(value)))
@@ -149,6 +169,8 @@ class EqCommands:
             except ModeError as e:
                 return b._result(action, False, "unverified", t0, target=target,
                                  note=("Channel EQ 삽입됨. " if inserted else "") + str(e))
+            except ValueError as e:
+                return b._result(action, False, "skipped", t0, target=target, note=f"값 오류: {e}")
             finally:
                 d.leave_safely()
 
@@ -383,6 +405,8 @@ class PluginCommands:
                 return b._result(action, True, "verified", t0, after={"tracks": tracks})
             except ModeError as e:
                 return b._result(action, False, "unverified", t0, note=str(e))
+            except ValueError as e:
+                return b._result(action, False, "skipped", t0, note=f"값 오류: {e}")
             finally:
                 d.leave_safely()
 
@@ -418,6 +442,8 @@ class PluginCommands:
                 return b._result(action, False, "skipped", t0, target=target, note=f"슬롯 {slot}이 비어 있음")
             except ModeError as e:
                 return b._result(action, False, "unverified", t0, target=target, note=str(e))
+            except ValueError as e:
+                return b._result(action, False, "skipped", t0, target=target, note=f"값 오류: {e}")
             finally:
                 d.leave_safely()
 
@@ -444,6 +470,8 @@ class PluginCommands:
                 return b._result(action, False, "skipped", t0, target=target, note=e.note)
             except ModeError as e:
                 return b._result(action, False, "unverified", t0, target=target, note=str(e))
+            except ValueError as e:
+                return b._result(action, False, "skipped", t0, target=target, note=f"값 오류: {e}")
             finally:
                 d.leave_safely()
 
@@ -471,16 +499,31 @@ class PluginCommands:
                         value, numeric = float(value), True
                     except ValueError:
                         numeric = False
+                mapping = _map_from(item.get("map")) if numeric else None
+                if numeric and ((mapping is not None and mapping.type == "enum")
+                                or (mapping is None and before_v.kind != "number")):
+                    numeric, value = False, str(int(value)) if float(value).is_integer() else str(value)   # 숫자 입력도 enum이면 선택지 경로(리뷰 I3·I4)
                 if numeric:
-                    mapping = _map_from(item.get("map"))
                     if mapping is None:
                         d.flip(True)
+                        st = b.surface.state.strips[col]
+                        raw0 = st.fader_raw if st.fader_known else None
                         mapping, _lo, _hi = probe_mapping(d, col)          # 범위를 모르면 페이더 1·16383으로 프로빙
-                        if mapping is not None:
-                            item["map"] = _map_to(mapping)
-                            self.cache.save()
+                        if mapping is None:                                # 프로빙으로 옮긴 값을 원래 위치로 되돌린다(리뷰 I4)
+                            if raw0 is not None:
+                                d.fader(col, raw0)
+                                note = "프로빙 실패, 원래 위치로 복원"
+                            else:
+                                note = f"프로빙 실패, 복원 못함: 원래 값 {before_v.text}"
+                            return b._result(action, False, "unverified", t0, target=target, before=before,
+                                             after=self._param_dict(full, slot, item, d.read_value(col)), note=note)
+                        item["map"] = _map_to(mapping)
+                        self.cache.save()
                     tol = tolerance if tolerance is not None else tolerance_for(float(value), before_v.unit)
                     out = set_numeric(d, col, float(value), mapping, tol, b.faders)
+                    if not out.ok:                                         # 틀린 map을 지워 다음에 다시 프로빙하게 한다(리뷰 m5)
+                        item["map"] = None
+                        self.cache.save()
                 else:
                     want = ("On" if value else "Off") if isinstance(value, bool) else str(value)
                     out = set_enum(d, col, want)
@@ -495,6 +538,8 @@ class PluginCommands:
                 return b._result(action, False, "skipped", t0, target=target, note=e.note)
             except ModeError as e:
                 return b._result(action, False, "unverified", t0, target=target, note=str(e))
+            except ValueError as e:
+                return b._result(action, False, "skipped", t0, target=target, note=f"값 오류: {e}")
             finally:
                 d.leave_safely()
 
@@ -560,6 +605,8 @@ class PluginCommands:
                                         "replaced": current if occupied else None})
             except ModeError as e:
                 return b._result(action, False, "unverified", t0, target=target, note=str(e))
+            except ValueError as e:
+                return b._result(action, False, "skipped", t0, target=target, note=f"값 오류: {e}")
             finally:
                 d.leave_safely()
 
@@ -591,6 +638,8 @@ class PluginCommands:
                                  note="" if ok else "제거 뒤에도 슬롯에 이름이 보임")
             except ModeError as e:
                 return b._result(action, False, "unverified", t0, target=target, note=str(e))
+            except ValueError as e:
+                return b._result(action, False, "skipped", t0, target=target, note=f"값 오류: {e}")
             finally:
                 d.leave_safely()
 
@@ -623,6 +672,8 @@ class PluginCommands:
                                  note="" if ok else "SHIFT+V-Pot 뒤 `*` 표시가 기대와 다름")
             except ModeError as e:
                 return b._result(action, False, "unverified", t0, target=target, note=str(e))
+            except ValueError as e:
+                return b._result(action, False, "skipped", t0, target=target, note=f"값 오류: {e}")
             finally:
                 d.leave_safely()
 
@@ -659,5 +710,7 @@ class PluginCommands:
                                  note="" if still_empty else "스캔 뒤 슬롯이 비어 있지 않음(확인 누름이 섞였을 수 있음)")
             except ModeError as e:
                 return b._result(action, False, "unverified", t0, note=str(e))
+            except ValueError as e:
+                return b._result(action, False, "skipped", t0, note=f"값 오류: {e}")
             finally:
                 d.leave_safely()
