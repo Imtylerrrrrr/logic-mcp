@@ -185,6 +185,7 @@ class EqCommands:
 
 
 MAX_SLOT = 8            # 2a는 Plug-in Channel 뷰(PL)의 슬롯 1~8만(실측 C: 9~15 접근 경로 미확인)
+MAX_OPTIONS = 16        # 열거형 선택지 수집 상한(캘리브레이션)
 EMPTY_TEXTS = ("", "--")  # PL·Mixer 2행에서 빈 슬롯(`--` 또는 갱신 전 공백, 실측 C·H)
 _HEADER_RE = re.compile(r'Ins\.(\d+) "([^"]*)("?)')
 _PAGE_TAIL_RE = re.compile(r"\s*Page\s*\d+/\d+.*$")
@@ -704,6 +705,76 @@ class PluginCommands:
                 return b._result(action, ok, "verified" if ok else "unverified", t0, target=target,
                                  before={"slot": slot, "text": current}, after={"slot": slot, "text": after},
                                  note="" if ok else "SHIFT+V-Pot 뒤 `*` 표시가 기대와 다름")
+            except StripUnsupported as e:
+                return b._result(action, False, "skipped", t0, target=target, note=e.note)
+            except ModeError as e:
+                return b._result(action, False, "unverified", t0, target=target, note=str(e))
+            except ValueError as e:
+                return b._result(action, False, "skipped", t0, target=target, note=f"값 오류: {e}")
+            finally:
+                d.leave_safely()
+
+    def calibrate(self, strip: int | None, number: int | None, slot: int) -> "ToolResult":
+        """편집 뷰에서 파라미터마다 전체 이름(틱 오버레이 1행), 숫자 매핑(Flip 페이더 프로빙), 열거형 선택지(-1로 처음까지 간 뒤
+        +1로 끝까지, 정착 열 텍스트)를 모아 캐시에 저장한다. 값을 바꾸고 되돌리지 않는다 → scripts/calibrate_plugin.py가
+        삽입한 임시 인스턴스에만 쓴다."""
+        b, d, action = self.b, self.d, "plugin_calibrate"
+        t0 = b._now_ms()
+        with b._lock:
+            if (r := b._require_ready(action, t0)) is not None:
+                return r
+            ch = self._begin(action, strip, number, slot, t0)
+            if not isinstance(ch, int):
+                return ch
+            target = {**b._target(ch), "slot": slot}
+            try:
+                self._fresh()
+                full, _abbrev, pages = self._open_edit(ch, slot)
+                self._merge_items(full, pages, self._read_pages(pages))
+                table = self._table(full, pages)
+                probed = enums = 0
+                for item in table["items"]:
+                    col = self._goto_param(item)                                   # VALUE 모드
+                    v = d.read_column(col)[1]
+                    if v.kind == "enum":
+                        last = v.text
+                        for _ in range(MAX_OPTIONS):                               # 처음(가장 앞 선택지)까지 -1
+                            d.tick(col, -1)
+                            name = d.read_overlay_name(col)
+                            d.settle_overlay()
+                            t = d.read_column(col)[1].text
+                            if t == last:
+                                break
+                            last = t
+                        options = [last]
+                        for _ in range(MAX_OPTIONS - 1):                           # +1로 끝까지 모은다
+                            d.tick(col, 1)
+                            d.settle_overlay()
+                            t = d.read_column(col)[1].text
+                            if t == options[-1]:
+                                break
+                            options.append(t)
+                        item["map"] = {"type": "enum", "options": options}
+                        enums += 1
+                    else:
+                        d.tick(col, 1)
+                        name = d.read_overlay_name(col)
+                        d.tick(col, -1)
+                        d.settle_overlay()
+                        if v.kind == "number" and not item.get("map"):
+                            d.flip(True)
+                            mapping, _lo, _hi = probe_mapping(d, col)              # 페이더 1·16383 → 범위(실측 X: 에코 뒤 LCD까지 대기)
+                            if mapping is not None:
+                                item["map"] = _map_to(mapping)
+                                probed += 1
+                    if name and "Page" not in name:
+                        item["name"] = name
+                    d.toggle_name_value()                                           # NAME 모드로 복귀(다음 page_to가 헤더를 읽는다)
+                self.cache.save()
+                return b._result(action, True, "verified", t0, target=target,
+                                 after={"plugin": full, "pages": pages, "items": table["items"], "probed": probed, "enums": enums})
+            except SlotEmpty:
+                return b._result(action, False, "skipped", t0, target=target, note=f"슬롯 {slot}이 비어 있음")
             except StripUnsupported as e:
                 return b._result(action, False, "skipped", t0, target=target, note=e.note)
             except ModeError as e:

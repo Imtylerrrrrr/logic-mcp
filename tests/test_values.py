@@ -67,3 +67,8 @@ def test_parse_number_with_unknown_or_truncated_unit():       # 실측 R: `24 dB
     assert v.kind == "number" and v.number == 24.0 and v.unit == "dB/Oct"
     v = parse_value("3 foo")
     assert v.kind == "number" and v.number == 3.0 and v.unit == "foo"
+
+
+def test_parse_value_ratio_unit():                                    # Compressor Ratio `2.1:1`(실측 M)
+    v = parse_value("2.1:1")
+    assert v.kind == "number" and v.number == 2.1 and v.unit == ":1"

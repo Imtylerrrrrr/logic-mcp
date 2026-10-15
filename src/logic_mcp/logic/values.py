@@ -8,10 +8,10 @@ from dataclasses import dataclass
 from ..mcu.protocol import MAX_FADER
 from .faders import FaderTable
 
-_NUM_RE = re.compile(r"^\s*([+-]?\d+(?:\.\d+)?|-oo)\s*([A-Za-z/%]*)\s*$")
+_NUM_RE = re.compile(r"^\s*([+-]?\d+(?:\.\d+)?|-oo)\s*([A-Za-z/%:0-9]*)\s*$")
 _UNITS = {"": None, "hz": "Hz", "khz": "kHz", "db": "dB", "d": "dB", "db/oct": "dB/Oct",
           "db/o": "dB/Oct", "db/oc": "dB/Oct",        # 7자 열에서 잘린 `18 dB/O`(실측 R)
-          "ms": "ms", "s": "s", "%": "%", "st": "st", "ct": "ct", "smp": "smp"}
+          "ms": "ms", "s": "s", "%": "%", "st": "st", "ct": "ct", "smp": "smp", ":1": ":1"}
 
 
 @dataclass(frozen=True)
