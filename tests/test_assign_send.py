@@ -167,6 +167,16 @@ def test_set_level_mode_error_still_leaves_flip_off():                          
     assert not surface.state.assignment.flip and not logic.flip and surface.state.view.kind == "pan"
 
 
+def test_set_level_mode_error_raised_inside_try_still_leaves_flip_off_and_pan():  # 리뷰 M1: 예외 경로
+    cmds, surface, fake, logic = make()
+    logic.tracks[0].sends[1] = Send("Bus 1")
+    logic.drop_all_flips = True                                                       # flip(True)가 ModeError
+    r = cmds.send.set_level(strip=1, number=None, send=1, db=-6.0)
+    assert not r.ok and r.verified == "unverified" and "flip" in r.note
+    assert not surface.state.assignment.flip and not logic.flip and surface.state.view.kind == "pan" and logic.view == "pan"
+    assert logic.tracks[0].sends[1].level == -math.inf and logic.tracks[0].volume is None   # 볼륨도 센드도 안 바뀜
+
+
 def test_set_pos_and_mute():                                                         # 실측 S8·S9
     cmds, surface, fake, logic = make()
     logic.tracks[0].sends[1] = Send("Bus 1")                                          # Post Pan, active

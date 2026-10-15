@@ -109,3 +109,4 @@ def test_merge_bundled_replaces_table_and_generated(tmp_path):
     data = merge_bundled(bundled, "B", table, "2026-10-17")
     assert data["params"]["B"] == table and data["params"]["A"]["pages"] == 1 and data["generated"] == "2026-10-17"
     assert json.loads(bundled.read_text()) == data and not list(tmp_path.glob("*.tmp"))
+    assert bundled.read_text().startswith('{\n  "logic_version"')         # 2칸 들여쓰기(리뷰 M3)

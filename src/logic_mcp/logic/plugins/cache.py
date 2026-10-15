@@ -104,6 +104,6 @@ def merge_bundled(bundled: Path, name: str, table: dict, generated: str) -> dict
     data.setdefault("params", {})[name] = table
     data["generated"] = generated
     tmp = bundled.with_name(bundled.name + ".tmp")
-    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1) + "\n")
+    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
     os.replace(tmp, bundled)
     return data

@@ -1,6 +1,6 @@
 """번들 파라미터 표 만들기(스펙 §6.1). 테스트 프로젝트(저장 안 함)의 strip 빈 슬롯에 플러그인을 넣고 calibrate → 제거.
---write면 src/logic_mcp/logic/plugins/known.json에 합친다.
-사용: uv run python scripts/calibrate_plugin.py "Channel EQ" [strip=1] [--write]"""
+--write면 src/logic_mcp/logic/plugins/known.json에 합친다. --yes면 시작 확인(Enter)을 건너뛴다.
+사용: uv run python scripts/calibrate_plugin.py "Channel EQ" [strip=1] [--write] [--yes]"""
 import sys
 from datetime import date
 
@@ -12,6 +12,10 @@ if not args:
     sys.exit(__doc__)
 name = args[0]
 strip = int(args[1]) if len(args) > 1 else 1
+print(f"경고: 지금 열린 Logic 프로젝트의 스트립 {strip}에 {name}을 넣고 값을 되돌리지 않고 움직인다. "
+      "테스트 프로젝트에서만 쓰고 끝난 뒤 저장하지 말 것.")
+if "--yes" not in sys.argv:
+    input("계속하려면 Enter, 그만두려면 Ctrl-C: ")
 commands, surface = build()
 surface.start()
 try:
