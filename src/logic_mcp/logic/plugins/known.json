@@ -1,0 +1,39 @@
+{
+  "logic_version": "12.0.1",
+  "generated": "2026-10-15",
+  "complete": false,
+  "list": ["--", "Parametric EQ", "Low Pass Filter", "High Pass Filter", "Low Shelving EQ", "High Shelving EQ",
+           "Chorus", "Flanger", "Tape Delay", "Echo", "Stereo Delay", "SilverVerb", "PlatinumVerb", "Phaser",
+           "Microphaser", "Compressor", "Fuzz-Wah", "Expander", "Enveloper", "Pitch Shifter", "DeEsser", "Ensemble",
+           "AutoFilter", "Bitcrusher", "Distortion", "Overdrive", "EnVerb", "DJ EQ", "Spectral Gate", "High Cut",
+           "Low Cut", "Fat EQ", "Silver EQ", "Silver Compressor", "GoldVerb", "Noise Gate", "Silver Gate",
+           "Modulation Delay", "Gain", "Tremolo", "SubBass", "EVOC 20 TrackOscillator", "Clip Distortion", "AVerb",
+           "Adaptive Limiter", "Multipressor", "Denoiser", "Phase Distortion", "Exciter", "Limiter",
+           "EVOC 20 Filterbank", "Distortion II", "Scanner Vibrato", "Space Designer", "Pitch Correction",
+           "Channel EQ", "Tuner", "Linear Phase EQ", "Guitar Amp Pro", "Match EQ", "Delay Designer",
+           "Vocal Transformer", "Grooveshifter", "Ringshifter", "Test Oscillator", "Level Meter", "Bass Amp"],
+  "abbrev": {"Cha EQ": "Channel EQ", "Distrt": "Distortion"},
+  "params": {
+    "Channel EQ": {
+      "pages": 6,
+      "items": [
+        {"index": 1, "short": "LoCutS", "name": "Low Cut Slope", "map": {"type": "enum", "options": ["6", "12", "18", "24", "36", "48"]}},
+        {"index": 2, "short": "LoShGa", "name": "Low Shelf Gain", "map": {"type": "linear", "lo": -24.0, "hi": 24.0}},
+        {"index": 3, "short": "Pea1Ga", "name": "Peak 1 Gain", "map": {"type": "linear", "lo": -24.0, "hi": 24.0}},
+        {"index": 4, "short": "Pea2Ga", "name": "Peak 2 Gain", "map": {"type": "linear", "lo": -24.0, "hi": 24.0}},
+        {"index": 5, "short": "Pea3Ga", "name": "Peak 3 Gain", "map": {"type": "linear", "lo": -24.0, "hi": 24.0}},
+        {"index": 6, "short": "Pea4Ga", "name": "Peak 4 Gain", "map": {"type": "linear", "lo": -24.0, "hi": 24.0}},
+        {"index": 7, "short": "HiShGa", "name": "High Shelf Gain", "map": {"type": "linear", "lo": -24.0, "hi": 24.0}},
+        {"index": 8, "short": "HiCutS", "name": "High Cut Slope", "map": {"type": "enum", "options": ["6", "12", "18", "24", "36", "48"]}},
+        {"index": 9, "short": "LoCutF", "name": "Low Cut Frequency", "map": {"type": "log", "lo": 20.0, "hi": 20000.0}},
+        {"index": 10, "short": "LoShF", "name": "Low Shelf Frequency", "map": {"type": "log", "lo": 20.0, "hi": 20000.0}},
+        {"index": 11, "short": "Peak1F", "name": "Peak 1 Frequency", "map": {"type": "log", "lo": 20.0, "hi": 20000.0}},
+        {"index": 12, "short": "Peak2F", "name": "Peak 2 Frequency", "map": {"type": "log", "lo": 20.0, "hi": 20000.0}},
+        {"index": 13, "short": "Peak3F", "name": "Peak 3 Frequency", "map": {"type": "log", "lo": 20.0, "hi": 20000.0}},
+        {"index": 14, "short": "Peak4F", "name": "Peak 4 Frequency", "map": {"type": "log", "lo": 20.0, "hi": 20000.0}},
+        {"index": 15, "short": "HiShF", "name": "High Shelf Frequency", "map": {"type": "log", "lo": 20.0, "hi": 20000.0}},
+        {"index": 16, "short": "HiCutF", "name": "High Cut Frequency", "map": {"type": "log", "lo": 20.0, "hi": 20000.0}}
+      ]
+    }
+  }
+}
