@@ -30,10 +30,31 @@
 - 노트(Note On ch1): Cursor ▲ 0x60, ▼ 0x61, ◀ 0x62, ▶ 0x63, ZOOM 0x64(꺼져 있어야 함), V-Pot 누름 0x20-0x27, F1-F8 0x36-0x3D, SHIFT 0x46, FLIP 0x32, TRACK 0x28, SEND 0x29, PAN 0x2A, PLUGIN 0x2B, EQ 0x2C, INSTRUMENT 0x2D.
 - 2자리 표시(CC 0x4A/0x4B): `PN` 팬, `E1` EQ Mixer, `EQ` EQ Channel, `E_` EQ 메뉴, `S<n>` Send Mixer, `SE` Send Channel, `S_` Send 메뉴, `D<n>` Send Dest/Level Mixer, `P<n>`/`10`-`16` Plug-in Mixer·Edit, `PL` Plug-in Channel, `M<n>` MIDI FX.
 - 오버레이 2.0 s. 미리 선택 깜박임: 오버레이 뒤 반주기 ≈0.75 s, 타임아웃 없음(≥7 s), 모드 전환으로 취소.
-- V-Pot CC(0x10+ch): 크기 1-63, 플러그인 목록은 크기 N = N/2 항목, 파라미터는 종류별 상이.
+- V-Pot CC(0x10+ch): 크기 1-63, 플러그인 목록은 1항목 = 2틱(위치 모델은 아래 E의 ceil), 파라미터는 종류별 상이.
 - Flip: 페이더 → 파라미터 절대값(log/linear/enum). raw 0 무시 사례. 에코는 값이 바뀔 때만.
 - EQ Channel view 열(밴드 1·2): `LoCutF LoCutS LoCutQ LCO/Of LoShF LoShGa LoShQ LSO/Of`; 밴드 3·4: `Peak1F Pea1Ga Peak1Q Pe1On/ Peak2F …`; 밴드 5·6: Peak3/4; 밴드 7·8: High Shelf/High Cut(추정, 라이브 체크에서 확인).
 - Plug-in Edit NAME 모드 헤더 예: `Track 15 "15:Deluxe Classic" Ins.1 "Channel EQ (s/s)"` + `Page 1/6`. Channel EQ 1페이지: `LoCutS LoShGa Pea1Ga Pea2Ga Pea3Ga Pea4Ga HiShGa HiCutS`, 2페이지: 주파수 8개.
 - Send Channel view 열(센드 있을 때): `Sen1In|<목적지>|Sen1Po|Sen1Mu` / ` 1|-oodB|Post|active`, 뮤트 시 `* 1`. 센드 없을 때 `Sen1In - - -` / `--`.
 - Plug-in Mixer view: 2행 플러그인 축약 6자(`Cha EQ`, `Distrt`), 비면 `--`. 미리 선택 오버레이 `Insert <n> Plug-in` / 전체 이름.
 - 플러그인 목록 순서(Logic 내부, 일부): Parametric EQ, Low Pass Filter, High Pass Filter, Low Shelving EQ, High Shelving EQ, Chorus, Flanger, Tape Delay, Echo, Stereo Delay, … Channel EQ, Tuner, Linear Phase EQ, Guitar Amp Pro, Match EQ, Delay Designer, … (전체는 scan으로).
+
+## 스펙 2a 실기 1차 실측(2026-10-15, Logic 12.0.1, 트랙 15 "Deluxe Classic")
+
+계획의 "P<n> 믹서 뷰에서 Cursor ▲▼로 슬롯 이동"과 "+1 틱으로 현재 이름 드러내기"는 틀렸다. 아래가 실측이다.
+
+- A. EQ 버튼: down 즉시 2자리 `E_`(eq_menu), up 뒤 50 ms 안에 `E1`(eq_mixer). 모드 전환 대기는 `_menu`·과도기를 지나쳐야 한다. PLUG-IN은 메뉴 없이 즉시 `P1`.
+- B. Plug-in Mixer 뷰(`P1`)에서 Cursor ▲▼◀▶는 무반응(hold 0.03·0.2 s, M1 전환도 없음). 믹서 뷰로 슬롯을 바꾸는 경로는 없다.
+- C. 슬롯 접근은 Plug-in Channel 뷰(`PL`, PLUGIN 두 번째 누름). 1행 `Ins1Pl … Ins8Pl`, 2행 = 선택 트랙 슬롯 1~8(빈 슬롯 `--`, 차 있으면 6자 축약: `ParEQ ` = Parametric EQ, `Cha EQ` = Channel EQ, `Comprs` = Compressor). PL에서 ◀▶도 무반응 → 슬롯 9~15 경로 미확인, **2a는 슬롯 1~8만 지원**.
+- D. PL에서 V-Pot n 돌리기 = 슬롯 n 미리 선택. 오버레이 1행 `Insert n Plug-in`, 2행 전체 이름(`Parametric EQ (s/s)`), 폭 21칸, 시작 열 `min(n-1, 5)*7`(슬롯 6~8은 모두 열 35~55, 7·8은 오른쪽 정렬 + 끝 공백 1). 0.3 s 뒤 읽힘, 2.0 s 뒤 열 재묘사.
+- E. 미리 선택 위치 = ceil 모델: 틱 누적 pos(0 = `--`), 표시 항목 = `(pos + 1) // 2`. 차 있는 슬롯(항목 i)의 시작 pos = 2i → **-1 틱 = 현재 항목**, **+1 틱 = 다음 항목**(누르면 교체됨). 빈 슬롯은 0에서 포화(`--`).
+- F. V-Pot 누름: 미리 선택 뒤 → 삽입 후 편집 뷰(`P<slot>`). 미리 선택 없이 차 있는 슬롯 → 값이 보존된 편집 뷰(0.5 s 안). 미리 선택 없이 빈 슬롯 → 무반응.
+- G. 편집 뷰 NAME 모드 헤더 `Track 15 "15:Deluxe Classic" Ins.1 "Parametric EQ (s/s) ` — 56자에서 잘려 닫는 따옴표·`Page n/N`이 없을 수 있다. 이름은 `Ins\.(\d+) "([^"]*)`로 뽑고 `(s/s)` 접미는 뗀다.
+- H. 편집 뷰에서 PLUGIN → Plug-in Mixer 뷰(PL 아님). Mixer 2행의 빈 슬롯은 `--` 또는 공백(갱신 전).
+- I. 제거: PL에서 V-Pot n에 -63 틱 반복(-126이면 충분) → 오버레이 `--` → 누름 → `empty_edit`(1행 전부 `-`, `P<slot>`) → PL 2행 해당 슬롯 `--`.
+- J. 2자리 `PL`은 오버레이가 떠도 그대로 → `plugin_channel`은 코드 `PL`만으로 판정(슬롯 1 오버레이가 1행 `Ins1Pl`을 덮는다).
+- K. 확정 누름(미리 선택 뒤) → +0.5 s에는 아직 `PL`+오버레이, **+2.0 s에 편집 뷰**(`plugin_edit`, 제거면 `empty_edit`). 대기는 오버레이 시간+여유(≈3 s).
+- L. NAME 헤더의 Page: 1페이지 `… Ins.2 "Compressor (s/s)" P `(`Page 1/3`이 잘림), 2페이지 `… Ins.2 "Compre     Page 2/3 `(이름이 잘리고 Page 표시). 이름은 1페이지에서, 페이지 수는 2페이지 헤더에서 읽고, Cursor ▶에 반응이 없으면 1페이지. 트랙 이름이 짧으면 1페이지에도 `Page 1/N`이 보인다.
+- M. Compressor: VALUE 1행 `CirTyp Thrs   Ratio  Attack Rel    AutRel MakeUp AutGai `, 2행 `PltDig -20.0  2.1:1  15.0ms 51.0ms On     0.0 dB -12dB  `, 2페이지 `Knee   Peak/S LimrOn LimThr Distrt Mix    SiChDe State  `, 3페이지까지. 되감기 뒤 +2·15 틱 → `Compressor (s/s)`(known.json 인덱스 15, ceil 모델 확인).
+- N. 바이패스: PL에서 SHIFT down → V-Pot(slot-1) 누름 → SHIFT up → 2행 `Comprs` ↔ `*Compr`(별표 + 5자) 즉시 토글, 뷰 변화 없음.
+- O. 편집 뷰에서 PLUGIN → 편집 중이던 슬롯의 `P<slot>` Mixer 뷰.
+
