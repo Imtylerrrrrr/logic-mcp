@@ -26,6 +26,7 @@ Claude Code가 Logic Pro를 조작하는 MCP 서버. Logic이 공식 지원하�
 2. Claude Code 프로젝트에 `.mcp.json` 추가 (`.mcp.json.example`의 경로를 클론한 위치로 바꾼다)
 3. Claude Code를 켠 뒤 Logic에서 프로젝트를 연다. Logic이 "LogicMCP" 포트를 Mackie Control로 자동 설치한다.
 4. 처음 한 번 `logic_session configure`를 호출한다(트랙 번호 표시, 값 표시 모드, Beats 클락).
+5. 스킬을 복사한다: `cp -R skills/logic-plugins ~/.claude/skills/`
 
 ## 빠른 사용법
 
@@ -65,11 +66,11 @@ logic_mixer {"action": "set_volume", "strip": 3, "db": -6.0}
 
 리소스: `logic://status`, `logic://transport`, `logic://strips`, `logic://lcd`, `logic://plugins`, `logic://inserts`, `logic://view`.
 
-인서트 슬롯은 1~8만 지원한다(Plug-in Channel 뷰에서 닿는 슬롯. 9~15는 MCU 경로가 확인되지 않음).
+인서트 슬롯은 1~8, 센드는 1~8만 지원한다. 출력(Stereo Out)·Master 스트립은 EQ 채널·플러그인·센드 명령을 받지 않는다(Logic의 채널 뷰가 그 스트립을 따라가지 않음, `docs/mcu-protocol.md` Z4).
 
-플러그인 목록은 번들(Logic 12.0.1 내장) + `logic_plugin scan`(사용자 캐시 `~/.logic-mcp/plugins-<버전>.json`)으로 이뤄진다.
+플러그인 목록은 번들(Logic 12.0.1 내장) + `logic_plugin scan`(사용자 캐시 `~/.logic-mcp/plugins-<버전>.json`)으로 이뤄진다. 번들 파라미터 표는 `uv run python scripts/calibrate_plugin.py "<플러그인>" [strip] --write`로 만든다(테스트 프로젝트에서).
 
-부작용: EQ·플러그인 명령은 Logic의 트랙 선택을 바꾸고, 트랙에 Channel EQ가 없으면 EQ 명령이 자동으로 삽입하며, 플러그인 창이 열릴 수 있다.
+부작용: EQ·플러그인·센드 명령은 Logic의 트랙 선택을 바꾸고, 트랙에 Channel EQ가 없으면 EQ 명령이 자동으로 삽입하며, 플러그인 창이 열릴 수 있다. 버스 센드를 새로 만들면 Logic이 Aux 트랙을 자동 생성해 뒤 트랙 번호가 바뀐다.
 
 ## 주의
 

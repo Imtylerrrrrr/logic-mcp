@@ -69,4 +69,9 @@ bank first   ok=True skipped    1049ms already
 - 실기 9차(2026-10-16, 사용자가 새로 만든 테스트 프로젝트, 스트립 2): **17/17 verified**, 뱅크 `plugin list` 식별 안 된 슬롯 없음(수정 7 확인). 단, 뱅크 결과에서 Stereo Out·Master 가 직전 트랙의 `Cha EQ` 로 읽힘 → 실측 Z4(출력·마스터 스트립은 PL·SE 가 따라가지 않음). 출력 스트립 대상 insert/eq set 은 엉뚱한 트랙을 바꿀 수 있어 **수정 8 필요**(계획 2b 에 포함: TRACK 모드 Output 열로 스트립 판별, 미지원 스트립은 skipped).
   - 9차 전에 Logic 재시작 뒤 장치 상태가 꼬여 첫 실행은 0/17(실측 Z6). 설정 창에서 Mackie Control 삭제 → 재연결로 복구.
   - 계획 2b 준비 실측(센드 S1~S11, TRACK 모드 Z5) 완료 → `docs/mcu-protocol.md`.
-- 다음: 2b (수정 8 · 센드 · 번들 생성 · 스킬)
+
+## 스펙 2b
+- Task 1~9 완료 표시 자리(컨트롤러가 채움).
+- 실기 결과 자리: `scripts/live_check2.py <strip>`(센드 단계 포함), 출력 스트립 skipped 확인, `scripts/calibrate_plugin.py` 10종(Channel EQ, Compressor, Limiter, Noise Gate, Tape Delay, Stereo Delay, Space Designer, ChromaVerb, Overdrive, Distortion) 수집 결과.
+- 미검증 경로 자리.
+- 다음: 스펙 3(공개 준비: GitHub 원격, 설치 문서, 악기 슬롯 검토).

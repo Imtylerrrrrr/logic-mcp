@@ -152,6 +152,8 @@ Channel EQ 8밴드. 밴드 번호와 파라미터: 1 Low Cut(freq, slope, q, on)
 | `mute` | strip/number, send, on | SE 뷰 mute 열 틱 | `muted`/`active` |
 | `remove` | strip/number, send | `set_dest "--"` | 2행 `--` |
 
+**보정(2026-10-16 실측 S1~S11, 계획 2b):** SE 뷰 Flip 페이더로 레벨 확정(D1 경로 없음, dB 표 = 볼륨 표). 목적지는 버스 번호 모델(`--`로 되감고 `번호+2` 틱 → 오버레이 `Bus m` 보정 → 누름). pos는 Pre→Post→Post Pan 순서 고정, mute는 +1/-1. 버스 센드 확정 시 Aux 트랙 자동 생성.
+
 ### 4.4 리소스
 
 - `logic://plugins` — 병합된 플러그인 목록: `{"logic_version", "bundled_count", "scanned_at", "items":[{"index","name","source":"bundled|scan"}]}`.
@@ -208,7 +210,7 @@ tolerance 기본: dB 0.1, Hz 1 %, 무단위 1 %, 열거 텍스트 일치. 틱당
 5. `~/.logic-mcp/plugins-<Logic 버전>.json`에 저장. Logic 버전은 `/Applications/Logic Pro.app/Contents/Info.plist`의 `CFBundleShortVersionString`.
 예상 시간 항목당 ~0.15 s(150메시지 ≈ 9 s 실측). 캐시가 있고 `force=false`면 skipped("already").
 
-### 6.3 센드 목적지 목록
+### 6.3 센드 목적지 목록 (2b 보정: 삭제 — 목적지는 버스 번호로 지정, 스캔 없음)
 SE 뷰 센드 1 dest 열(또는 S1 뷰)에서 같은 방식으로 1회 스캔한다(`--`, 버스 1~N, 출력…). 텍스트는 7칸(` 1`, `--`)이라 오버레이 전체 이름으로 기록한다. 캐시 키 `send_destinations`.
 
 ### 6.4 이름 매칭 (`match.py`)
@@ -227,13 +229,14 @@ SE 뷰 센드 1 dest 열(또는 S1 뷰)에서 같은 방식으로 1회 스캔한
 - **Flip 잔류 방지**: `leave()`가 FLIP LED를 확인해 끈다. `logic_session status`가 `flip`을 보고하고, 스펙 1 `set_pan`은 flip이 켜져 있으면 먼저 끈다.
 - **스캔 중 입력 금지**: 스캔은 락을 잡고 돌며, 중단되면 PAN으로 나가 미리 선택을 취소한다.
 - 스펙 1 규칙 유지: 프로젝트 저장 안 함, MPK mini IV 설정 불변, 기본값 재형성 금지, UI 클릭 없음, 0x14에만 응답.
+- **출력·Master 스트립 미지원**: PL·SE·EQ 채널 뷰가 따라가지 않아(실측 Z4) 그 스트립 대상 명령은 skipped. 판별은 TRACK 모드 홀드 메뉴 Output 열(실측 Z5).
 
 ## 8. 테스트, 데이터, 설치
 
 - 픽스처: `tests/fixtures/assign_*.log`로 스파이크 원시 로그를 옮겨 2자리 코드 → 뷰 판정, 뷰별 열 파싱, 오버레이 2.0 s, 깜박임 감지, `Page n/N` 헤더, 플러그인 목록 스텝(N/2)을 고정한다.
 - 가짜 Logic(`tests/fakes.py` 확장): 뷰 전환, 홀드 메뉴, 미리 선택·확정·취소, Flip 페이더 매핑(log/linear/enum), 틱당 변화, 오버레이 타이머를 흉내 낸다.
 - 단위 테스트 대상: `values.py`(파서·매핑·루프), `modes.py`(전환표·복귀 보장), `plugins/`(스캔 종료 조건, 매칭, 병합), 각 Commands 액션, 서버 스키마.
-- 실기: `scripts/live_check2.py` — (1) `logic_eq set` 밴드 3 freq 1000·gain -3 → 오차 안 verified, (2) `logic_plugin insert Compressor` → `params` → `set Threshold -20 dB` → `remove`, (3) `logic_send set_dest Bus 1` → `set_level -6` → `remove`, (4) `scan` 결과에 Channel EQ 포함, (5) 끝난 뒤 `logic://status`가 PAN·flip off. 센드 dB 표는 `scripts/calibrate_send.py`로 볼륨 표와 비교해 다르면 별도 표.
+- 실기: `scripts/live_check2.py` — (1) `logic_eq set` 밴드 3 freq 1000·gain -3 → 오차 안 verified, (2) `logic_plugin insert Compressor` → `params` → `set Threshold -20 dB` → `remove`, (3) `logic_send set_dest Bus 1` → `set_level -6` → `remove`, (4) `scan` 결과에 Channel EQ 포함, (5) 끝난 뒤 `logic://status`가 PAN·flip off. 센드 dB 표는 볼륨 표와 같다(실측 S6, calibrate_send 불필요). 번들 파라미터 표는 `scripts/calibrate_plugin.py`.
 - 비범위이지만 기록: 스펙 1 `docs/mcu-protocol.md`에 부록 A를 합친다.
 
 ## 9. 비범위와 알려진 제약

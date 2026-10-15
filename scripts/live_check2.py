@@ -51,6 +51,20 @@ try:
     run("plugin insert Limiter s2 repl", lambda: commands.plugin.insert(strip, None, 2, "Limiter", replace=True))   # 기대 verified(replace 경로)
     run("plugin remove s2", lambda: commands.plugin.remove(strip, None, 2))
     run("plugin remove s1 (Channel EQ)", lambda: commands.plugin.remove(strip, None, 1))
+    r = run("send get (before)", lambda: commands.send.get(strip, None))
+    run("send set_dest Bus 1 s1", lambda: commands.send.set_dest(strip, None, 1, "Bus 1"))      # Aux 자동 생성 → 뒤 번호 밀림(S5)
+    run("send set_level -6 s1", lambda: commands.send.set_level(strip, None, 1, -6.0))
+    run("send set_level -inf s1", lambda: commands.send.set_level(strip, None, 1, float("-inf")))
+    run("send set_pos pre s1", lambda: commands.send.set_pos(strip, None, 1, "pre"))
+    run("send mute on s1", lambda: commands.send.mute(strip, None, 1, True))
+    run("send mute off s1", lambda: commands.send.mute(strip, None, 1, False))
+    r = run("send get (after)", lambda: commands.send.get(strip, None))
+    print("  send 1:", r.after and r.after["sends"]["1"])
+    run("send remove s1", lambda: commands.send.remove(strip, None, 1))
+    outs = [s.number for s in commands.surface.state.strips if s.number is not None and s.name.startswith(("St", "Mas"))]
+    if outs:                                                                                   # 출력 스트립 가드(Z4): skipped 기대
+        run(f"plugin list #{outs[0]} (출력, skipped 기대)", lambda: commands.plugin.list(None, outs[0]))
+        run(f"send get #{outs[0]} (출력, skipped 기대)", lambda: commands.send.get(None, outs[0]))
     if "--scan" in sys.argv:
         r = run("plugin scan (force)", lambda: commands.plugin.scan(force=True))
         print("  scan:", r.after)
