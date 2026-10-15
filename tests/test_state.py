@@ -165,3 +165,101 @@ def test_requery_after_ready_requires_install_quiet_again():
     assert S.tick(s, 201.0).connection.state == "handshake"
     assert S.tick(s, 209.0).connection.state != "ready"
     assert S.tick(s, 210.1).connection.state == "ready"
+
+
+def lcd_ev(offset: int, text: str) -> P.LcdWrite:
+    return P.LcdWrite(offset=offset, text=text.encode("latin1"))
+
+
+def digit_evs(d: str) -> list[P.AssignDigit]:
+    return [P.AssignDigit(index=0, char=d[0], dot=False), P.AssignDigit(index=1, char=d[1], dot=False)]
+
+
+def apply(st: S.SurfaceState, evs, now: float = 100.0) -> S.SurfaceState:
+    for ev in evs:
+        st = S.reduce(st, ev, now)
+    return st
+
+
+ROW_NAMES = "15:DCl 16:DCl 17:DCl 18:DCl 19:DCl 20:DCl 21:SOu 24:Mas "
+PAN_ROW2 = "0      0      0      0      0      0      0             "
+EQ_ROW1 = "LoCutF LoCutS LoCutQ LCO/Of LoShF  LoShGa LoShQ  LSO/Of "
+EQ_ROW2 = "20.0Hz 12     0.71   Off    75.0Hz 0.0 dB 1.00   On     "
+
+
+def ready_pan() -> S.SurfaceState:
+    return apply(S.initial_state(), [lcd_ev(0, ROW_NAMES + PAN_ROW2)] + digit_evs("PN"))
+
+
+def test_view_pan_and_values():
+    st = ready_pan()
+    assert st.view.kind == "pan" and st.view.index is None
+    assert st.strips[0].number == 15 and st.strips[0].value_text == "0"
+    assert st.view.columns[7] == ("24:Mas ", "       ")
+
+
+def test_view_eq_mixer_keeps_values_and_numbers_under_overlay():
+    st = ready_pan()
+    st = apply(st, digit_evs("E1") + [
+        lcd_ev(0, ROW_NAMES + "20.0Hz" + " " * 50),
+        lcd_ev(21, " EQ 1 Parameter: Low Cut Frequency"),
+    ])
+    assert (st.view.kind, st.view.index) == ("eq_mixer", 1)
+    assert st.strips[0].value_text == "0"       # 2행은 EQ 값. 팬/볼륨 값으로 받지 않음
+    assert st.strips[0].number == 15 and st.strips[4].number == 19   # 오버레이가 덮은 열은 이전 번호 유지
+    assert st.view.columns[0] == ("15:DCl ", "20.0Hz ")
+
+
+def test_view_eq_channel_columns_preserve_strips():
+    st = apply(ready_pan(), digit_evs("EQ") + [lcd_ev(0, EQ_ROW1 + EQ_ROW2)])
+    assert st.view.kind == "eq_channel"
+    assert st.view.columns[1] == ("LoCutS ", "12     ") and st.view.columns[5] == ("LoShGa ", "0.0 dB ")
+    assert st.strips[0].number == 15 and st.strips[0].name == "DCl" and st.strips[0].value_text == "0"
+
+
+def test_view_plugin_kinds():
+    st = ready_pan()
+    st = apply(st, digit_evs("P1") + [lcd_ev(0, ROW_NAMES + "Cha EQ --     --     --     --     --     --            ")])
+    assert (st.view.kind, st.view.index) == ("plugin_mixer", 1)
+    st = apply(st, digit_evs("PL") + [lcd_ev(0, "Ins1Pl Ins2Pl Ins3Pl Ins4Pl Ins5Pl Ins6Pl Ins7Pl Ins8Pl "
+                                                "Cha EQ --     --     --     --     --     --     --     ")])
+    assert st.view.kind == "plugin_channel"
+    st = apply(st, digit_evs("P1") + [lcd_ev(0, "LoCutS LoShGa Pea1Ga Pea2Ga Pea3Ga Pea4Ga HiShGa HiCutS "
+                                                "12     0.0 dB 0.0 dB 0.0 dB 0.0 dB 0.0 dB 0.0 dB 24     ")])
+    assert (st.view.kind, st.view.index, st.view.page) == ("plugin_edit", 1, None)
+    assert st.strips[0].number == 15                                  # 편집 뷰 1행은 채널명이 아님
+    header = 'Track 15 "15:Deluxe Classic" Ins.1 "Channe      Page 2/6'      # 56칸
+    st = apply(st, [lcd_ev(0, header + "LoCutF LoShF  Peak1F Peak2F Peak3F Peak4F HiShF  HiCutF ")])
+    assert st.view.kind == "plugin_edit" and st.view.page == (2, 6)
+    assert st.view.header.startswith('Track 15 "15:Deluxe Classic" Ins.1')
+    st = apply(st, [lcd_ev(0, "-      " * 8 + " " * 56)])
+    assert st.view.kind == "empty_edit"
+    st = apply(st, digit_evs("M1"))
+    assert (st.view.kind, st.view.index) == ("midi_fx", 1)
+    st = apply(st, digit_evs("10") + [lcd_ev(0, ROW_NAMES + " " * 56)])
+    assert (st.view.kind, st.view.index) == ("plugin_mixer", 10)
+
+
+def test_view_send_kinds_and_menus():
+    st = ready_pan()
+    for d, kind, idx in [("S1", "send_mixer", 1), ("SE", "send_channel", None), ("D1", "send_destlevel", 1),
+                         ("S_", "send_menu", None), ("E_", "eq_menu", None), ("PN", "pan", None)]:
+        st = apply(st, digit_evs(d))
+        assert (st.view.kind, st.view.index) == (kind, idx), d
+
+
+def test_view_unknown_display_keeps_spec1_behaviour():
+    st = apply(S.initial_state(), [lcd_ev(0, ROW_NAMES + PAN_ROW2)])      # 2자리 표시가 아직 없음
+    assert st.view.kind == "pan" and st.strips[0].number == 15 and st.strips[0].value_text == "0"
+    st = apply(st, digit_evs("tr") + [lcd_ev(56, "+0.0dB ")])
+    assert st.view.kind == "unknown" and st.strips[0].value_text == "+0.0dB"
+
+
+def test_fixture_assign1_view_kinds():
+    seen, st = set(), S.initial_state()
+    for ts, _, data in P.load_fixture(Path(__file__).parent / "fixtures" / "mcu" / "cap_assign1.log"):
+        st = S.reduce(st, P.decode(data), ts)
+        seen.add(st.view.kind)
+    assert {"pan", "eq_mixer", "eq_channel", "eq_menu", "send_mixer", "send_channel", "send_menu",
+            "plugin_mixer", "plugin_channel", "plugin_edit", "midi_fx"} <= seen
+    assert st.view.kind == "pan"

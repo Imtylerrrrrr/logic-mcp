@@ -18,6 +18,11 @@ _ASSIGN = {P.Note.TRACK: "track", P.Note.SEND: "send", P.Note.PAN: "pan",
            P.Note.PLUGIN: "plugin", P.Note.EQ: "eq", P.Note.INSTRUMENT: "instrument"}
 _TRANSPORT = {P.Note.PLAY: "play", P.Note.STOP: "stop", P.Note.RECORD: "record",
               P.Note.CYCLE: "cycle", P.Note.REWIND: "rewind", P.Note.FFWD: "ffwd"}
+OVERLAY_MARK = "arameter:"   # "EQ 1 Parameter: …", "Pan/Surround parameter:" 모드 전환 오버레이 공통 조각
+_PAGE_RE = re.compile(r"Page\s*(\d+)/(\d+)")
+_NO_NAME_VIEWS = frozenset({"eq_channel", "eq_menu", "send_channel", "send_menu", "plugin_channel",
+                            "plugin_edit", "empty_edit", "midi_fx"})          # 1행이 채널명이 아닌 뷰
+_VALUE_VIEWS = frozenset({"pan", "track", "unknown"})                        # 2행이 볼륨·팬 값인 뷰
 
 
 @dataclass(frozen=True)
@@ -73,6 +78,15 @@ class Assignment:
 
 
 @dataclass(frozen=True)
+class View:
+    kind: str = "pan"
+    index: int | None = None                     # 센드 번호, 플러그인 슬롯, EQ 파라미터 번호
+    page: tuple[int, int] | None = None          # 편집 뷰 헤더 `Page 2/6`
+    header: str = ""                             # NAME 모드 1행(트랙·인서트·플러그인 이름)
+    columns: tuple[tuple[str, str], ...] = field(default_factory=lambda: tuple(("       ", "       ") for _ in range(8)))
+
+
+@dataclass(frozen=True)
 class Connection:
     state: str = "no_logic"  # no_logic | handshake | animating | ready
     last_rx: float = 0.0
@@ -91,6 +105,7 @@ class SurfaceState:
     assignment: Assignment = Assignment()
     lcd: tuple[str, str] = (" " * P.LCD_WIDTH, " " * P.LCD_WIDTH)
     leds_on: frozenset[int] = frozenset()
+    view: View = View()
     connection: Connection = Connection()
 
 
@@ -105,13 +120,69 @@ def parse_column(col: str) -> tuple[int | None, str]:
     return None, col.strip()
 
 
-def _strips_from_lcd(strips: tuple[Strip, ...], lcd: tuple[str, str]) -> tuple[Strip, ...]:
+def lcd_columns(lcd: tuple[str, str]) -> tuple[tuple[str, str], ...]:
+    return tuple((lcd[0][i * COL_W:(i + 1) * COL_W], lcd[1][i * COL_W:(i + 1) * COL_W]) for i in range(LCD_COLS))
+
+
+def classify_view(display: str, lcd: tuple[str, str], mode: str | None) -> tuple[str, int | None]:
+    """2자리 표시 + LCD 레이아웃 → (뷰 종류, 번호). 실측 코드: PN E1 EQ E_ S1 SE D1 S_ P1..P9 10..16 PL M1."""
+    d = (display + "  ")[:2]
+    row1, row2 = lcd
+    cols = [c for c, _ in lcd_columns(lcd)]
+    if d == "PN":
+        return "pan", None
+    if d == "E_":
+        return "eq_menu", None
+    if d == "EQ":
+        return "eq_channel", None
+    if d[0] == "E" and d[1].isdigit():
+        return "eq_mixer", int(d[1])
+    if d == "S_":
+        return "send_menu", None
+    if d == "SE":
+        return "send_channel", None
+    if d[0] == "S" and d[1].isdigit():
+        return "send_mixer", int(d[1])
+    if d[0] == "D" and d[1].isdigit():
+        return "send_destlevel", int(d[1])
+    if d == "PL":
+        return "plugin_channel", None
+    if d[0] == "M" and d[1].isdigit():
+        return "midi_fx", int(d[1])
+    slot = int(d[1]) if d[0] == "P" and d[1].isdigit() else (int(d) if d.strip().isdigit() else None)
+    if slot is not None:
+        if all(c.strip() == "-" for c in cols) and not row2.strip():
+            return "empty_edit", slot
+        if any(parse_column(c)[0] is not None for c in cols):
+            return "plugin_mixer", slot
+        if row1.startswith("Ins1Pl"):
+            return "plugin_channel", slot
+        return "plugin_edit", slot
+    if mode == "track":
+        return "track", None
+    if not d.strip():
+        return "pan", None            # 2자리 표시를 아직 못 받음(스펙 1 동작 유지)
+    return "unknown", None
+
+
+def _view_from(display: str, lcd: tuple[str, str], mode: str | None) -> View:
+    kind, index = classify_view(display, lcd, mode)
+    m = _PAGE_RE.search(lcd[0]) if kind == "plugin_edit" else None
+    page = (int(m.group(1)), int(m.group(2))) if m else None
+    header = lcd[0].rstrip() if page is not None else ""
+    return View(kind=kind, index=index, page=page, header=header, columns=lcd_columns(lcd))
+
+
+def _strips_from_lcd(strips: tuple[Strip, ...], lcd: tuple[str, str], *, with_values: bool,
+                     overlay: bool) -> tuple[Strip, ...]:
     out = []
     for i, s in enumerate(strips):
         col1 = lcd[0][i * COL_W:(i + 1) * COL_W]
         col2 = lcd[1][i * COL_W:(i + 1) * COL_W]
         number, name = parse_column(col1)
-        out.append(replace(s, number=number, name=name, value_text=col2.strip()))
+        if overlay and number is None:
+            number, name = s.number, s.name          # 모드 전환 오버레이가 덮은 열은 이전 값 유지
+        out.append(replace(s, number=number, name=name, value_text=col2.strip() if with_values else s.value_text))
     return tuple(out)
 
 
@@ -141,7 +212,12 @@ def reduce(state: SurfaceState, ev: P.Event, now: float) -> SurfaceState:
         conn = replace(st.connection, dirty_until=now + SETTLE_S, last_display_change=now)
         if conn.state in ("no_logic", "handshake"):
             conn = replace(conn, state="animating")
-        return replace(st, lcd=lcd, strips=_strips_from_lcd(st.strips, lcd), connection=conn)
+        view = _view_from(st.assignment.display, lcd, st.assignment.mode)
+        strips = st.strips
+        if view.kind not in _NO_NAME_VIEWS:
+            strips = _strips_from_lcd(strips, lcd, with_values=view.kind in _VALUE_VIEWS,
+                                      overlay=OVERLAY_MARK in lcd[0])
+        return replace(st, lcd=lcd, strips=strips, view=view, connection=conn)
 
     if isinstance(ev, P.Led):
         leds = st.leds_on | {ev.note} if ev.on else st.leds_on - {ev.note}
@@ -154,7 +230,8 @@ def reduce(state: SurfaceState, ev: P.Event, now: float) -> SurfaceState:
             return replace(st, transport=replace(st.transport, **{_TRANSPORT[n]: ev.on}))
         if n in _ASSIGN:
             mode = _ASSIGN[n] if ev.on else (None if st.assignment.mode == _ASSIGN[n] else st.assignment.mode)
-            return replace(st, assignment=replace(st.assignment, mode=mode))
+            assignment = replace(st.assignment, mode=mode)
+            return replace(st, assignment=assignment, view=_view_from(assignment.display, st.lcd, mode))
         if n == P.Note.FLIP:
             return replace(st, assignment=replace(st.assignment, flip=ev.on))
         if n == P.Note.BEATS_LED and ev.on:
@@ -187,7 +264,9 @@ def reduce(state: SurfaceState, ev: P.Event, now: float) -> SurfaceState:
     if isinstance(ev, P.AssignDigit):
         disp = list(st.assignment.display)
         disp[ev.index] = ev.char
-        return replace(st, assignment=replace(st.assignment, display="".join(disp)))
+        assignment = replace(st.assignment, display="".join(disp))
+        return replace(st, assignment=assignment,
+                       view=_view_from(assignment.display, st.lcd, assignment.mode))
 
     return st
 
