@@ -13,6 +13,7 @@ from ..mcu import protocol as P
 from ..mcu import state as S
 from ..mcu.surface import Surface
 from .faders import FaderTable, parse_db_text, parse_pan_text
+from .modes import ModeDriver
 
 LED_TIMEOUT = 0.5
 FADER_TIMEOUT = 0.8
@@ -55,6 +56,7 @@ class Commands:
         self._logic_running = logic_running
         self._lock = threading.Lock()
         self.configured = False
+        self.modes = ModeDriver(surface, sleep)
 
     # ---------- 공통 ----------
     def _now_ms(self) -> int:
@@ -254,10 +256,13 @@ class Commands:
                 return r
             if not -64 <= pan <= 63:
                 return self._result(action, False, "skipped", t0, note="pan은 -64..63 정수")
+            st0 = self.surface.state
+            if st0.assignment.flip or st0.view.kind != "pan" or st0.assignment.mode != "pan":
+                self.modes.leave_safely()
             mode = self.surface.state.assignment.mode
-            if mode != "pan":
+            if mode != "pan" or self.surface.state.view.kind != "pan":
                 return self._result(action, False, "skipped", t0,
-                                    note=f"V-Pot 할당 모드가 {mode}. PAN 모드에서만 팬을 보냄(스펙 2 logic_assign)")
+                                    note=f"V-Pot 할당 모드가 {mode}/{self.surface.state.view.kind}. PAN 복귀 실패: {self.modes.last_leave_error}")
             ch = self._resolve(strip, number, action, t0)
             if isinstance(ch, ToolResult):
                 return ch

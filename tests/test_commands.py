@@ -377,3 +377,17 @@ def test_set_pan_skipped_when_reveal_shows_no_pan_text():
     r = cmds.mixer_pan(1, None, 10)
     assert r.verified == "skipped" and "LCD 2행이 팬 값이 아님" in r.note
     assert fake.sent.count(P.vpot_turn(0, 1)) == 1 and len(fake.sent) == 1
+
+
+from tests.fake_assign import make_assign_logic
+
+
+def test_mixer_pan_leaves_assign_mode_and_flip_first():
+    surface, fake, logic = make_assign_logic()
+    cmds = Commands(surface, FaderTable.load(), sleep=logic.sleep, logic_running=lambda: True)
+    cmds.modes.enter("eq_channel")
+    cmds.modes.flip(True)
+    r = cmds.mixer_pan(1, None, 0)
+    assert P.button_down(P.Note.FLIP) in fake.sent and P.button_down(P.Note.PAN) in fake.sent
+    assert surface.state.view.kind == "pan" and not surface.state.assignment.flip
+    assert r.verified == "skipped" and r.note == "already"        # 가짜의 팬 값 0
