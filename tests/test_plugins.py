@@ -76,3 +76,36 @@ def test_save_leaves_no_tmp_file(tmp_path):                             # 리뷰
     c = PluginCache.load(version="12.0.1", user_dir=tmp_path)
     c.save()
     assert c.path.exists() and not list(tmp_path.glob("*.tmp"))
+
+
+def test_save_writes_only_entries_that_differ_from_bundle(tmp_path):          # 리뷰 m4
+    bundled = tmp_path / "known.json"
+    bundled.write_text(json.dumps({"logic_version": "12.0.1", "generated": "2026-10-15", "list": ["--", "Compressor", "Channel EQ"],
+                                   "abbrev": {"Cha EQ": "Channel EQ"}, "params": {"Channel EQ": {"pages": 6, "items": []}}}))
+    c = PluginCache.load(version="12.0.1", user_dir=tmp_path, bundled=bundled)
+    c.learn_abbrev("Comprs", "Compressor")
+    c.params["Compressor"] = {"pages": 3, "items": [{"index": 2, "short": "Thrs", "name": None, "map": None}]}
+    c.save()
+    saved = json.loads(c.path.read_text())
+    assert saved["abbrev"] == {"Comprs": "Compressor"} and list(saved["params"]) == ["Compressor"]
+    assert saved["bundled_generated"] == "2026-10-15"
+    bundled.write_text(bundled.read_text().replace('"pages": 6', '"pages": 7'))        # 번들이 갱신돼도
+    c2 = PluginCache.load(version="12.0.1", user_dir=tmp_path, bundled=bundled)
+    assert c2.param_table("Channel EQ")["pages"] == 7                                    # 사용자 파일이 가리지 않는다
+    assert c2.param_table("Compressor")["pages"] == 3 and c2.abbrev["Cha EQ"] == "Channel EQ"
+    c2.params["Channel EQ"]["pages"] = 9                                                 # 번들 항목을 고치면 그 항목만 사용자 파일에
+    c2.save()
+    assert set(json.loads(c2.path.read_text())["params"]) == {"Compressor", "Channel EQ"}
+    c3 = PluginCache.load(version="12.0.1", user_dir=tmp_path, bundled=bundled)
+    assert c3.bundled_params["Channel EQ"]["pages"] == 7 and c3.param_table("Channel EQ")["pages"] == 9
+
+
+def test_merge_bundled_replaces_table_and_generated(tmp_path):
+    from logic_mcp.logic.plugins.cache import merge_bundled
+    bundled = tmp_path / "known.json"
+    bundled.write_text(json.dumps({"logic_version": "12.0.1", "generated": "2026-10-15", "list": ["--"], "abbrev": {},
+                                   "params": {"A": {"pages": 1, "items": []}}}))
+    table = {"pages": 2, "items": [{"index": 1, "short": "X", "name": "X", "map": None}]}
+    data = merge_bundled(bundled, "B", table, "2026-10-17")
+    assert data["params"]["B"] == table and data["params"]["A"]["pages"] == 1 and data["generated"] == "2026-10-17"
+    assert json.loads(bundled.read_text()) == data and not list(tmp_path.glob("*.tmp"))
