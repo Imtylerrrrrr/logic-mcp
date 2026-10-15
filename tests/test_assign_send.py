@@ -99,3 +99,59 @@ def test_set_dest_on_output_strip_is_skipped():                                 
     assert r.verified == "skipped" and "출력" in r.note
     assert all(s is None for t in logic.tracks for s in t.sends.values()) and surface.state.view.kind == "pan"
     assert cmds.send.get(strip=2, number=None).verified == "skipped"
+
+
+def test_set_level_uses_flip_fader_with_volume_table_and_leaves_flip_off():       # 실측 S6
+    cmds, surface, fake, logic = make()
+    logic.tracks[0].sends[1] = Send("Bus 1")
+    r = cmds.send.set_level(strip=1, number=None, send=1, db=-6.0)
+    assert r.verified == "verified" and r.action == "send_set_level" and "fader" in r.note
+    assert abs(logic.tracks[0].sends[1].level - -6.0) <= 0.1 and r.after["level_db"] == -6.0 and r.before["level_db"] == -math.inf
+    assert surface.state.view.kind == "pan" and not surface.state.assignment.flip and not logic.flip
+    assert cmds.send.set_level(strip=1, number=None, send=1, db=-6.0).note == "already"
+
+
+def test_set_level_minus_inf_and_clamp():
+    cmds, surface, fake, logic = make()
+    logic.tracks[0].sends[2] = Send("Bus 1", -3.0)
+    r = cmds.send.set_level(strip=1, number=None, send=2, db=float("-inf"))
+    assert r.verified == "verified" and r.after["level_db"] == -math.inf and logic.tracks[0].sends[2].level <= -96
+    r = cmds.send.set_level(strip=1, number=None, send=2, db=9.0)
+    assert r.verified == "verified" and r.after["level_db"] == 6.0 and "clamped" in r.note
+    assert cmds.send.set_level(strip=1, number=None, send=2, db=float("nan")).verified == "skipped"
+
+
+def test_set_level_without_send_is_skipped():
+    cmds, surface, fake, logic = make()
+    r = cmds.send.set_level(strip=1, number=None, send=1, db=-6.0)
+    assert r.verified == "skipped" and "set_dest" in r.note and surface.state.view.kind == "pan"
+
+
+def test_set_level_mode_error_still_leaves_flip_off():                              # Review Focus 3
+    cmds, surface, fake, logic = make()
+    logic.tracks[0].sends[1] = Send("Bus 1")
+    logic.drop_all_faders = True
+    logic.drop_all_vpots = True
+    r = cmds.send.set_level(strip=1, number=None, send=1, db=-6.0)
+    assert r.verified == "unverified"
+    assert not surface.state.assignment.flip and not logic.flip and surface.state.view.kind == "pan"
+
+
+def test_set_pos_and_mute():                                                         # 실측 S8·S9
+    cmds, surface, fake, logic = make()
+    logic.tracks[0].sends[1] = Send("Bus 1")                                          # Post Pan, active
+    r = cmds.send.set_pos(strip=1, number=None, send=1, pos="pre")
+    assert r.verified == "verified" and r.action == "send_set_pos" and logic.tracks[0].sends[1].pos == 0 and r.after["pos"] == "pre"
+    r = cmds.send.set_pos(strip=1, number=None, send=1, pos="post")
+    assert r.verified == "verified" and logic.tracks[0].sends[1].pos == 1
+    assert cmds.send.set_pos(strip=1, number=None, send=1, pos="post").note == "already"
+    assert cmds.send.set_pos(strip=1, number=None, send=1, pos="sideways").verified == "skipped"
+    r = cmds.send.mute(strip=1, number=None, send=1, on=True)
+    assert r.verified == "verified" and r.action == "send_mute" and logic.tracks[0].sends[1].muted
+    assert r.after["muted"] is True and r.after["dest"] == "Bus 1" and r.after["text"][0] == "*Bus 1"
+    assert cmds.send.mute(strip=1, number=None, send=1, on=True).note == "already"
+    r = cmds.send.mute(strip=1, number=None, send=1, on=False)
+    assert r.verified == "verified" and not logic.tracks[0].sends[1].muted
+    assert cmds.send.set_pos(strip=1, number=None, send=2, pos="pre").verified == "skipped"
+    assert cmds.send.mute(strip=1, number=None, send=2, on=True).verified == "skipped"
+    assert surface.state.view.kind == "pan"

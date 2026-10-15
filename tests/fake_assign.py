@@ -279,6 +279,7 @@ class FakeLogic:
         self.drop_first_fader = False                  # True면 Flip을 켠 뒤 처음 페이더 이동을 한 번 무시(에코·LCD 없음, 실측 Z1)
         self._fader_armed = False
         self.drop_all_faders = False                   # True면 페이더 이동을 항상 무시
+        self.drop_all_vpots = False                    # True면 V-Pot 틱을 항상 무시(반응 없는 Logic)
         self.drop_first_flip = False                   # True면 처음 FLIP 누름을 한 번 무시(LED 변화 없음, 실측 Z2)
         self.flip_led_lag = False                      # True면 처음 처리된 FLIP 누름의 LED 변화가 첫 대기 시간 초과 뒤에 도착(리뷰 C1)
         self.flip_lagged: list = []
@@ -506,6 +507,8 @@ class FakeLogic:
             elif on:
                 self._button(note)
         elif st == 0xB0 and 0x10 <= data[1] <= 0x17:
+            if self.drop_all_vpots:
+                return []
             v = data[2]
             self._vpot(data[1] - 0x10, (v & 0x3F) * (-1 if v & 0x40 else 1))
         elif st == 0xE0 and (data[0] & 0x0F) < 8:

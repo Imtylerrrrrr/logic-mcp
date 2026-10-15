@@ -4,13 +4,15 @@
 레벨은 Flip 페이더(볼륨 dB 표, S6), pos·mute는 틱(S8·S9)."""
 from __future__ import annotations
 
+import math
 import re
 from typing import TYPE_CHECKING
 
 from .modes import CONFIRM_S, ModeError
 from .plugins.scan import rewind_to_empty
 from .strips import StripUnsupported
-from .values import parse_value
+from .setter import set_numeric
+from .values import Mapping, parse_value
 
 if TYPE_CHECKING:
     from .commands import Commands, ToolResult
@@ -205,3 +207,120 @@ class SendCommands:
 
     def remove(self, strip: int | None, number: int | None, send: int) -> "ToolResult":
         return self.set_dest(strip, number, send, "--")
+
+    def set_level(self, strip: int | None, number: int | None, send: int, db: float) -> "ToolResult":
+        b, d, action = self.b, self.d, "send_set_level"
+        t0 = b._now_ms()
+        with b._lock:
+            if (r := b._require_ready(action, t0)) is not None:
+                return r
+            if db != db:
+                return b._result(action, False, "skipped", t0, note="db가 NaN. 예: -6.0, 0, \"-inf\"")
+            ch = self._begin(action, strip, number, send, t0)
+            if not isinstance(ch, int):
+                return ch
+            target = {**b._target(ch), "send": send}
+            col = col_of(send, "level")
+            try:
+                self._fresh()
+                self._channel(ch)
+                self._goto_page(send)
+                before = self._row(send)
+                if not before["present"]:
+                    return b._result(action, False, "skipped", t0, target=target,
+                                     note=f"센드 {send} 없음. set_dest로 먼저 목적지를 정할 것")
+                clamp = "clamped to +6.0 dB" if db > 6.0 else ""
+                goal = min(db, 6.0)
+                if goal == -math.inf:
+                    d.flip(True)
+                    d.fader(col, 1)                                        # raw 1 → `-oo dB`(실측 S6)
+                    d.settle_overlay()
+                    after = self._row(send)
+                    ok, detail = after["level_db"] == -math.inf, ""
+                else:
+                    out = set_numeric(d, col, goal, Mapping("db_table"), 0.1, b.faders)   # 센드 dB 표 = 볼륨 표(실측 S6)
+                    d.settle_overlay()
+                    after = self._row(send)
+                    ok, detail = out.ok and after["level_db"] is not None and abs(after["level_db"] - goal) <= 0.1, out.note
+                    if ok and out.note == "already":
+                        return b._result(action, True, "skipped", t0, target=target, before=before, after=after, note="already")
+                return b._result(action, ok, "verified" if ok else "unverified", t0, target=target, before=before,
+                                 after=after, note=" ".join(x for x in (clamp, detail) if x))
+            except (StripUnsupported, ModeError, ValueError) as e:
+                return self._fail(action, t0, target, e)
+            finally:
+                d.leave_safely()
+
+    def set_pos(self, strip: int | None, number: int | None, send: int, pos: str) -> "ToolResult":
+        b, d, action = self.b, self.d, "send_set_pos"
+        t0 = b._now_ms()
+        with b._lock:
+            if (r := b._require_ready(action, t0)) is not None:
+                return r
+            if pos not in POS_ORDER:
+                return b._result(action, False, "skipped", t0, note=f"pos는 {'|'.join(POS_ORDER)} 중 하나")
+            ch = self._begin(action, strip, number, send, t0)
+            if not isinstance(ch, int):
+                return ch
+            target = {**b._target(ch), "send": send}
+            col = col_of(send, "pos")
+            try:
+                self._fresh()
+                self._channel(ch)
+                self._goto_page(send)
+                before = self._row(send)
+                if not before["present"]:
+                    return b._result(action, False, "skipped", t0, target=target,
+                                     note=f"센드 {send} 없음. set_dest로 먼저 목적지를 정할 것")
+                cur = before["pos"]
+                if cur == pos:
+                    return b._result(action, True, "skipped", t0, target=target, before=before, after=before, note="already")
+                if cur is None:
+                    raise ModeError("pos", "Pre/Post/PosPan", before["text"][2] or "빈 열")
+                after = before
+                for _ in range(2):                                         # 순서 고정 Pre→Post→Post Pan(실측 S8): 차이만큼 한 번에
+                    d.tick(col, POS_ORDER.index(pos) - POS_ORDER.index(cur))
+                    d.settle_overlay()
+                    after = self._row(send)
+                    if after["pos"] == pos:
+                        break
+                    cur = after["pos"] or cur
+                ok = after["pos"] == pos
+                return b._result(action, ok, "verified" if ok else "unverified", t0, target=target, before=before,
+                                 after=after, note="" if ok else f"위치가 {after['text'][2]!r}(기대 {pos})")
+            except (StripUnsupported, ModeError, ValueError) as e:
+                return self._fail(action, t0, target, e)
+            finally:
+                d.leave_safely()
+
+    def mute(self, strip: int | None, number: int | None, send: int, on: bool) -> "ToolResult":
+        b, d, action = self.b, self.d, "send_mute"
+        t0 = b._now_ms()
+        with b._lock:
+            if (r := b._require_ready(action, t0)) is not None:
+                return r
+            ch = self._begin(action, strip, number, send, t0)
+            if not isinstance(ch, int):
+                return ch
+            target = {**b._target(ch), "send": send}
+            col = col_of(send, "mute")
+            try:
+                self._fresh()
+                self._channel(ch)
+                self._goto_page(send)
+                before = self._row(send)
+                if not before["present"]:
+                    return b._result(action, False, "skipped", t0, target=target,
+                                     note=f"센드 {send} 없음. set_dest로 먼저 목적지를 정할 것")
+                if before["muted"] == on:
+                    return b._result(action, True, "skipped", t0, target=target, before=before, after=before, note="already")
+                d.tick(col, 1 if on else -1)                                # +1 = muted, -1 = active(실측 S9)
+                d.settle_overlay()
+                after = self._row(send)
+                ok = after["muted"] == on
+                return b._result(action, ok, "verified" if ok else "unverified", t0, target=target, before=before,
+                                 after=after, note="" if ok else f"뮤트 열이 {after['text'][3]!r}")
+            except (StripUnsupported, ModeError, ValueError) as e:
+                return self._fail(action, t0, target, e)
+            finally:
+                d.leave_safely()
