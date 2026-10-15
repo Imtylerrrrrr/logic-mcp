@@ -5,8 +5,10 @@ from mcp import Client
 
 from logic_mcp.logic.commands import Commands
 from logic_mcp.logic.faders import FaderTable
+from logic_mcp.logic.plugins.cache import PluginCache
 from logic_mcp.mcu import protocol as P
 from logic_mcp.server.app import create_server
+from tests.fake_assign import PLUGIN_LIST, make_assign_logic
 from tests.fakes import make_surface
 from tests.test_commands import LCD_NUMBERED, echo_led
 
@@ -78,10 +80,6 @@ async def test_mixer_db_accepts_minus_inf_string(setup):
         assert result.structured_content["ok"] is True
         result = await client.call_tool("logic_mixer", {"action": "set_pan", "strip": 1})
         assert result.structured_content["ok"] is False and "pan" in result.structured_content["note"]
-
-
-from logic_mcp.logic.plugins.cache import PluginCache
-from tests.fake_assign import PLUGIN_LIST, make_assign_logic
 
 
 @pytest.fixture

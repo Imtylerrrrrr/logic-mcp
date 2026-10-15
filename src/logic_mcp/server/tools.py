@@ -99,7 +99,7 @@ def register_tools(mcp: MCPServer, commands: Commands) -> None:
         strip: Strip = None,
         number: Number = None,
         slot: Slot = None,
-        param: Annotated[str | int | None, Field(description="파라미터 이름(부분 일치) 또는 1부터 인덱스")] = None,
+        param: Annotated[str | int | None, Field(description="파라미터 이름(부분 일치) 또는 1부터 인덱스. index는 params 결과의 번호를 그대로 쓸 것(마지막 페이지에서 번호가 건너뛸 수 있음)")] = None,
         value: Annotated[float | str | bool | None, Field(description="set: 숫자 또는 선택지 텍스트(예: \"On\")")] = None,
         plugin: Annotated[str | None, Field(description="insert: 플러그인 이름(부분 일치)")] = None,
         replace: bool = False,
