@@ -56,3 +56,23 @@ def test_find_exact_prefix_partial_and_ambiguous():
     assert idx is None and set(cands) == {"Parametric EQ", "Channel EQ"}
     assert find(items, "Tuner") == (None, [])
     assert find(items, "--") == (None, [])
+
+
+def test_load_moves_corrupt_user_file_aside(tmp_path):                  # 리뷰 I5
+    (tmp_path / "plugins-12.0.1.json").write_text("{깨진 json")
+    c = PluginCache.load(version="12.0.1", user_dir=tmp_path)
+    assert c.user_list == [] and c.bundled_list
+    assert not (tmp_path / "plugins-12.0.1.json").exists()
+    assert len(list(tmp_path.glob("plugins-12.0.1.json.bad-*"))) == 1
+
+
+def test_load_moves_non_dict_user_file_aside(tmp_path):                 # 리뷰 I5
+    (tmp_path / "plugins-12.0.1.json").write_text("[1, 2]")
+    c = PluginCache.load(version="12.0.1", user_dir=tmp_path)
+    assert c.user_list == [] and len(list(tmp_path.glob("*.bad-*"))) == 1
+
+
+def test_save_leaves_no_tmp_file(tmp_path):                             # 리뷰 I5
+    c = PluginCache.load(version="12.0.1", user_dir=tmp_path)
+    c.save()
+    assert c.path.exists() and not list(tmp_path.glob("*.tmp"))

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
 import plistlib
+from datetime import datetime
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -43,17 +45,36 @@ class PluginCache:
         version = version or logic_version()
         b = json.loads(bundled.read_text())
         path = user_dir / f"plugins-{version}.json"
-        u = json.loads(path.read_text()) if path.exists() else {}
+        u = cls._read_user(path)
         return cls(version=version, bundled_list=list(b.get("list", [])), user_list=list(u.get("list", [])),
                    abbrev={**b.get("abbrev", {}), **u.get("abbrev", {})},
                    params={**b.get("params", {}), **u.get("params", {})},
                    scanned_at=u.get("scanned_at"), path=path)
 
+    @staticmethod
+    def _read_user(path: Path) -> dict:
+        """사용자 파일 읽기. 깨졌으면 `.bad-<시각>`으로 옮기고 빈 dict(번들만으로 시작). 번들 파일 실패는 배포 결함이라 그대로 예외."""
+        if not path.exists():
+            return {}
+        try:
+            u = json.loads(path.read_text())
+            if isinstance(u, dict):
+                return u
+        except (json.JSONDecodeError, OSError, UnicodeDecodeError):
+            pass
+        try:
+            os.replace(path, path.with_name(f"{path.name}.bad-{datetime.now():%Y%m%d-%H%M%S}"))
+        except OSError:
+            pass
+        return {}
+
     def save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps({"logic_version": self.version, "scanned_at": self.scanned_at,
-                                         "list": self.user_list, "abbrev": self.abbrev, "params": self.params},
-                                        ensure_ascii=False, indent=1))
+        tmp = self.path.with_name(self.path.name + ".tmp")
+        tmp.write_text(json.dumps({"logic_version": self.version, "scanned_at": self.scanned_at,
+                                   "list": self.user_list, "abbrev": self.abbrev, "params": self.params},
+                                  ensure_ascii=False, indent=1))
+        os.replace(tmp, self.path)
 
     def learn_abbrev(self, abbrev: str, name: str) -> None:
         if abbrev.strip() and name:
