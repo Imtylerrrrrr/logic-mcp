@@ -1,0 +1,84 @@
+"""LCD 열(7칸)·오버레이 값 텍스트 파서와 Flip 페이더 매핑. I/O 없음."""
+from __future__ import annotations
+
+import math
+import re
+from dataclasses import dataclass
+
+from ..mcu.protocol import MAX_FADER
+from .faders import FaderTable
+
+_NUM_RE = re.compile(r"^\s*([+-]?\d+(?:\.\d+)?|-oo)\s*([A-Za-z/%]*)\s*$")
+_UNITS = {"": None, "hz": "Hz", "khz": "kHz", "db": "dB", "d": "dB", "db/oct": "dB/Oct",
+          "ms": "ms", "s": "s", "%": "%", "st": "st", "ct": "ct", "smp": "smp"}
+
+
+@dataclass(frozen=True)
+class Value:
+    kind: str                   # number | enum | none
+    number: float | None = None
+    unit: str | None = None
+    text: str = ""
+
+
+def parse_value(text: str) -> Value:
+    """`20.0Hz`, `-78.4 d`(잘림), `-oo dB`, `36 dB/Oct`, `0.71` → number. `On`, `Post Pan`, `--` → enum. 공백 → none."""
+    t = text.strip()
+    if not t:
+        return Value("none", text="")
+    m = _NUM_RE.match(t)
+    if m and m.group(2).lower() in _UNITS:
+        num, unit = m.group(1), _UNITS[m.group(2).lower()]
+        n = -math.inf if num == "-oo" else float(num)
+        if unit == "kHz":
+            n, unit = n * 1000.0, "Hz"
+        return Value("number", n, unit, t)
+    return Value("enum", text=t)
+
+
+@dataclass(frozen=True)
+class Mapping:
+    """Flip 상태에서 페이더 raw(1..16383) ↔ 파라미터 값."""
+    type: str                   # db_table | log | linear | enum
+    lo: float = 0.0
+    hi: float = 1.0
+    options: tuple[str, ...] = ()
+
+
+def raw_for(m: Mapping, target: float | str, faders: FaderTable | None = None) -> int:
+    if m.type == "db_table":
+        if faders is None:
+            raise ValueError("db_table 매핑에는 FaderTable이 필요")
+        raw = faders.db_to_raw(float(target))
+    elif m.type == "log":
+        raw = round(MAX_FADER * math.log(float(target) / m.lo) / math.log(m.hi / m.lo))
+    elif m.type == "linear":
+        raw = round(MAX_FADER * (float(target) - m.lo) / (m.hi - m.lo))
+    elif m.type == "enum":
+        if str(target) not in m.options:
+            raise ValueError(f"{target!r}는 선택지 {list(m.options)}에 없음")
+        raw = round(MAX_FADER * m.options.index(str(target)) / max(1, len(m.options) - 1))
+    else:
+        raise ValueError(f"모르는 매핑 {m.type}")
+    return max(1, min(MAX_FADER, raw))   # raw 0은 Logic이 무시한 사례가 있어 1부터
+
+
+def infer_mapping(lo: Value, hi: Value) -> Mapping | None:
+    """페이더 1·16383에서 읽은 최소·최대 값으로 유형을 추정한다. 열거형은 None."""
+    if lo.kind != "number" or hi.kind != "number" or lo.number is None or hi.number is None:
+        return None
+    if not (math.isfinite(lo.number) and math.isfinite(hi.number)) or lo.number == hi.number:
+        return None
+    if lo.unit == "Hz" and lo.number > 0:
+        return Mapping("log", lo.number, hi.number)
+    return Mapping("linear", lo.number, hi.number)
+
+
+def tolerance_for(target: float, unit: str | None) -> float:
+    if unit == "dB":
+        return 0.1
+    return round(max(abs(target), 1.0) * 0.01, 6)
+
+
+def within(actual: float, target: float, tolerance: float) -> bool:
+    return math.isfinite(actual) and abs(actual - target) <= tolerance
