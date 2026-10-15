@@ -2,12 +2,18 @@
 name = "logic-mcp"
 version = "0.1.0"
 description = "Logic Pro를 Mackie Control 에뮬레이션으로 조작하는 MCP 서버"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.13"
 dependencies = [
     "mcp>=2.3,<3",
     "python-rtmidi>=1.5.8",
     "pydantic>=2",
 ]
+
+[project.urls]
+Repository = "https://github.com/Imtylerrrrrr/logic-mcp"
 
 [project.scripts]
 logic-mcp = "logic_mcp.server.main:main"
