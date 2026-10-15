@@ -66,6 +66,8 @@ class Commands:
         from .assign import EqCommands, PluginCommands   # 지연 임포트(순환 방지)
         self.eq = EqCommands(self)
         self.plugin = PluginCommands(self, plugin_cache)
+        from .sends import SendCommands
+        self.send = SendCommands(self)
 
     # ---------- 공통 ----------
     def _now_ms(self) -> int:

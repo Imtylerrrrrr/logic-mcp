@@ -1,0 +1,101 @@
+import math
+
+import pytest
+
+from logic_mcp.logic.commands import Commands
+from logic_mcp.logic.faders import FaderTable
+from logic_mcp.mcu import protocol as P
+from tests.fake_assign import Send, Track, make_assign_logic
+
+
+def make(tracks=None):
+    surface, fake, logic = make_assign_logic(tracks)
+    cmds = Commands(surface, FaderTable.load(), sleep=logic.sleep, logic_running=lambda: True)
+    return cmds, surface, fake, logic
+
+
+def pushes(msgs: list[bytes]) -> list[int]:
+    return [m[1] - P.Note.VPOT_PUSH for m in msgs if m[0] == 0x90 and P.Note.VPOT_PUSH <= m[1] < P.Note.VPOT_PUSH + 8 and m[2]]
+
+
+def test_get_reads_all_eight_sends_by_column_position():
+    cmds, surface, fake, logic = make()
+    logic.tracks[0].sends[1] = Send("Bus 2", -6.0, 0, False)
+    logic.tracks[0].sends[4] = Send("Bus 5", float("-inf"), 2, True)
+    r = cmds.send.get(strip=1, number=None)
+    assert r.verified == "verified" and r.action == "send_get" and r.target == {"strip": 1, "number": 15, "name": "DCl"}
+    s = r.after["sends"]
+    assert len(s) == 8
+    assert s["1"] == {"send": 1, "present": True, "dest": "Bus 2", "bus": 2, "level_db": -6.0, "pos": "pre", "muted": False,
+                      "text": ["Bus 2", "-6.0dB", "Pre", "active"]}
+    assert s["4"]["bus"] == 5 and s["4"]["level_db"] == -math.inf and s["4"]["pos"] == "post_pan" and s["4"]["muted"] is True
+    assert s["2"]["present"] is False and s["8"]["present"] is False
+    assert surface.state.view.kind == "pan" and logic.selected == 0
+
+
+def test_get_reads_from_remembered_page():                                          # Review Focus 4, 실측 S3
+    cmds, surface, fake, logic = make()
+    logic.tracks[0].se_page = 3
+    logic.tracks[0].sends[1] = Send("Bus 1")
+    r = cmds.send.get(strip=1, number=None)
+    assert r.after["sends"]["1"]["bus"] == 1 and r.after["sends"]["5"]["present"] is False
+
+
+def test_set_dest_bus_3_confirms_and_notes_aux_creation():                          # 실측 S4·S5
+    cmds, surface, fake, logic = make()
+    cmds.strips.follows(cmds.modes, surface.state, 0)           # 스트립 종류 판별(TRACK 메뉴 누름)은 미리 끝내 둔다
+    n0 = len(fake.sent)
+    r = cmds.send.set_dest(strip=1, number=None, send=1, dest="Bus 3")
+    assert r.ok and r.verified == "verified" and r.action == "send_set_dest" and "Aux" in r.note
+    s = logic.tracks[0].sends[1]
+    assert s is not None and s.dest == "Bus 3" and s.level == -math.inf and s.pos == 2 and not s.muted
+    assert r.before["present"] is False and r.after["bus"] == 3 and r.after["present"] is True
+    assert pushes(fake.sent[n0:]) == [0] and surface.state.view.kind == "pan" and not logic.pre
+
+
+@pytest.mark.parametrize("prefix", [[], ["1", "2", "3", "4"]])
+def test_set_dest_adjusts_when_prefix_count_differs(prefix):                        # Review Focus 2
+    cmds, surface, fake, logic = make()
+    logic.dest_list = ["--"] + prefix + [f"Bus {i}" for i in range(1, 9)]
+    r = cmds.send.set_dest(strip=1, number=None, send=2, dest=2)
+    assert r.verified == "verified" and logic.tracks[0].sends[2].dest == "Bus 2"
+
+
+def test_set_dest_does_not_press_when_overlay_mismatches():                         # Review Focus 2
+    cmds, surface, fake, logic = make()
+    logic.dest_list = ["--", "1", "2"] + [f"Bus {i}" for i in (1, 2, 3, 5, 6, 7, 8, 9)]   # Bus 4 없음
+    cmds.strips.follows(cmds.modes, surface.state, 0)           # 스트립 종류 판별(TRACK 메뉴 누름)은 미리 끝내 둔다
+    n0 = len(fake.sent)
+    r = cmds.send.set_dest(strip=1, number=None, send=1, dest="Bus 4")
+    assert r.verified == "unverified" and "확정하지 않음" in r.note
+    assert pushes(fake.sent[n0:]) == [] and logic.tracks[0].sends[1] is None and not logic.pre
+    assert surface.state.view.kind == "pan"
+
+
+def test_set_dest_already_and_remove():
+    cmds, surface, fake, logic = make()
+    logic.tracks[0].sends[3] = Send("Bus 2")
+    r = cmds.send.set_dest(strip=1, number=None, send=3, dest="2")
+    assert r.verified == "skipped" and r.note == "already"
+    r = cmds.send.remove(strip=1, number=None, send=3)
+    assert r.verified == "verified" and r.action == "send_remove" and logic.tracks[0].sends[3] is None
+    assert r.after["present"] is False and r.before["bus"] == 2
+    r = cmds.send.remove(strip=1, number=None, send=3)
+    assert r.verified == "skipped" and r.note == "already"
+
+
+def test_set_dest_rejects_bad_dest_and_send():
+    cmds, surface, fake, logic = make()
+    r = cmds.send.set_dest(strip=1, number=None, send=1, dest="Aux 1")
+    assert r.verified == "skipped" and "버스 번호" in r.note
+    assert cmds.send.set_dest(strip=1, number=None, send=9, dest=1).verified == "skipped"
+    assert cmds.send.set_dest(strip=1, number=None, send=1, dest=1).ok   # 정상 경로는 그대로
+    assert surface.state.view.kind == "pan"
+
+
+def test_set_dest_on_output_strip_is_skipped():                                     # Review Focus 1, 실측 Z4·S10
+    cmds, surface, fake, logic = make([Track(1, "1"), Track(3, "StOu", kind="output")])
+    r = cmds.send.set_dest(strip=2, number=None, send=1, dest=1)
+    assert r.verified == "skipped" and "출력" in r.note
+    assert all(s is None for t in logic.tracks for s in t.sends.values()) and surface.state.view.kind == "pan"
+    assert cmds.send.get(strip=2, number=None).verified == "skipped"
