@@ -93,3 +93,16 @@ def test_set_numeric_log_q_converges_from_2_8_to_2_0():
     assert set_numeric(d, 2, 2.8, Mapping("log", 0.10, 100.0), tolerance=0.06).ok
     out = set_numeric(d, 2, 2.0, Mapping("log", 0.30, 30.0), tolerance=0.05)   # 틱 1칸 ≈ 6 %라 허용 오차에 여유
     assert out.ok and abs(q.value - 2.0) <= 0.05 and out.rounds <= 4
+
+
+def test_probe_mapping_reads_min_max_with_lagging_lcd():             # 실측 X
+    surface, fake, logic = make_assign_logic()
+    logic.tracks[0].insert(1, "Compressor")
+    logic.lcd_lag = True
+    d = ModeDriver(surface, sleep=logic.sleep)
+    d.focus(0)
+    d.enter("plugin_channel")
+    assert d.press_vpot_until(0, lambda v: v.kind == "plugin_edit", 3.0)
+    d.flip(True)
+    m, lo, hi = probe_mapping(d, 1)
+    assert lo.number == -60.0 and hi.number == 0.0 and m == Mapping("linear", -60.0, 0.0)

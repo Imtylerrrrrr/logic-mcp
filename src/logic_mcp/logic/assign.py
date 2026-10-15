@@ -248,16 +248,23 @@ class PluginCommands:
     def _read_pages(self, pages: int) -> list[dict]:
         """NAME 모드에서 시작. 페이지마다 축약명(NAME)과 값(VALUE)을 읽고 NAME 모드로 돌아온다."""
         d, items = self.d, []
+        prev: list[tuple[str, str]] = []
         for page in range(1, pages + 1):
             d.page_to(page)
             shorts = [c[1].strip() for c in d.view.columns]
             d.toggle_name_value()
-            values = [parse_value(c[1]) for c in d.view.columns]
+            cols = [c[1] for c in d.view.columns]
+            values = [parse_value(t) for t in cols]
             d.toggle_name_value()
+            pairs = [(sh, t.strip()) for sh, t in zip(shorts, cols)]
+            skip = 0
+            if page == pages and pages >= 2:     # 마지막 페이지는 오른쪽 정렬이라 앞 k열이 직전 페이지와 겹친다(실측 W)
+                skip = next((k for k in range(7, 0, -1) if prev[8 - k:] == pairs[:k]), 0)
             for i, short in enumerate(shorts):
-                if short:
+                if short and i >= skip:
                     items.append({"index": (page - 1) * 8 + i + 1, "short": short, "value": values[i].number,
                                   "text": values[i].text})
+            prev = pairs
         return items
 
     def _table(self, full: str, pages: int) -> dict:
@@ -266,6 +273,8 @@ class PluginCommands:
     def _merge_items(self, full: str, pages: int, observed: list[dict]) -> None:
         table = self._table(full, pages)
         table["pages"] = pages
+        seen = {ob["index"] for ob in observed}
+        table["items"] = [it for it in table["items"] if it["index"] in seen]   # observed는 전체 읽기: 없는 항목(겹침 잔재)은 제거
         by_index = {it["index"]: it for it in table["items"]}
         for ob in observed:
             it = by_index.get(ob["index"])

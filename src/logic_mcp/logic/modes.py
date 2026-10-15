@@ -264,8 +264,9 @@ class ModeDriver:
         self._mark()
         for msg in P.fader_move(ch, raw):
             self.surface.send(msg)
-        ok = self.surface.wait_for(lambda s: s.strips[ch].fader_raw != before
-                                   or s.connection.last_display_change >= self._since, FADER_TIMEOUT)
+        ok = self.surface.wait_for(lambda s: s.strips[ch].fader_raw != before, FADER_TIMEOUT)
+        # 에코 뒤에 LCD 값 쓰기가 늦게 올 수 있다(실측 X): 에코만 보고 끝내면 이동 전 값을 읽는다. 값이 안 바뀌면 안 올 수도 있다.
+        self.surface.wait_for(lambda s: s.connection.last_display_change >= self._since, FEEDBACK_TIMEOUT)
         self._settle()
         return self.surface.state.strips[ch].fader_raw if ok else None
 

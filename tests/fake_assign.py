@@ -2,7 +2,8 @@
 2자리 코드·레이아웃은 스펙 2 부록 A 실측을 따르고, 값 모델(틱당 변화·범위)은 단순화했다.
 시간은 sleep()으로만 흐른다: 오버레이 재묘사(2.0초 뒤)와 깜박임 위상, 확정 누름의 늦은 뷰 전환(실측 K)이 sleep에서 처리된다.
 EQ 버튼은 실측 A처럼 down에 `E_`(메뉴)를, up 뒤에 뷰를 그린다. up의 응답은 deferred에 쌓였다가 드라이버가
-기다리기 시작한 뒤(wait_for의 첫 판정 다음)나 다음 sleep·입력 때 도착한다."""
+기다리기 시작한 뒤(wait_for의 첫 판정 다음)나 다음 sleep·입력 때 도착한다.
+lcd_lag(실측 X)의 LCD 값 쓰기는 lagged에 쌓여 sleep으로는 오지 않고, 판정이 안 끝난 wait_for나 다음 입력 때만 도착한다."""
 from __future__ import annotations
 
 import math
@@ -60,6 +61,12 @@ class Param:
             s = f"{v:.1f}Hz" if v < 100 else f"{v:.0f} Hz" if v < 1000 else f"{v:.0f}Hz" if v < 10000 else f"{v:.0f}"
         elif self.unit == "dB":
             s = f"{v:.1f} dB"
+        elif self.unit == "n1":                      # 단위 없는 소수 1자리(실측 W: Thrs `-20.0`)
+            s = f"{v:.1f}"
+        elif self.unit in ("ms", "%"):
+            s = f"{v:.1f}{self.unit}"
+        elif self.unit == ":1":
+            s = f"{v:.1f}:1"
         else:
             s = f"{v:.2f}"
         return col(s)
@@ -135,17 +142,27 @@ def channel_eq_edit(bands: list[list[Param]]) -> list[Param]:
 
 
 def compressor() -> list[Param]:
-    return [Param("Thresh", "Threshold", "linear", -60.0, 0.0, -20.0, unit="dB", step=0.5),
-            Param("Ratio", "Ratio", "linear", 1.0, 30.0, 2.0, step=0.1),
-            Param("Attack", "Attack", "linear", 0.0, 200.0, 20.0, step=1.0),
-            Param("Releas", "Release", "linear", 5.0, 5000.0, 100.0, step=5.0),
-            Param("Knee", "Knee", "linear", 0.0, 1.0, 0.0, step=0.05),
-            Param("MakeUp", "Make Up", "linear", 0.0, 40.0, 0.0, unit="dB", step=0.5),
-            Param("Mix", "Mix", "linear", 0.0, 100.0, 100.0, step=1.0),
-            Param("Circui", "Circuit Type", "enum", value=0,
-                  options=("Platinum", "Studio VCA", "Studio FET", "Classic VCA", "Vintage VCA", "Vintage FET", "Vintage Opto")),
-            Param("AutoGa", "Auto Gain", "enum", options=("Off", "-12 dB", "0 dB"), value=0),
-            Param("Limit", "Limiter", "enum", options=("Off", "On"), value=0)]
+    """Compressor 실측 모델(W): 20개, 축약명·기본 표시는 Logic Pro 12.0.1 그대로(페이지 3은 오른쪽 정렬로 13~20)."""
+    return [Param("CirTyp", "Circuit Type", "enum", options=("PltDig", "StdVCA", "StdFET", "ClsVCA"), value=0),
+            Param("Thrs", "Threshold", "linear", -60.0, 0.0, -20.0, unit="n1", step=0.5),
+            Param("Ratio", "Ratio", "linear", 1.0, 30.0, 2.1, unit=":1", step=0.1),
+            Param("Attack", "Attack", "linear", 0.0, 200.0, 15.0, unit="ms", step=1.0),
+            Param("Rel", "Release", "linear", 5.0, 5000.0, 51.0, unit="ms", step=5.0),
+            Param("AutRel", "Auto Release", "enum", options=("Off", "On"), value=1),
+            Param("MakeUp", "Make Up", "linear", -12.0, 40.0, 0.0, unit="dB", step=0.5),
+            Param("AutGai", "Auto Gain", "enum", options=("Off", "-12dB", "0dB"), value=1),
+            Param("Knee", "Knee", "linear", 0.0, 1.0, 0.7, unit="n1", step=0.05),
+            Param("Peak/S", "Peak/RMS", "enum", options=("Peak", "RMS"), value=1),
+            Param("LimrOn", "Limiter", "enum", options=("Off", "On"), value=0),
+            Param("LimThr", "Limiter Threshold", "linear", -20.0, 20.0, 0.0, unit="dB", step=0.5),
+            Param("Distrt", "Distortion", "enum", options=("Off", "Soft", "Hard"), value=0),
+            Param("Mix", "Mix", "linear", 0.0, 100.0, 100.0, unit="%", step=1.0),
+            Param("SiChDe", "Side Chain Detect", "enum", options=("Off", "Max"), value=1),
+            Param("State", "Side Chain State", "enum", options=("Off", "On"), value=0),
+            Param("Mode", "Filter Mode", "enum", options=("LP", "HP", "BP"), value=0),
+            Param("Freq", "Filter Frequency", "linear", 20.0, 20000.0, 7040.0, unit="n1", step=10.0),
+            Param("Q", "Filter Q", "linear", 0.1, 10.0, 1.0, step=0.05),
+            Param("Gain", "Filter Gain", "linear", -24.0, 24.0, 0.0, unit="dB", step=0.5)]
 
 
 def generic(name: str) -> list[Param]:
@@ -207,6 +224,8 @@ class FakeLogic:
         self.deferred: list = []                       # 드라이버가 기다리기 시작한 뒤 도착할 응답(EQ up)
         self.eq_held = False                           # EQ 버튼 down 중: 2자리 `E_`(실측 A)
         self.plugin_list = list(PLUGIN_LIST)
+        self.lcd_lag = False                           # True면 페이더 이동의 LCD 값 쓰기가 에코보다 늦게 도착(실측 X)
+        self.lagged: list = []                         # lcd_lag 응답: sleep·입력으로는 안 오고, 드라이버가 판정 안 된 wait_for에 들어가야 도착
         self.refuse: set[int] = set()                  # 반응하지 않을 노트(고장 흉내)
         fake.replies = self.replies
 
@@ -230,6 +249,10 @@ class FakeLogic:
         """미뤄 둔 응답을 지금 보낸다."""
         while self.deferred:
             self.deferred.pop(0)()
+
+    def flush_lagged(self) -> None:
+        while self.lagged:
+            self.lagged.pop(0)()
 
     def boot(self) -> None:
         self._emit([P.button_down(P.Note.PAN), P.button_down(P.Note.BEATS_LED), P.button_down(P.Note.SELECT)])
@@ -272,7 +295,11 @@ class FakeLogic:
         return max(1, math.ceil(len(self._edit_params()) / 8))
 
     def _edit_page(self) -> list[Param]:
-        return self._edit_params()[(self.page - 1) * 8:self.page * 8]
+        """편집 뷰 열. 마지막 페이지는 오른쪽 정렬: N % 8 != 0이면 항목 N-8..N-1을 보인다(실측 W)."""
+        ps, pages = self._edit_params(), self._edit_pages()
+        if self.page == pages and pages > 1 and len(ps) % 8:
+            return ps[len(ps) - 8:]
+        return ps[(self.page - 1) * 8:self.page * 8]
 
     def _column_param(self, ch: int) -> Param | None:
         t = self.tracks[self.selected]
@@ -555,7 +582,10 @@ class FakeLogic:
         if p is None or not p.set_raw(raw):
             return
         self._emit([fader_echo(ch, p.raw())])
-        self.redraw(overlay=(ch, p.name, p.full()))
+        if self.lcd_lag:
+            self.lagged.append(lambda: self.redraw(overlay=(ch, p.name, p.full())))
+        else:
+            self.redraw(overlay=(ch, p.name, p.full()))
 
 
 def default_tracks() -> list[Track]:
@@ -574,6 +604,8 @@ def make_assign_logic(tracks: list[Track] | None = None) -> tuple[Surface, FakeT
         """미뤄 둔 응답은 첫 판정 뒤에 도착한다(실측 A의 `E_` → E1 순서를 드라이버가 기다려야 함)."""
         if logic.deferred and not pred(surface.state):
             logic.flush()
+        if logic.lagged and not pred(surface.state):
+            logic.flush_lagged()
         return wait_for(pred, timeout)
     surface.wait_for = late_wait_for
     fake.now += 1.0                 # 조용 1초 → ready

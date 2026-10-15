@@ -129,12 +129,12 @@ def test_plugin_channel_view_edit_page_name_value_and_restore():
     assert d.press_vpot_until(1, lambda v: v.kind == "plugin_edit" and v.index == 2, EDIT_OPEN_S)
     assert not [m for m in fake.sent if m[0] == 0xB0] and not logic.pre       # 틱 없이 누름 = 값 보존 편집 뷰(실측 F)
     d.toggle_name_value()
-    assert surface.state.view.page == (1, 2) and 'Ins.2 "Compressor (s/s)"' in surface.state.view.header
-    assert d.probe_pages() == 2                                      # 헤더에 보이면 그대로
+    assert surface.state.view.page == (1, 3) and 'Ins.2 "Compressor (s/s)"' in surface.state.view.header
+    assert d.probe_pages() == 3                                      # 헤더에 보이면 그대로
     d.page_to(2)
-    assert surface.state.view.page == (2, 2)
+    assert surface.state.view.page == (2, 3)
     d.toggle_name_value()
-    assert surface.state.view.columns[0] == ("AutoGa ", "Off    ")
+    assert surface.state.view.columns[0] == ("Knee   ", "0.7    ")
     d.toggle_name_value()
     d.leave()
     assert surface.state.view.kind == "pan" and logic.name_mode is False   # NAME 모드도 되돌림
@@ -149,7 +149,7 @@ def test_probe_pages_with_truncated_page1_header():                 # 실측 L
     assert d.press_vpot_until(0, lambda v: v.kind == "plugin_edit", EDIT_OPEN_S)
     d.toggle_name_value()
     assert surface.state.view.page is None and 'Ins.1 "Compressor (s/s)"' in surface.state.lcd[0]
-    assert d.probe_pages() == 2 and logic.page == 1                  # 2페이지에서 읽고 1페이지로 돌아옴
+    assert d.probe_pages() == 3 and logic.page == 1                  # 2페이지에서 읽고 1페이지로 돌아옴
     logic.tracks[0].insert(2, "Tuner")
     d.leave()
     d.enter("plugin_channel")

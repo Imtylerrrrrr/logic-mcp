@@ -117,7 +117,7 @@ async def test_spec2_calls_via_client(assign_setup):
         assert r.structured_content["verified"] == "verified" and logic.tracks[1].eq[2][1].value == -3.0
         r = await client.call_tool("logic_plugin", {"action": "insert", "strip": 2, "slot": 2, "plugin": "Compressor"})
         assert r.structured_content["verified"] == "verified" and logic.tracks[1].inserts[2] == "Compressor"
-        r = await client.call_tool("logic_plugin", {"action": "set", "strip": 2, "slot": 2, "param": "Thresh", "value": -30})
+        r = await client.call_tool("logic_plugin", {"action": "set", "strip": 2, "slot": 2, "param": "Thrs", "value": -30})
         assert r.structured_content["verified"] == "verified"
         r = await client.call_tool("logic_plugin", {"action": "params", "strip": 2})
         assert r.structured_content["verified"] == "skipped" and "slot" in r.structured_content["note"]

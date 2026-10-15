@@ -54,16 +54,16 @@ def test_params_reads_all_pages_learns_and_keeps_values(tmp_path):
     logic.tracks[0].insert(2, "Compressor")
     n0 = len(fake.sent)
     r = cmds.plugin.params(strip=1, number=None, slot=2)
-    assert r.verified == "verified" and r.after["plugin"] == "Compressor" and r.after["pages"] == 2
+    assert r.verified == "verified" and r.after["plugin"] == "Compressor" and r.after["pages"] == 3
     assert r.after["abbrev"] == "Comprs"
     ps = r.after["params"]
-    assert len(ps) == 10
-    assert ps[0] == {"index": 1, "short": "Thresh", "name": None, "value": -20.0, "text": "-20.0 d"}   # 7칸 잘림
-    assert ps[9]["short"] == "Limit" and ps[9]["text"] == "Off" and ps[9]["value"] is None
-    assert cache.abbrev["Comprs"] == "Compressor" and cache.param_table("Compressor")["pages"] == 2
-    assert cache.param_table("Compressor")["items"][9]["short"] == "Limit" and cache.path.exists()
+    assert len(ps) == 20
+    assert ps[1] == {"index": 2, "short": "Thrs", "name": None, "value": -20.0, "text": "-20.0"}
+    assert ps[10]["short"] == "LimrOn" and ps[10]["text"] == "Off" and ps[10]["value"] is None
+    assert cache.abbrev["Comprs"] == "Compressor" and cache.param_table("Compressor")["pages"] == 3
+    assert cache.param_table("Compressor")["items"][10]["short"] == "LimrOn" and cache.path.exists()
     assert turns(fake.sent[n0:]) == []                              # 편집 뷰 열기는 틱 없이 누르기만
-    assert logic.tracks[0].params[2][0].value == -20.0              # 값 보존
+    assert logic.tracks[0].params[2][1].value == -20.0              # 값 보존
     assert surface.state.view.kind == "pan" and logic.name_mode is False
 
 
@@ -72,8 +72,8 @@ def test_params_long_track_name_reads_name_from_page1_and_pages_from_page2(tmp_p
     logic.tracks[0].name = "Deluxe Classic"
     logic.tracks[0].insert(2, "Compressor")
     r = cmds.plugin.params(1, None, 2)
-    assert r.verified == "verified" and r.after["plugin"] == "Compressor" and r.after["pages"] == 2
-    assert len(r.after["params"]) == 10 and r.after["params"][9]["short"] == "Limit"
+    assert r.verified == "verified" and r.after["plugin"] == "Compressor" and r.after["pages"] == 3
+    assert len(r.after["params"]) == 20 and r.after["params"][10]["short"] == "LimrOn"
 
 
 def test_params_single_page_plugin_with_truncated_header(tmp_path):
@@ -121,34 +121,34 @@ def test_params_cancels_stale_preselect_in_channel_view_via_pan(tmp_path):   # R
 def test_get_and_set_by_index_and_name(tmp_path):
     cmds, surface, fake, logic, cache = make(tmp_path)
     logic.tracks[0].insert(2, "Compressor")
-    g = cmds.plugin.get(1, None, 2, 1)
-    assert g.verified == "verified" and g.after["value"] == -20.0 and g.after["short"] == "Thresh"
-    s = cmds.plugin.set(1, None, 2, "Thresh", -30.0)
-    assert s.verified == "verified" and logic.tracks[0].params[2][0].value == -30.0
+    g = cmds.plugin.get(1, None, 2, 2)
+    assert g.verified == "verified" and g.after["value"] == -20.0 and g.after["short"] == "Thrs"
+    s = cmds.plugin.set(1, None, 2, "Thrs", -30.0)
+    assert s.verified == "verified" and logic.tracks[0].params[2][1].value == -30.0
     assert s.before["value"] == -20.0 and s.after["value"] == -30.0
-    assert cache.param_table("Compressor")["items"][0]["map"] == {"type": "linear", "lo": -60.0, "hi": 0.0}  # 프로빙 학습
-    s2 = cmds.plugin.set(1, None, 2, 10, "On")                      # 2페이지 열거형(Limiter)
-    assert s2.verified == "verified" and logic.tracks[0].params[2][9].value == 1 and s2.after["text"] == "On"
+    assert cache.param_table("Compressor")["items"][1]["map"] == {"type": "linear", "lo": -60.0, "hi": 0.0}  # 프로빙 학습
+    s2 = cmds.plugin.set(1, None, 2, 11, "On")                      # 2페이지 열거형(LimrOn)
+    assert s2.verified == "verified" and logic.tracks[0].params[2][10].value == 1 and s2.after["text"] == "On"
     assert surface.state.view.kind == "pan" and not surface.state.assignment.flip
 
 
 def test_set_uses_known_mapping_without_probe(tmp_path):
     cmds, surface, fake, logic, cache = make(tmp_path)
-    cache.params["Compressor"] = {"pages": 2, "items": [
-        {"index": 1, "short": "Thresh", "name": "Threshold", "map": {"type": "linear", "lo": -60.0, "hi": 0.0}}]}
+    cache.params["Compressor"] = {"pages": 3, "items": [
+        {"index": 2, "short": "Thrs", "name": "Threshold", "map": {"type": "linear", "lo": -60.0, "hi": 0.0}}]}
     logic.tracks[0].insert(2, "Compressor")
     n0 = len(fake.sent)
     s = cmds.plugin.set(1, None, 2, "Threshold", -12.0)
-    assert s.ok and logic.tracks[0].params[2][0].value == -12.0 and s.after["name"] == "Threshold"
-    assert len([m for m in fake.sent[n0:] if m[0] == 0xE0]) == 1   # 프로빙(2회) 없이 페이더 1회
+    assert s.ok and logic.tracks[0].params[2][1].value == -12.0 and s.after["name"] == "Threshold"
+    assert len([m for m in fake.sent[n0:] if m[0] & 0xF0 == 0xE0]) == 1   # 프로빙(2회) 없이 페이더 1회
 
 
 def test_param_missing_or_ambiguous(tmp_path):
     cmds, surface, fake, logic, cache = make(tmp_path)
     logic.tracks[0].insert(2, "Compressor")
     r = cmds.plugin.set(1, None, 2, "Zzz", 1.0)
-    assert r.verified == "skipped" and "Thresh" in r.note and surface.state.view.kind == "pan"
-    assert cmds.plugin.get(1, None, 2, 11).verified == "skipped"     # 인덱스 범위 밖
+    assert r.verified == "skipped" and "Thrs" in r.note and surface.state.view.kind == "pan"
+    assert cmds.plugin.get(1, None, 2, 25).verified == "skipped"     # 인덱스 범위 밖
 
 
 def test_slot_range_is_1_to_8(tmp_path):
@@ -243,3 +243,41 @@ def test_scan_needs_an_empty_slot(tmp_path):
             t.insert(i, "Tuner")
     r = cmds.plugin.scan()
     assert r.verified == "skipped" and "빈 슬롯" in r.note and surface.state.view.kind == "pan"
+
+
+def test_params_last_page_overlap_removed(tmp_path):                 # 실측 W
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Compressor")
+    r = cmds.plugin.params(1, None, 2)
+    ps = r.after["params"]
+    assert len(ps) == 20 and [p["index"] for p in ps] == list(range(1, 17)) + [21, 22, 23, 24]
+    pairs = [(p["short"], p["text"]) for p in ps]
+    assert all(a != b for a, b in zip(pairs, pairs[1:]))
+    assert [p["short"] for p in ps[16:]] == ["Mode", "Freq", "Q", "Gain"]
+
+
+def test_get_mix_is_unique_after_overlap_removal(tmp_path):
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Compressor")
+    g = cmds.plugin.get(1, None, 2, "Mix")
+    assert g.verified == "verified" and g.after["index"] == 14 and g.after["text"] == "100.0%"
+
+
+def test_get_index_21_moves_to_page_3(tmp_path):
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Compressor")
+    g = cmds.plugin.get(1, None, 2, 21)
+    assert g.verified == "verified" and g.after["short"] == "Mode" and g.after["text"] == "LP"
+
+
+def test_params_drops_stale_overlap_entries_keeps_learned_map(tmp_path):
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Compressor")
+    thrs_map = {"type": "linear", "lo": -60.0, "hi": 0.0}
+    cache.params["Compressor"] = {"pages": 3, "items": [
+        {"index": i, "short": f"S{i}", "name": None, "map": thrs_map if i == 2 else None} for i in range(1, 25)]}
+    r = cmds.plugin.params(1, None, 2)
+    items = cache.param_table("Compressor")["items"]
+    assert [x["index"] for x in items] == list(range(1, 17)) + [21, 22, 23, 24]
+    assert items[1]["short"] == "Thrs" and items[1]["map"] == thrs_map
+    assert len(r.after["params"]) == 20

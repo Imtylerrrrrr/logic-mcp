@@ -36,7 +36,7 @@ try:
     r = run("plugin params s2", lambda: commands.plugin.params(strip, None, 2))
     print("  pages:", r.after and r.after.get("pages"))
     print("  params:", [(p["index"], p["short"], p["text"]) for p in (r.after or {}).get("params", [])])
-    run("plugin set Thrs -20", lambda: commands.plugin.set(strip, None, 2, "Thrs", -20.0))   # 실측 축약 `Thrs`(M)
+    run("plugin set Thrs -24", lambda: commands.plugin.set(strip, None, 2, "Thrs", -24.0))   # 실측 축약 `Thrs`(M)
     run("plugin get Thrs", lambda: commands.plugin.get(strip, None, 2, "Thrs"))
     run("plugin bypass s2 on", lambda: commands.plugin.bypass(strip, None, 2, True))
     run("plugin bypass s2 off", lambda: commands.plugin.bypass(strip, None, 2, False))

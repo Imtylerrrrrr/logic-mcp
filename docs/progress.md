@@ -61,4 +61,5 @@ bank first   ok=True skipped    1049ms already
   - 실기 2차 확인 대상: 전체 흐름 재실행, PL에서 SELECT로 트랙을 바꿀 때 2행 갱신, Compressor 3페이지 params, `--scan`.
 - 실기 2차(2026-10-15): `eq get`·`eq set gain`·`eq set on(already)`·`plugin list`·`plugin remove` verified. 잔여 4건(P~S)은 수정 2(fix-2)로 반영: 모드 단계 대기 3초, EQ 페이지를 1행 첫 열로 판정, 단위 없는 숫자 파싱(`24 dB/O`), 틱 뒤 0.4초 조용 대기. 실기 3차 확인 대상: `eq set freq/slope/q`, `plugin insert`.
 - 실기 3차(2026-10-15): 17건 중 16건 verified, 실패는 `eq set q`(2.8에서 수렴 못 함) 1건. 수정 3(fix-3): Q = 고정 log 0.10~100 매핑(프로빙 안 함, 실측 T~V), 틱 보정 로그 영역을 log 매핑까지 일반화, 단위 없는 숫자 허용 오차 2 %.
+- 수정 4(fix-4): 실기 4차 결함 2건. 편집 뷰 마지막 페이지 오른쪽 정렬 겹침 제거(W, `params` 20항목·index 1..16,21..24, 캐시의 겹침 항목은 전체 읽기 때 삭제), `ModeDriver.fader`가 에코 뒤 LCD 변화도 기다림(X, Thrs 매핑 오학습 방지). 가짜 Compressor를 실측 20개 모델로, `live_check2`의 Thrs 목표를 -24로.
 - 다음: 2b (센드·번들 생성·스킬)
