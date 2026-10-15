@@ -245,12 +245,35 @@ def test_fader_resends_when_first_move_is_dropped():            # 실측 Z1
     assert len(_pitchbends(fake)) == 2
 
 
-def test_flip_presses_again_when_first_press_is_dropped():      # 실측 Z2
+def test_flip_does_not_press_again_when_first_press_is_dropped():    # 실측 Z2 → 리뷰 C1: 재누름 제거, 1.0초 뒤 ModeError
     d, surface, fake, logic = make()
     logic.drop_first_flip = True
     d.focus(0)
     d.enter("eq_channel")
     fake.sent.clear()
+    with pytest.raises(ModeError):
+        d.flip(True)
+    assert sum(1 for m in fake.sent if m == P.button_down(P.Note.FLIP)) == 1
+    assert not logic.flip and not surface.state.assignment.flip
+
+
+def test_fader_refuses_to_send_while_flip_is_off():             # 리뷰 C1: Flip 꺼진 채 페이더는 트랙 볼륨을 움직인다
+    d, surface, fake, logic = make()
+    d.focus(0)
+    d.enter("eq_channel")
+    fake.sent.clear()
+    with pytest.raises(ModeError):
+        d.fader(0, 5000)
+    assert _pitchbends(fake) == []
+    assert logic.tracks[0].volume is None
+
+
+def test_fader_does_not_resend_when_target_equals_current_raw():     # 리뷰 m2: 에코가 올 이유가 없다
+    d, surface, fake, logic = make()
+    d.focus(0)
+    d.enter("eq_channel")
     d.flip(True)
-    assert surface.state.assignment.flip and logic.flip
-    assert sum(1 for m in fake.sent if m == P.button_down(P.Note.FLIP)) == 2
+    raw = surface.state.strips[1].fader_raw
+    fake.sent.clear()
+    d.fader(1, raw)
+    assert len(_pitchbends(fake)) == 1

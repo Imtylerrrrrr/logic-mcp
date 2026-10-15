@@ -127,11 +127,30 @@ def test_eq_set_q_uses_log_mapping_without_probe(monkeypatch):
     assert r.ok and r.verified == "verified" and abs(eq[3][2].value - 2.0) <= 0.04
 
 
-def test_eq_set_q_survives_dropped_flip_and_dropped_first_fader():       # 실측 Z1·Z2
+def test_eq_set_q_survives_dropped_first_fader():       # 실측 Z1
+    cmds, surface, fake, logic = make()
+    logic.tracks[0].insert(1, "Channel EQ")
+    eq = logic.tracks[0].eq
+    logic.drop_first_fader = True
+    r = cmds.eq.set(1, None, 4, "q", 2.0)
+    assert r.ok and r.verified == "verified" and abs(eq[3][2].value - 2.0) <= 0.04
+
+
+def test_eq_set_with_dropped_flip_press_fails_without_touching_anything():   # 실측 Z2 → 리뷰 C1: 재누름 없음
     cmds, surface, fake, logic = make()
     logic.tracks[0].insert(1, "Channel EQ")
     eq = logic.tracks[0].eq
     logic.drop_first_flip = True
-    logic.drop_first_fader = True
     r = cmds.eq.set(1, None, 4, "q", 2.0)
-    assert r.ok and r.verified == "verified" and abs(eq[3][2].value - 2.0) <= 0.04
+    assert not r.ok and r.verified == "unverified" and "flip" in r.note
+    assert eq[3][2].value == 0.30 and [t.volume for t in logic.tracks] == [None] * len(logic.tracks)
+
+
+@pytest.mark.parametrize("drop_first", [False, True])
+def test_eq_set_late_flip_led_never_moves_a_track_volume(drop_first):    # 리뷰 C1: 재누름이 늦은 LED와 겹치면 Flip이 꺼진 채 페이더가 볼륨을 움직인다
+    cmds, surface, fake, logic = make()
+    logic.tracks[0].insert(1, "Channel EQ")
+    logic.flip_led_lag = True
+    logic.drop_first_flip = drop_first
+    cmds.eq.set(1, None, 3, "gain", -3.0)           # ok 여부는 상관없다
+    assert [t.volume for t in logic.tracks] == [None] * len(logic.tracks)

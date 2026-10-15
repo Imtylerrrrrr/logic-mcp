@@ -5,7 +5,10 @@ EQ 버튼은 실측 A처럼 down에 `E_`(메뉴)를, up 뒤에 뷰를 그린다.
 기다리기 시작한 뒤(wait_for의 첫 판정 다음)나 다음 sleep·입력 때 도착한다.
 lcd_lag(실측 X)의 LCD 값 쓰기는 lagged에 쌓여 sleep으로는 오지 않고, 판정이 안 끝난 wait_for나 다음 입력 때만 도착한다.
 drop_first_fader(실측 Z1)는 Flip을 켠 뒤 처음 오는 페이더 이동을, drop_first_flip(실측 Z2)은 처음 FLIP 누름을 한 번 무시한다.
-drop_all_faders는 페이더 이동을 항상 무시한다(반응 없는 Logic)."""
+drop_all_faders는 페이더 이동을 항상 무시한다(반응 없는 Logic).
+flip_led_lag(리뷰 C1)는 처음 처리된 FLIP 누름의 LED 변화를 flip_lagged에 쌓아 두었다가, 드라이버가 FLIP LED 대기에서 한 번
+시간 초과한 뒤 다음 판정 거짓 wait_for에 들어갈 때 보낸다. Flip이 꺼진 상태의 페이더 이동은 해당 스트립 트랙 볼륨(Track.volume, raw)을 바꾼다.
+drop_all_flips는 FLIP 누름을 항상, drop_all_name_value는 NAME/VALUE 누름을 항상 무시한다."""
 from __future__ import annotations
 
 import math
@@ -182,6 +185,7 @@ class Track:
     params: dict[int, list[Param]] = field(default_factory=dict)   # 슬롯 → 편집 뷰 파라미터
     eq: list[list[Param]] | None = None                           # Channel EQ 밴드(어느 슬롯에 있든)
     bypassed: set[int] = field(default_factory=set)
+    volume: int | None = None                                     # 페이더 raw. Flip이 꺼진 상태의 페이더 이동이 바꾼다(None = 건드린 적 없음)
     eq_page: int = 1                                              # EQ 채널 뷰가 기억하는 마지막 페이지(실측 Q)
 
     def insert(self, slot: int, name: str) -> None:
@@ -232,6 +236,12 @@ class FakeLogic:
         self._fader_armed = False
         self.drop_all_faders = False                   # True면 페이더 이동을 항상 무시
         self.drop_first_flip = False                   # True면 처음 FLIP 누름을 한 번 무시(LED 변화 없음, 실측 Z2)
+        self.flip_led_lag = False                      # True면 처음 처리된 FLIP 누름의 LED 변화가 첫 대기 시간 초과 뒤에 도착(리뷰 C1)
+        self.flip_lagged: list = []
+        self.flip_waits = 0                            # flip_lagged가 쌓인 뒤 판정 거짓 wait_for에 들어간 횟수
+        self._flip_lag_used = False
+        self.drop_all_flips = False                    # True면 FLIP 누름을 항상 무시
+        self.drop_all_name_value = False               # True면 NAME/VALUE 누름을 항상 무시
         self.refuse: set[int] = set()                  # 반응하지 않을 노트(고장 흉내)
         fake.replies = self.replies
 
@@ -452,17 +462,27 @@ class FakeLogic:
         elif note == N.CURSOR_UP:
             self._slot(-1)
         elif note == N.FLIP:
+            if self.drop_all_flips:
+                return
             if self.drop_first_flip:
                 self.drop_first_flip = False
                 return
             self.flip = not self.flip
             self._fader_armed = self.flip
-            self._emit([P.button_down(N.FLIP) if self.flip else P.button_up(N.FLIP)])
+            led = [P.button_down(N.FLIP) if self.flip else P.button_up(N.FLIP)]
+            if self.flip_led_lag and not self._flip_lag_used:
+                self._flip_lag_used = True
+                self.flip_waits = 0
+                self.flip_lagged.append(lambda: self._emit(led))
+            else:
+                self._emit(led)
             if self.flip:
                 self._emit([fader_echo(ch, p.raw() if (p := self._column_param(ch)) else 0) for ch in range(8)])
             else:
                 self._emit([fader_echo(ch, 12443) for ch in range(8)])
         elif note == N.NAME_VALUE:
+            if self.drop_all_name_value:
+                return
             self.name_mode = not self.name_mode
             self.redraw()
         elif N.VPOT_PUSH <= note < N.VPOT_PUSH + 8:
@@ -586,7 +606,12 @@ class FakeLogic:
             self.redraw()
 
     def _fader(self, ch: int, raw: int) -> None:
-        if not self.flip or raw == 0:                                   # raw 0 무시(실측 사례)
+        if raw == 0:                                                    # raw 0 무시(실측 사례)
+            return
+        if not self.flip:                                               # Flip 꺼짐: 페이더는 트랙 볼륨을 움직인다(리뷰 C1)
+            if (t := self._track(ch)) is not None:
+                t.volume = raw
+                self._emit([fader_echo(ch, raw)])
             return
         if self.drop_all_faders or (self.drop_first_fader and self._fader_armed):
             self._fader_armed = False
@@ -619,6 +644,11 @@ def make_assign_logic(tracks: list[Track] | None = None) -> tuple[Surface, FakeT
             logic.flush()
         if logic.lagged and not pred(surface.state):
             logic.flush_lagged()
+        if logic.flip_lagged and not pred(surface.state):
+            logic.flip_waits += 1
+            if logic.flip_waits >= 2:
+                while logic.flip_lagged:
+                    logic.flip_lagged.pop(0)()
         return wait_for(pred, timeout)
     surface.wait_for = late_wait_for
     fake.now += 1.0                 # 조용 1초 → ready

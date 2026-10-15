@@ -15,6 +15,7 @@ MODE_TIMEOUT = 0.6
 ENTER_TIMEOUT = 3.0      # 모드 버튼 단계 대기. EQ 첫 진입(Channel EQ 자동 삽입)은 `E_`가 0.5~1.0초 지속(실측 P)
 TICK_QUIET_S = 0.4       # 틱 뒤 마지막 LCD 쓰기로부터 이만큼 조용해져야 오버레이를 읽는다(실측 S)
 LED_TIMEOUT = 0.5
+FLIP_LED_TIMEOUT = 1.0   # FLIP LED는 늦게 올 수 있다(실측 Z2). 재누름은 하지 않으므로 넉넉히 기다린다(리뷰 C1)
 FADER_TIMEOUT = 0.8
 FEEDBACK_TIMEOUT = 0.6
 PRESS_HOLD_S = 0.03
@@ -258,31 +259,32 @@ class ModeDriver:
         return self._wait_change()
 
     def fader(self, ch: int, raw: int) -> int | None:
-        """Flip 상태에서 페이더로 절대값. 에코된 raw, 반응이 없으면 None. raw 0은 보내지 않는다."""
+        """Flip 상태에서 페이더로 절대값. 에코된 raw, 반응이 없으면 None. raw 0은 보내지 않는다.
+        Flip이 꺼진 채 보내면 페이더가 트랙 볼륨을 움직이므로, 메시지를 보내기 직전마다(재전송 포함) Flip을 확인한다."""
         raw = max(1, min(P.MAX_FADER, raw))
         before = self.surface.state.strips[ch].fader_raw
         ok = False
         for _ in range(2):                    # 에코도 LCD도 없으면 이동이 통째로 무시된 것: 한 번 더 보낸다(실측 Z1)
+            if not self.surface.state.assignment.flip:
+                raise ModeError("fader", "flip on", "Flip 꺼짐 — 볼륨을 움직일 수 있어 보내지 않음")
             self._mark()
             for msg in P.fader_move(ch, raw):
                 self.surface.send(msg)
             ok = self.surface.wait_for(lambda s: s.strips[ch].fader_raw != before, FADER_TIMEOUT)
             # 에코 뒤에 LCD 값 쓰기가 늦게 올 수 있다(실측 X): 에코만 보고 끝내면 이동 전 값을 읽는다. 값이 안 바뀌면 안 올 수도 있다.
             shown = self.surface.wait_for(lambda s: s.connection.last_display_change >= self._since, FEEDBACK_TIMEOUT)
-            if ok or shown:
+            if ok or shown or raw == before:  # 이미 그 위치면 에코가 올 이유가 없다: 재전송하지 않는다
                 break
         self._settle()
         return self.surface.state.strips[ch].fader_raw if ok else None
 
     def flip(self, on: bool) -> None:
+        """FLIP 한 번 누르고 LED를 FLIP_LED_TIMEOUT 기다린다. 재누름 없음: 늦은 LED와 겹치면 Flip이 꺼진 채 페이더가 볼륨을 움직인다(리뷰 C1)."""
         if self.surface.state.assignment.flip == on:
             return
-        for _ in range(2):            # 누름이 무시되면 한 번 더 누른다(실측 Z2)
-            self._mark()
-            self._press(P.Note.FLIP)
-            if self.surface.wait_for(lambda s: s.assignment.flip == on, LED_TIMEOUT):
-                break
-        else:
+        self._mark()
+        self._press(P.Note.FLIP)
+        if not self.surface.wait_for(lambda s: s.assignment.flip == on, FLIP_LED_TIMEOUT):
             raise ModeError("flip", "on" if on else "off", "FLIP LED 변화 없음")
         self._sleep(0.1)                      # 페이더 위치 에코가 오는 시간
 
