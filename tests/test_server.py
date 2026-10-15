@@ -34,7 +34,7 @@ async def test_tool_list_and_names(setup):
     async with Client(mcp, raise_exceptions=True) as client:
         tools = await client.list_tools()
         names = {t.name for t in tools.tools}
-        assert names == {"logic_transport", "logic_track", "logic_mixer", "logic_bank", "logic_session"}
+        assert names == {"logic_transport", "logic_track", "logic_mixer", "logic_bank", "logic_session", "logic_eq", "logic_plugin"}
         track = next(t for t in tools.tools if t.name == "logic_track")
         assert set(track.input_schema["properties"]) == {"action", "strip", "number"}
         assert "mute" in track.input_schema["properties"]["action"]["enum"]
@@ -78,3 +78,56 @@ async def test_mixer_db_accepts_minus_inf_string(setup):
         assert result.structured_content["ok"] is True
         result = await client.call_tool("logic_mixer", {"action": "set_pan", "strip": 1})
         assert result.structured_content["ok"] is False and "pan" in result.structured_content["note"]
+
+
+from logic_mcp.logic.plugins.cache import PluginCache
+from tests.fake_assign import PLUGIN_LIST, make_assign_logic
+
+
+@pytest.fixture
+def assign_setup(tmp_path):
+    surface, fake, logic = make_assign_logic()
+    cache = PluginCache("fake", list(PLUGIN_LIST), [], {}, {}, None, tmp_path / "plugins-fake.json")
+    cmds = Commands(surface, FaderTable.load(), sleep=logic.sleep, logic_running=lambda: True, plugin_cache=cache)
+    return create_server(cmds, start_surface=False), logic
+
+
+@pytest.mark.anyio
+async def test_spec2_tools_and_resources_listed(setup):
+    mcp, fake = setup
+    async with Client(mcp) as client:
+        tools = {t.name: t for t in (await client.list_tools()).tools}
+        assert {"logic_eq", "logic_plugin"} <= set(tools)
+        props = set(tools["logic_plugin"].input_schema["properties"])
+        assert {"action", "strip", "number", "slot", "param", "value", "plugin", "replace", "on", "tolerance", "force"} <= props
+        assert set(tools["logic_eq"].input_schema["properties"]) >= {"action", "band", "param", "value", "allow_insert"}
+        uris = {str(r.uri) for r in (await client.list_resources()).resources}
+        assert {"logic://plugins", "logic://inserts", "logic://view"} <= uris
+
+
+@pytest.mark.anyio
+async def test_spec2_calls_via_client(assign_setup):
+    mcp, logic = assign_setup
+    async with Client(mcp) as client:
+        r = await client.call_tool("logic_eq", {"action": "get", "strip": 2})
+        assert r.structured_content["after"] == {"has_eq": False, "bands": {}}
+        r = await client.call_tool("logic_eq", {"action": "set", "strip": 2})
+        assert r.structured_content["verified"] == "skipped" and "band" in r.structured_content["note"]
+        r = await client.call_tool("logic_eq", {"action": "set", "strip": 2, "band": 3, "param": "gain", "value": -3})
+        assert r.structured_content["verified"] == "verified" and logic.tracks[1].eq[2][1].value == -3.0
+        r = await client.call_tool("logic_plugin", {"action": "insert", "strip": 2, "slot": 2, "plugin": "Compressor"})
+        assert r.structured_content["verified"] == "verified" and logic.tracks[1].inserts[2] == "Compressor"
+        r = await client.call_tool("logic_plugin", {"action": "set", "strip": 2, "slot": 2, "param": "Thresh", "value": -30})
+        assert r.structured_content["verified"] == "verified"
+        r = await client.call_tool("logic_plugin", {"action": "params", "strip": 2})
+        assert r.structured_content["verified"] == "skipped" and "slot" in r.structured_content["note"]
+        r = await client.call_tool("logic_plugin", {"action": "list"})
+        assert r.structured_content["after"]["tracks"]["16"]["2"]["name"] == "Compressor"
+        view = json.loads((await client.read_resource("logic://view")).contents[0].text)
+        assert view["kind"] == "pan" and view["flip"] is False
+        plugins = json.loads((await client.read_resource("logic://plugins")).contents[0].text)
+        assert plugins["items"][6] == {"index": 6, "name": "Compressor"} and plugins["source"] == "bundled"
+        inserts = json.loads((await client.read_resource("logic://inserts")).contents[0].text)
+        assert inserts["16"]["2"]["text"] == "Compre"
+        status = await client.call_tool("logic_session", {"action": "status"})
+        assert status.structured_content["after"]["view_kind"] == "pan"

@@ -176,6 +176,7 @@ class Commands:
             "last_rx_age_ms": int((now - c.last_rx) * 1000) if c.last_rx else None,
             "settling": now < c.dirty_until,
             "assignment_mode": st.assignment.mode, "flip": st.assignment.flip,
+            "view_kind": st.view.kind,
             "name_format_ok": any(s.number is not None for s in st.strips),
             "configured": self.configured,
             "logic_running": self._logic_running(),

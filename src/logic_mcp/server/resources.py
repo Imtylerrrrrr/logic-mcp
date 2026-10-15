@@ -30,3 +30,18 @@ def register_resources(mcp: MCPServer, commands: Commands) -> None:
         st = commands.surface.state
         return json.dumps({"row1": st.lcd[0], "row2": st.lcd[1],
                            "settling": commands.surface.clock() < st.connection.dirty_until}, ensure_ascii=False)
+
+    @mcp.resource("logic://plugins", description="플러그인 목록 캐시(번들+스캔 병합)와 알려진 파라미터 표")
+    def plugins() -> str:
+        return json.dumps(commands.plugin.cache.to_resource(), ensure_ascii=False)
+
+    @mcp.resource("logic://inserts", description="마지막 logic_plugin list 결과(트랙 번호 → 슬롯 → 플러그인)")
+    def inserts() -> str:
+        return json.dumps(commands.plugin.inventory, ensure_ascii=False)
+
+    @mcp.resource("logic://view", description="현재 어사인먼트 뷰(종류·번호·페이지·열)와 Flip")
+    def view() -> str:
+        st = commands.surface.state
+        v = st.view
+        return json.dumps({"kind": v.kind, "index": v.index, "page": v.page, "header": v.header,
+                           "columns": [list(c) for c in v.columns], "flip": st.assignment.flip}, ensure_ascii=False)
