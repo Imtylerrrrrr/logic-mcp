@@ -11,6 +11,7 @@ from .modes import CONFIRM_S, EDIT_OPEN_S, ModeError
 from .plugins.cache import PluginCache
 from .plugins.scan import rewind_to_empty, scan_list
 from .plugins.match import find, normalize, strip_suffix
+from .strips import StripUnsupported
 from .setter import probe_mapping, set_enum, set_numeric
 from .values import Mapping, Value, parse_value, tolerance_for
 
@@ -103,6 +104,11 @@ class EqCommands:
                 return ch
             target = b._target(ch)
             try:
+                if not b.strips.follows(d, b.surface.state, ch):           # 출력·Master: E1 뷰의 유무만(실측 Z4)
+                    d.focus(ch)
+                    return b._result(action, True, "verified", t0, target=target,
+                                     after={"has_eq": self._has_eq(ch), "bands": {}},
+                                     note="출력·Master 스트립: EQ 채널 뷰가 따라가지 않아 밴드 값은 읽지 않음(실측 Z4)")
                 d.focus(ch)
                 if not self._has_eq(ch):
                     return b._result(action, True, "verified", t0, target=target, after={"has_eq": False, "bands": {}})
@@ -142,6 +148,7 @@ class EqCommands:
             target = b._target(ch)
             inserted = False
             try:
+                b.strips.ensure(d, b.surface.state, ch)
                 d.focus(ch)
                 if not self._has_eq(ch):
                     if not allow_insert:
@@ -166,6 +173,8 @@ class EqCommands:
                     return b._result(action, True, "skipped", t0, target=target, before=before, after=after, note="already")
                 return b._result(action, out.ok, "verified" if out.ok else "unverified", t0, target=target,
                                  before=before, after=after, note=note.strip())
+            except StripUnsupported as e:
+                return b._result(action, False, "skipped", t0, target=target, note=e.note)
             except ModeError as e:
                 return b._result(action, False, "unverified", t0, target=target,
                                  note=("Channel EQ 삽입됨. " if inserted else "") + str(e))
@@ -221,7 +230,7 @@ class PluginCommands:
         self.b = base
         self.d = base.modes
         self.cache = cache or PluginCache.load()
-        self.inventory: dict[str, dict[str, dict | None]] = {}
+        self.inventory: dict[str, dict[str, dict | None] | None] = {}
 
     # ---------- 공통 ----------
     def _fresh(self) -> None:
@@ -236,7 +245,9 @@ class PluginCommands:
     def _channel(self, ch: int) -> None:
         """대상 트랙을 선택하고 Plug-in Channel 뷰(PL)로 간다. 2행 = 선택 트랙의 슬롯 1~8, V-Pot n = 슬롯 n(실측 C·D).
         PL 안에서 SELECT 만 눌러 트랙을 바꾸면 2행이 그 트랙의 슬롯으로 바뀌지 않는다(실기 8차: 트랙 이름 조각이 읽힘, 실측 Z3)
-        → 이미 PL 이고 다른 스트립이면 PAN 으로 나가 다시 들어간다."""
+        → 이미 PL 이고 다른 스트립이면 PAN 으로 나가 다시 들어간다. 출력·Master 스트립은 PL이 아예 따라가지 않으므로
+        먼저 막는다(실측 Z4, 수정 8)."""
+        self.b.strips.ensure(self.d, self.b.surface.state, ch)
         if self.d.view.kind != "pan" and not self.b.surface.state.strips[ch].select:
             self.d.leave(keep_select=True)
         self.d.focus(ch)
@@ -377,11 +388,19 @@ class PluginCommands:
                 self._fresh()
                 targets = [only] if only is not None else [
                     ch for ch, s in enumerate(b.surface.state.strips) if s.number is not None]
-                tracks: dict[str, dict[str, dict | None]] = {}
+                tracks: dict[str, dict[str, dict | None] | None] = {}
+                unsupported: list[int] = []
                 learned = False
                 for ch in targets:
                     num = b.surface.state.strips[ch].number     # PL은 1행이 채널명이 아니라 PAN에서 읽은 번호를 쓴다
-                    self._channel(ch)
+                    try:
+                        self._channel(ch)
+                    except StripUnsupported as e:
+                        if only is not None:
+                            return b._result(action, False, "skipped", t0, note=e.note)
+                        tracks[str(num)] = None                 # 출력·Master: PL이 따라가지 않아 읽지 않는다(실측 Z4)
+                        unsupported.append(num)
+                        continue
                     d.settle_overlay()
                     texts = [d.view.columns[i][1].strip() for i in range(MAX_SLOT)]
                     row: dict[str, dict | None] = {}
@@ -406,7 +425,8 @@ class PluginCommands:
                 if learned:
                     self.cache.save()
                 self.inventory.update(tracks)
-                return b._result(action, True, "verified", t0, after={"tracks": tracks})
+                after = {"tracks": tracks} if only is not None else {"tracks": tracks, "unsupported": unsupported}
+                return b._result(action, True, "verified", t0, after=after)
             except ModeError as e:
                 return b._result(action, False, "unverified", t0, note=str(e))
             except ValueError as e:
@@ -444,6 +464,8 @@ class PluginCommands:
                                  after={"plugin": full, "abbrev": abbrev, "slot": slot, "pages": pages, "params": out})
             except SlotEmpty:
                 return b._result(action, False, "skipped", t0, target=target, note=f"슬롯 {slot}이 비어 있음")
+            except StripUnsupported as e:
+                return b._result(action, False, "skipped", t0, target=target, note=e.note)
             except ModeError as e:
                 return b._result(action, False, "unverified", t0, target=target, note=str(e))
             except ValueError as e:
@@ -471,6 +493,8 @@ class PluginCommands:
             except SlotEmpty:
                 return b._result(action, False, "skipped", t0, target=target, note=f"슬롯 {slot}이 비어 있음")
             except ParamNotFound as e:
+                return b._result(action, False, "skipped", t0, target=target, note=e.note)
+            except StripUnsupported as e:
                 return b._result(action, False, "skipped", t0, target=target, note=e.note)
             except ModeError as e:
                 return b._result(action, False, "unverified", t0, target=target, note=str(e))
@@ -540,6 +564,8 @@ class PluginCommands:
                 return b._result(action, False, "skipped", t0, target=target, note=f"슬롯 {slot}이 비어 있음")
             except ParamNotFound as e:
                 return b._result(action, False, "skipped", t0, target=target, note=e.note)
+            except StripUnsupported as e:
+                return b._result(action, False, "skipped", t0, target=target, note=e.note)
             except ModeError as e:
                 return b._result(action, False, "unverified", t0, target=target, note=str(e))
             except ValueError as e:
@@ -607,6 +633,8 @@ class PluginCommands:
                 return b._result(action, True, "verified", t0, target=target, before={"slot": slot, "text": current},
                                  after={"slot": slot, "plugin": want, "abbrev": abbrev,
                                         "replaced": current if occupied else None})
+            except StripUnsupported as e:
+                return b._result(action, False, "skipped", t0, target=target, note=e.note)
             except ModeError as e:
                 return b._result(action, False, "unverified", t0, target=target, note=str(e))
             except ValueError as e:
@@ -640,6 +668,8 @@ class PluginCommands:
                 return b._result(action, ok, "verified" if ok else "unverified", t0, target=target,
                                  before={"slot": slot, "text": current}, after={"slot": slot, "text": after},
                                  note="" if ok else "제거 뒤에도 슬롯에 이름이 보임")
+            except StripUnsupported as e:
+                return b._result(action, False, "skipped", t0, target=target, note=e.note)
             except ModeError as e:
                 return b._result(action, False, "unverified", t0, target=target, note=str(e))
             except ValueError as e:
@@ -674,6 +704,8 @@ class PluginCommands:
                 return b._result(action, ok, "verified" if ok else "unverified", t0, target=target,
                                  before={"slot": slot, "text": current}, after={"slot": slot, "text": after},
                                  note="" if ok else "SHIFT+V-Pot 뒤 `*` 표시가 기대와 다름")
+            except StripUnsupported as e:
+                return b._result(action, False, "skipped", t0, target=target, note=e.note)
             except ModeError as e:
                 return b._result(action, False, "unverified", t0, target=target, note=str(e))
             except ValueError as e:

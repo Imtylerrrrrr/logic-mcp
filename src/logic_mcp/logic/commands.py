@@ -61,6 +61,8 @@ class Commands:
         self._lock = threading.Lock()
         self.configured = False
         self.modes = ModeDriver(surface, sleep)
+        from .strips import StripKinds
+        self.strips = StripKinds()
         from .assign import EqCommands, PluginCommands   # 지연 임포트(순환 방지)
         self.eq = EqCommands(self)
         self.plugin = PluginCommands(self, plugin_cache)

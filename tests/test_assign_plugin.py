@@ -4,11 +4,11 @@ from logic_mcp.logic.commands import Commands
 from logic_mcp.logic.faders import FaderTable
 from logic_mcp.logic.plugins.cache import PluginCache
 from logic_mcp.mcu import protocol as P
-from tests.fake_assign import PLUGIN_LIST, Param, make_assign_logic
+from tests.fake_assign import PLUGIN_LIST, Param, Track, make_assign_logic
 
 
-def make(tmp_path):
-    surface, fake, logic = make_assign_logic()
+def make(tmp_path, tracks=None):
+    surface, fake, logic = make_assign_logic(tracks)
     cache = PluginCache("fake", list(PLUGIN_LIST), [], {}, {}, None, tmp_path / "plugins-fake.json")
     cmds = Commands(surface, FaderTable.load(), sleep=logic.sleep, logic_running=lambda: True, plugin_cache=cache)
     return cmds, surface, fake, logic, cache
@@ -27,6 +27,7 @@ def test_list_inventory_whole_bank(tmp_path):
     logic.tracks[0].insert(1, "Channel EQ")
     logic.tracks[2].insert(3, "Compressor")
     cache.learn_abbrev("Comprs", "Compressor")
+    cmds.strips.follows(cmds.modes, surface.state, 0)           # 스트립 종류 판별(TRACK 메뉴 누름)은 미리 끝내 둔다
     n0 = len(fake.sent)
     r = cmds.plugin.list(None, None)
     assert r.verified == "verified"
@@ -192,6 +193,7 @@ def test_insert_refuses_occupied_then_replaces_with_flag(tmp_path):
 def test_insert_overlay_mismatch_never_presses(tmp_path):
     cmds, surface, fake, logic, cache = make(tmp_path)
     logic.plugin_list = ["--", "Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta"]   # 설치 목록이 캐시와 다름
+    cmds.strips.follows(cmds.modes, surface.state, 0)           # 스트립 종류 판별(TRACK 메뉴 누름)은 미리 끝내 둔다
     n0 = len(fake.sent)
     r = cmds.plugin.insert(1, None, 1, "Compressor")
     assert r.verified == "unverified" and "Zeta" in r.note and "scan" in r.note
@@ -349,3 +351,51 @@ def test_list_bank_reenters_pl_per_track(tmp_path):
     pan_presses = [m for m in fake.sent[n0:] if m[0] == 0x90 and m[1] == P.Note.PAN and m[2]]
     assert len(pan_presses) >= 8                       # 트랙마다 PAN 으로 나갔다 (재진입)
     assert surface.state.view.kind == "pan" and logic.selected == 0
+
+
+def out_tracks():
+    return [Track(1, "1"), Track(2, "DeCl"), Track(3, "StOu", kind="output"), Track(6, "Mast", kind="master")]
+
+
+def track_presses(msgs: list[bytes]) -> int:
+    return sum(1 for m in msgs if m[0] == 0x90 and m[1] == P.Note.TRACK and m[2])
+
+
+def test_insert_on_output_strip_is_skipped_and_touches_nothing(tmp_path):      # Review Focus 1, 실측 Z4
+    cmds, surface, fake, logic, cache = make(tmp_path, out_tracks())
+    logic.tracks[1].insert(1, "Channel EQ")
+    r = cmds.plugin.insert(strip=3, number=None, slot=1, plugin="Compressor")
+    assert r.verified == "skipped" and "출력" in r.note and "번호 3" in r.note
+    assert [t.inserts[1] for t in logic.tracks] == [None, "Channel EQ", None, None]
+    assert logic.view == "pan" and surface.state.view.kind == "pan" and not logic.pre and logic.cs_param == 0
+    for name, fn in (("params", lambda: cmds.plugin.params(None, 6, 1)), ("remove", lambda: cmds.plugin.remove(None, 6, 1)),
+                     ("bypass", lambda: cmds.plugin.bypass(None, 6, 1, True)), ("list", lambda: cmds.plugin.list(None, 6))):
+        r = fn()
+        assert r.verified == "skipped" and "출력" in r.note, name
+
+
+def test_list_bank_marks_output_and_master_unsupported_and_caches_kinds(tmp_path):
+    cmds, surface, fake, logic, cache = make(tmp_path, out_tracks())
+    logic.tracks[1].insert(1, "Channel EQ")
+    r = cmds.plugin.list(None, None)
+    assert r.verified == "verified"
+    t = r.after["tracks"]
+    assert t["1"]["1"] is None and t["2"]["1"] == {"text": "Cha EQ", "name": "Channel EQ"}
+    assert t["3"] is None and t["6"] is None and r.after["unsupported"] == [3, 6]
+    assert cmds.plugin.inventory["3"] is None
+    n = track_presses(fake.sent)
+    assert n >= 1
+    r2 = cmds.plugin.list(None, None)
+    assert r2.after["unsupported"] == [3, 6] and track_presses(fake.sent) == n     # (번호, 이름) 캐시: TRACK 모드 재진입 없음
+    assert surface.state.view.kind == "pan" and logic.selected == 0
+
+
+def test_strip_kinds_cache_invalidates_when_name_changes(tmp_path):
+    cmds, surface, fake, logic, cache = make(tmp_path, out_tracks())
+    cmds.plugin.list(None, None)
+    n = track_presses(fake.sent)
+    logic.tracks[2] = Track(3, "Aux1", kind="track")             # 같은 번호에 다른 스트립(버스 센드가 Aux를 만들어 번호가 밀린 경우)
+    logic.redraw()
+    r = cmds.plugin.list(None, None)
+    assert r.after["unsupported"] == [6] and r.after["tracks"]["3"] == {str(i): None for i in range(1, 9)}
+    assert track_presses(fake.sent) > n

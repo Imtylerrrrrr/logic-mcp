@@ -193,3 +193,14 @@ def test_eq_set_on_accepts_one_and_bool():                                      
     assert r.ok and eq[2][3].value == 0
     r = cmds.eq.set(1, None, 3, "on", 1)
     assert r.ok and eq[2][3].value == 1
+
+
+def test_eq_get_on_output_strip_reports_has_eq_only_and_set_is_skipped():     # 실측 Z4
+    from tests.fake_assign import Track
+    surface, fake, logic = make_assign_logic([Track(1, "1"), Track(3, "StOu", kind="output")])
+    cmds = Commands(surface, FaderTable.load(), sleep=logic.sleep, logic_running=lambda: True)
+    r = cmds.eq.get(strip=2, number=None)
+    assert r.verified == "verified" and r.after == {"has_eq": False, "bands": {}} and "출력" in r.note
+    r = cmds.eq.set(strip=2, number=None, band=3, param="gain", value=-3.0)
+    assert r.verified == "skipped" and "출력" in r.note
+    assert logic.tracks[0].eq is None and logic.tracks[1].eq is None and surface.state.view.kind == "pan"
