@@ -14,6 +14,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
+from logic_mcp.logic.faders import FaderTable
 from logic_mcp.mcu import protocol as P
 from logic_mcp.mcu.surface import Surface
 from tests.fakes import FakeTransport
@@ -25,6 +26,13 @@ SLOPES = ("6", "12", "18", "24", "36", "48")
 PLUGIN_LIST = ["--", "Parametric EQ", "Low Pass Filter", "High Pass Filter", "Chorus", "Flanger",
                "Compressor", "Channel EQ", "Tuner", "Limiter", "Noise Gate", "Space Designer", "DeEsser"]
 ABBREV = {"Parametric EQ": "ParEQ", "Channel EQ": "Cha EQ", "Compressor": "Comprs"}   # PL·Mixer 2행 축약(실측 C·M)
+
+DEST_LIST = ["--", "1", "2"] + [f"Bus {i}" for i in range(1, 9)]   # 실측 S4: 앞의 `1`, `2`는 정체 미확인, 1틱 = 1항목
+POS_COL = ("Pre", "Post", "PosPan")                                 # 정착 열(실측 S8)
+POS_FULL = ("Pre", "Post", "Post Pan")                              # 오버레이
+SEND_MENU = "Dest   Level  Pos    Mute   CStrip CStr2  Ds/LvM Ds/LvC "
+FADERS = FaderTable.load()
+LEVEL_FLOOR = -96.0                                                  # 이 아래는 `-oodB`
 
 
 def lcd_write(offset: int, text: str) -> bytes:
@@ -44,6 +52,20 @@ def col(text: str) -> str:
 
 def fader_echo(ch: int, raw: int) -> bytes:
     return bytes([0xE0 | ch, raw & 0x7F, raw >> 7])
+
+
+@dataclass
+class Send:
+    dest: str                   # `Bus 2`
+    level: float = float("-inf")
+    pos: int = 2                # 0 Pre, 1 Post, 2 Post Pan (새 센드 기본 Post Pan, 실측 S5)
+    muted: bool = False
+
+    def level_col(self) -> str:
+        return col("-oodB" if self.level <= LEVEL_FLOOR else f"{self.level:+.1f}dB")
+
+    def level_full(self) -> str:
+        return "-oo dB" if self.level <= LEVEL_FLOOR else f"{self.level:+.1f} dB"
 
 
 @dataclass
@@ -195,6 +217,8 @@ class Track:
     volume: int | None = None                                     # 페이더 raw. Flip이 꺼진 상태의 페이더 이동이 바꾼다(None = 건드린 적 없음)
     eq_page: int = 1                                              # EQ 채널 뷰가 기억하는 마지막 페이지(실측 Q)
     kind: str = "track"                                           # track | output | master (실측 Z4: 출력·Master는 채널 뷰가 안 따라감)
+    sends: dict[int, Send | None] = field(default_factory=lambda: {i: None for i in range(1, 9)})
+    se_page: int = 1                                              # SE 뷰가 기억하는 마지막 페이지(실측 S3)
 
     @property
     def follows(self) -> bool:
@@ -247,6 +271,9 @@ class FakeLogic:
         self.deferred: list = []                       # 드라이버가 기다리기 시작한 뒤 도착할 응답(EQ up)
         self.eq_held = False                           # EQ 버튼 down 중: 2자리 `E_`(실측 A)
         self.plugin_list = list(PLUGIN_LIST)
+        self.se_track = 0                              # SE 뷰 2행이 보여 주는 트랙(출력·Master를 고르면 안 바뀜, 실측 S10)
+        self.send_held = False
+        self.dest_list = list(DEST_LIST)
         self.lcd_lag = False                           # True면 페이더 이동의 LCD 값 쓰기가 에코보다 늦게 도착(실측 X)
         self.lagged: list = []                         # lcd_lag 응답: sleep·입력으로는 안 오고, 드라이버가 판정 안 된 wait_for에 들어가야 도착
         self.drop_first_fader = False                  # True면 Flip을 켠 뒤 처음 페이더 이동을 한 번 무시(에코·LCD 없음, 실측 Z1)
@@ -275,7 +302,7 @@ class FakeLogic:
         if due:
             self.pending = [t for t in self.pending if t > self.clock()]
             self.redraw()
-        elif self.pre and self.view in ("plugin_mixer", "plugin_channel") and not self.pending:   # 오버레이 유효 중엔 깜박임 재묘사로 덮지 않음
+        elif self.pre and self.view in ("plugin_mixer", "plugin_channel", "send_channel") and not self.pending:   # 오버레이 유효 중엔 깜박임 재묘사로 덮지 않음
             self.redraw()
 
     def flush(self) -> None:
@@ -321,6 +348,12 @@ class FakeLogic:
             return fallback
         return self._abbrev(self.plugin_list[self._pre_index(ch)], 0, self.tracks[self.selected]) if self.blink_on else col("")
 
+    def _pre_cell_send(self, n: int, fallback: str) -> str:
+        ch = ((n - 1) % 2) * 4
+        if self.view != "send_channel" or ch not in self.pre:
+            return fallback
+        return col(self.dest_list[self.pre[ch]]) if self.blink_on else col("")
+
     def _edit_params(self) -> list[Param]:
         return self.tracks[self.selected].params.get(self.slot, [])
 
@@ -361,6 +394,24 @@ class FakeLogic:
                 else:
                     cells.append(col(""))
             return self._names_row(), "".join(cells).ljust(56), "CS"
+        if self.view == "send_menu":
+            return " " * 56, SEND_MENU, "S_"
+        if self.view == "send_mixer":
+            cells = [col(tr.sends[1].dest if tr.sends[1] else "--") for tr in self.tracks[:8]]
+            return self._names_row(), "".join(cells).ljust(56), "S1"
+        if self.view == "send_channel":
+            st = self.tracks[self.se_track]
+            r1, r2 = [], []
+            for n in (2 * self.page - 1, 2 * self.page):
+                s = st.sends.get(n)
+                if s is None:
+                    r1 += [col(f"Sen{n}In"), col("-"), col("-"), col("-")]
+                    r2 += [self._pre_cell_send(n, col("--")), col(""), col(""), col("")]
+                else:
+                    r1 += [col(f"Sen{n}De"), col(s.dest.replace("Bus ", "")), col(f"Sen{n}Po"), col(f"Sen{n}Mu")]
+                    r2 += [self._pre_cell_send(n, col(("*" if s.muted else "") + s.dest)), s.level_col(),
+                           col(POS_COL[s.pos]), col("muted" if s.muted else "active")]
+            return "".join(r1).ljust(56), "".join(r2).ljust(56), "SE"
         if self.view == "pan":
             return self._names_row(), "".join(col("0") for _ in self.tracks[:8]).ljust(56), "PN"
         if self.view == "eq_mixer":
@@ -438,6 +489,14 @@ class FakeLogic:
                     self.redraw()
                 else:
                     self.deferred.append(lambda: self._button(P.Note.TRACK))
+            elif note == P.Note.SEND:                             # 실측 S1: down → `S_` 메뉴, up 뒤 뷰
+                self.send_held = on
+                if on:
+                    self.view_before_menu = self.view
+                    self.view = "send_menu"
+                    self.redraw()
+                else:
+                    self.deferred.append(lambda: self._button(P.Note.SEND))
             elif note == P.Note.EQ:                              # 실측 A: down → `E_`, up 뒤 50 ms 안에 뷰
                 self.eq_held = on
                 if on:
@@ -465,8 +524,10 @@ class FakeLogic:
         if N.SELECT <= note < N.SELECT + 8:
             old, self.selected = self.selected, note - N.SELECT
             self._emit([P.button_up(N.SELECT + old), P.button_down(N.SELECT + self.selected)])
-            if not (self.pl_select_stale and self.view == "plugin_channel"):
-                self.pl_track = self.selected
+            if self.tracks[self.selected].follows:           # 출력·Master 선택은 PL·SE 2행을 바꾸지 않음(실측 Z4·S10)
+                if not (self.pl_select_stale and self.view == "plugin_channel"):
+                    self.pl_track = self.selected
+                self.se_track = self.selected
             self.pre.clear()
             self.redraw()
         elif note == N.TRACK:
@@ -488,10 +549,25 @@ class FakeLogic:
             else:
                 self._set_mode("eq_mixer", N.EQ)
                 self.redraw(mode_overlay=" EQ 1 Parameter: Low Cut Frequency")
+        elif note == N.SEND:
+            prev = getattr(self, "view_before_menu", "pan")
+            if prev == "send_mixer":
+                self.view, self.page = "send_channel", self.tracks[self.se_track].se_page
+                self.pre.clear()
+                self.redraw()
+            elif prev == "send_channel":
+                self.view = "send_mixer"
+                self.pre.clear()
+                self.redraw()
+            else:
+                self._set_mode("send_mixer", N.SEND)
+                self.se_track = self.selected if self.tracks[self.selected].follows else self.se_track
+                self.redraw(mode_overlay="Send 1 Parameter: Send 1 Destination")
         elif note == N.PLUGIN:
             if self.view == "plugin_mixer":
                 self.view = "plugin_channel"
-                self.pl_track = self.selected
+                if self.tracks[self.selected].follows:
+                    self.pl_track = self.selected
             elif self.view in ("plugin_channel", "plugin_edit", "empty_edit", "midi_fx"):
                 self.view = "plugin_mixer"
             else:
@@ -522,7 +598,7 @@ class FakeLogic:
             else:
                 self._emit(led)
             if self.flip:
-                self._emit([fader_echo(ch, p.raw() if (p := self._column_param(ch)) else 0) for ch in range(8)])
+                self._emit([fader_echo(ch, self._flip_raw(ch)) for ch in range(8)])
             else:
                 self._emit([fader_echo(ch, 12443) for ch in range(8)])
         elif note == N.NAME_VALUE:
@@ -536,6 +612,15 @@ class FakeLogic:
                 return
             self._push(note - N.VPOT_PUSH)
 
+    def _flip_raw(self, ch: int) -> int:
+        if self.view == "send_channel":
+            _n, fld, s = self._send_at(ch)
+            if fld == 1 and s is not None:
+                return 0 if s.level <= LEVEL_FLOOR else FADERS.db_to_raw(s.level)
+            return 0
+        p = self._column_param(ch)
+        return p.raw() if p else 0
+
     def _page(self, delta: int) -> None:
         old = self.page
         if self.view == "eq_channel":
@@ -545,6 +630,11 @@ class FakeLogic:
             self.tracks[self.selected].eq_page = self.page
         elif self.view == "plugin_edit":
             self.page = max(1, min(self._edit_pages(), self.page + delta))
+        elif self.view == "send_channel":
+            self.page = max(1, min(4, self.page + delta))
+            if self.page == old:
+                return
+            self.tracks[self.se_track].se_page = self.page
         else:
             return
         self.redraw()
@@ -575,7 +665,35 @@ class FakeLogic:
         name = self.plugin_list[self._pre_index(ch)]
         self.redraw(overlay=(ch, f"Insert {slot} Plug-in", name if name == "--" else f"{name} (s/s)"))
 
+    def _send_at(self, ch: int) -> tuple[int, int, Send | None]:
+        """SE 열 → (센드 번호, 필드 0 dest·1 level·2 pos·3 mute, 센드)."""
+        n = 2 * self.page - 1 + ch // 4
+        return n, ch % 4, self.tracks[self.se_track].sends.get(n)
+
+    def _vpot_send(self, ch: int, ticks: int) -> None:
+        n, fld, s = self._send_at(ch)
+        if fld == 0:                                                 # 목적지 미리 선택: 1틱 = 1항목(실측 S4)
+            if ch not in self.pre:
+                self.pre = {ch: self.dest_list.index(s.dest) if s else 0}
+            self.pre[ch] = max(0, min(len(self.dest_list) - 1, self.pre[ch] + ticks))
+            self.redraw(overlay=(ch, f"Send {n} Destination", self.dest_list[self.pre[ch]]))
+            return
+        if s is None:
+            return                                                   # 센드 없으면 level/pos/mute 무반응(실측 S11)
+        if fld == 1:
+            s.level = max(LEVEL_FLOOR - 1, min(6.0, (LEVEL_FLOOR if s.level < LEVEL_FLOOR else s.level) + 0.5 * ticks))
+            self.redraw(overlay=(ch, f"{n}  Aux 1      Sen{n}Mu", s.level_full()))
+        elif fld == 2:
+            s.pos = max(0, min(2, s.pos + ticks))
+            self.redraw(overlay=(ch, f"Send {n} Position", POS_FULL[s.pos]))
+        else:
+            s.muted = ticks > 0
+            self.redraw(overlay=(ch, f"Send {n} Mute   -", "muted" if s.muted else "active"))
+
     def _vpot(self, ch: int, ticks: int) -> None:
+        if self.view == "send_channel":
+            self._vpot_send(ch, ticks)
+            return
         if self.view == "plugin_mixer":
             t = self._track(ch)
             if t is None:
@@ -595,7 +713,25 @@ class FakeLogic:
         p.tick(ticks)
         self.redraw(overlay=(ch, p.name, p.full()))
 
+    def _push_send(self, ch: int) -> None:
+        """dest 열 누름: 미리 선택이 있으면 `Send n Instantiate` 오버레이 → 2초 뒤 센드 생성/제거(실측 S5)."""
+        n, fld, _s = self._send_at(ch)
+        if fld != 0 or ch not in self.pre:
+            return
+        name = self.dest_list[self.pre[ch]]
+        self.pre.clear()
+        track = self.tracks[self.se_track]
+
+        def commit() -> None:
+            track.sends[n] = None if name == "--" else Send(name)
+            self.redraw()
+        self.timers.append((self.clock() + OVERLAY_S, commit))
+        self.redraw(overlay=(ch, f"Send {n} Instantiate", name))
+
     def _push(self, ch: int) -> None:
+        if self.view == "send_channel":
+            self._push_send(ch)
+            return
         if self.view == "plugin_channel":
             self._push_channel(ch)
             return
@@ -663,6 +799,17 @@ class FakeLogic:
             return
         if self.drop_all_faders or (self.drop_first_fader and self._fader_armed):
             self._fader_armed = False
+            return
+        if self.view == "send_channel":                                 # SE Flip: 레벨 열 페이더 = 센드 dB(볼륨 표, 실측 S6)
+            n, fld, s = self._send_at(ch)
+            if fld != 1 or s is None:
+                return
+            new = FADERS.raw_to_db(raw)
+            if new == s.level:
+                return
+            s.level = new
+            self._emit([fader_echo(ch, FADERS.db_to_raw(new) if new > LEVEL_FLOOR else 1)])
+            self.redraw(overlay=(ch, f"{n}  Aux 1      Sen{n}Mu", s.level_full()))
             return
         p = self._column_param(ch)
         if p is None or not p.set_raw(raw):

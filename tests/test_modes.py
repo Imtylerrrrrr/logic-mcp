@@ -318,3 +318,65 @@ def test_track_param_refuses_when_menu_label_differs():                 # Review
     assert not logic.track_held                                          # 버튼을 놓고 나온다
     d.leave_safely()
     assert surface.state.view.kind == "pan"
+
+
+def test_enter_send_channel_waits_out_menu_pages_and_remembers_page():      # 실측 S1·S3
+    d, surface, fake, logic = make()
+    d.focus(1)
+    d.enter("send_channel")
+    assert surface.state.view.kind == "send_channel" and logic.view == "send_channel"
+    assert surface.state.view.columns[0][0] == "Sen1In " and surface.state.view.columns[0][1] == "--     "
+    assert surface.state.view.columns[4][0] == "Sen2In " and surface.state.view.columns[1][1] == "       "
+    assert d.page_until(lambda v: v.columns[0][0].startswith("Sen3"), forward=True, max_steps=1)
+    d.leave(keep_select=True)
+    d.enter("send_channel")
+    assert surface.state.view.columns[0][0] == "Sen3In "                     # 마지막 페이지를 기억
+    assert d.page_until(lambda v: v.columns[0][0].startswith("Sen1"), forward=False, max_steps=1)
+
+
+def test_send_dest_preselect_is_one_tick_per_item_blinks_and_pan_cancels():  # 실측 S4·S10
+    d, surface, fake, logic = make()
+    d.focus(0)
+    d.enter("send_channel")
+    assert d.tick(0, 3)
+    assert d.read_overlay_name(0) == "Send 1 Destination" and d.read_overlay_text(0) == "Bus 1"
+    d.settle_overlay()
+    texts = set()
+    for _ in range(4):
+        texts.add(surface.state.view.columns[0][1].strip()); logic.sleep(0.4)
+    assert texts == {"Bus 1", ""}                                             # 0.8초 주기 깜박임
+    d.tick(0, -63)
+    assert d.read_overlay_text(0) == "--"
+    d.tick(0, 4)
+    assert d.read_overlay_text(0) == "Bus 2"
+    d.leave()
+    assert not logic.pre and logic.tracks[0].sends[1] is None
+    d.focus(0); d.enter("send_channel")
+    assert surface.state.view.columns[0][1] == "--     "
+
+
+def test_send_confirm_instantiates_and_flip_fader_sets_level_with_volume_table():   # 실측 S5·S6
+    from logic_mcp.logic.faders import FaderTable
+    d, surface, fake, logic = make()
+    d.focus(0); d.enter("send_channel")
+    d.tick(0, 4)
+    assert d.press_vpot_until(0, lambda v: v.columns[0][1].strip() == "Bus 2" and v.columns[1][1].strip() == "-oodB", CONFIRM_S)
+    d.settle_overlay()
+    s = logic.tracks[0].sends[1]
+    assert s is not None and s.dest == "Bus 2" and s.level == float("-inf") and s.pos == 2 and not s.muted
+    assert [c[1].strip() for c in surface.state.view.columns[:4]] == ["Bus 2", "-oodB", "PosPan", "active"]
+    d.flip(True)
+    assert d.fader(1, FaderTable.load().db_to_raw(-6.0)) is not None
+    assert abs(logic.tracks[0].sends[1].level - -6.0) <= 0.1
+    assert d.read_value(1).number == -6.0 and d.read_value(1).unit == "dB"
+    d.flip(False)
+    d.tick(2, 1); d.settle_overlay()
+    assert surface.state.view.columns[2][1].strip() == "PosPan"              # 끝(Post Pan)에서 +1은 무변화
+    d.tick(2, -2); d.settle_overlay()
+    assert surface.state.view.columns[2][1].strip() == "Pre" and logic.tracks[0].sends[1].pos == 0
+    d.tick(3, 1); d.settle_overlay()
+    assert surface.state.view.columns[3][1].strip() == "muted" and surface.state.view.columns[0][1].strip() == "*Bus 2"
+    d.tick(3, -1); d.settle_overlay()
+    assert surface.state.view.columns[3][1].strip() == "active" and surface.state.view.columns[0][1].strip() == "Bus 2"
+    d.leave()
+    assert surface.state.view.kind == "pan" and not surface.state.assignment.flip
