@@ -374,6 +374,17 @@ def test_insert_on_output_strip_is_skipped_and_touches_nothing(tmp_path):      #
         assert r.verified == "skipped" and "출력" in r.note, name
 
 
+def test_insert_on_output_strip_fails_closed_when_output_push_is_dropped(tmp_path):   # 리뷰 C1
+    cmds, surface, fake, logic, cache = make(tmp_path, out_tracks())
+    logic.tracks[1].insert(1, "Channel EQ")
+    logic.refuse = {P.Note.VPOT_PUSH + 4}                       # TRACK 메뉴 Output 누름 드롭 → CS 2행은 Volume 그대로
+    r = cmds.plugin.insert(strip=3, number=None, slot=1, plugin="Compressor")
+    assert not r.ok and r.verified in ("unverified", "skipped") and "Output" in r.note
+    assert [t.inserts[1] for t in logic.tracks] == [None, "Channel EQ", None, None]
+    assert cmds.strips.cache == {}
+    assert logic.view == "pan" and surface.state.view.kind == "pan" and logic.cs_param == 0
+
+
 def test_list_bank_marks_output_and_master_unsupported_and_caches_kinds(tmp_path):
     cmds, surface, fake, logic, cache = make(tmp_path, out_tracks())
     logic.tracks[1].insert(1, "Channel EQ")

@@ -51,6 +51,7 @@ class ModeDriver:
         self._focused = False
         self._restore_select: int | None = None
         self._name_mode = False
+        self._cs_dirty = False        # TRACK 홀드 메뉴에서 Volume 아닌 항목을 눌렀고 아직 되돌리지 않음
         self.last_leave_error = ""
 
     # ---------- 기본 ----------
@@ -309,10 +310,12 @@ class ModeDriver:
         self.settle_overlay()
 
     def track_param(self, index: int, label: str) -> list[str]:
-        """TRACK 버튼을 누른 채 홀드 메뉴(`C_`, 2행 라벨 8개)에서 index 항목을 고른다. 2행 index 열 라벨이 label과
-        다르면 누르지 않고 버튼을 놓은 뒤 ModeError(항목 6 DisplP·7 Setup은 뱅크 구성을 바꾼다, 실측 Z5).
-        고른 뒤 CS 뷰 2행(스트립별 값 8개, strip)을 돌려준다."""
-        self.enter("track")
+        """PAN에서 TRACK 버튼을 누른 채 홀드 메뉴(`C_`, 2행 라벨 8개)의 index 항목을 고른다(실측 Z5 경로, 리뷰 M7).
+        2행 index 열 라벨이 label과 다르면 누르지 않고 버튼을 놓은 뒤 ModeError(항목 6 DisplP·7 Setup은 뱅크 구성을 바꾼다).
+        놓은 뒤 CS 뷰(`track`)가 아니거나 고른 항목이 2행에 보이지 않으면 ModeError(리뷰 C1: 누름 드롭 시 Volume `+0.0dB`가
+        남아 출력·Master 판별이 거짓으로 통과함). 성공하면 CS 뷰 2행(스트립별 값 8개, strip)을 돌려준다."""
+        if self.view.kind != "pan":
+            self.leave(keep_select=True)
         self._mark()
         self.surface.send(P.button_down(P.Note.TRACK))
         self._sleep(HOLD_MENU_S)
@@ -321,24 +324,39 @@ class ModeDriver:
             self.surface.send(P.button_up(P.Note.TRACK))
             self._wait_change()
             raise ModeError("track_menu", f"항목 {index} = {label!r}", f"{self.view.kind} {shown!r}")
+        if index != TRACK_MENU_VOLUME[0]:
+            self._cs_dirty = True                 # 그룹 설정 "채널 스트립 파라미터"가 바뀌었을 수 있다 → Volume 복원 필요
         self._press(P.Note.VPOT_PUSH + index)
         self._sleep(0.1)
         self.surface.send(P.button_up(P.Note.TRACK))
         self._wait_change()
         self.settle_overlay()
-        return [c[1].strip() for c in self.view.columns]
+        texts = [c[1].strip() for c in self.view.columns]
+        if self.view.kind != "track":
+            raise ModeError("track_param", f"{label} 선택 뒤 CS 뷰", self.view.kind)
+        has_db = any(parse_value(t).unit == "dB" for t in texts)
+        if label == TRACK_MENU_OUTPUT[1] and has_db:
+            raise ModeError("track_param", "Output 열(dB 값 없음)",
+                            f"2행에 dB 값 {texts!r} — Output 누름이 무시된 듯(스트립 종류 판별 실패)")
+        if label == TRACK_MENU_VOLUME[1]:
+            if not has_db:
+                raise ModeError("track_param", "Volume 열(dB 값)", f"2행 {texts!r} — Volume 복원 확인 안 됨")
+            self._cs_dirty = False
+        return texts
 
     def read_strip_outputs(self) -> list[str]:
-        """스트립 8개의 Output 텍스트(`St Out` 등). 출력·Master 스트립은 빈칸(실측 Z5). Output을 골랐으면 Volume으로 되돌리고,
-        어느 경우든 PAN으로 나간다."""
-        changed = False
+        """스트립 8개의 Output 텍스트(`St Out` 등). 출력·Master 스트립은 빈칸(실측 Z5).
+        PAN에서 홀드 → Output → 읽기 → PAN → 다시 PAN에서 홀드 → Volume → PAN. Output 판별·Volume 복원 중 하나라도
+        확인되지 않으면 ModeError를 던진다(호출자는 unverified로 보고, 리뷰 C1)."""
+        self._cs_dirty = False
         try:
             outs = self.track_param(*TRACK_MENU_OUTPUT)
-            changed = True
+            self.leave(keep_select=True)
             return outs
         finally:
             try:
-                if changed:
+                if self._cs_dirty:
+                    self.leave(keep_select=True)
                     self.track_param(*TRACK_MENU_VOLUME)
             finally:
                 self.leave(keep_select=True)

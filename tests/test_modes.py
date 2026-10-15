@@ -306,6 +306,35 @@ def test_enter_track_reads_outputs_and_restores_volume():               # 실측
     assert [m[1] - P.Note.VPOT_PUSH for m in pushes] == [4, 0]           # Output 선택 → Volume 복원, 그 밖은 누르지 않음
 
 
+def test_read_strip_outputs_raises_when_output_push_is_dropped():         # 리뷰 C1: Volume `+0.0dB`가 남으면 판별 실패
+    from tests.fake_assign import Track
+    tracks = [Track(1, "1"), Track(2, "DeCl"), Track(3, "StOu", kind="output"), Track(6, "Mast", kind="master")]
+    surface, fake, logic = make_assign_logic(tracks)
+    logic.refuse = {P.Note.VPOT_PUSH + 4}                                # Output 누름이 드롭됨
+    d = ModeDriver(surface, sleep=logic.sleep)
+    with pytest.raises(ModeError):
+        d.read_strip_outputs()
+    assert logic.cs_param == 0 and surface.state.view.kind == "pan" and logic.view == "pan"
+    assert not logic.track_held
+
+
+def test_read_strip_outputs_holds_track_from_pan_each_time():           # 실측 Z5 경로(리뷰 M7): PAN에서 홀드, CS에서 재홀드 없음
+    from tests.fake_assign import Track
+    surface, fake, logic = make_assign_logic([Track(1, "1"), Track(3, "StOu", kind="output")])
+    d = ModeDriver(surface, sleep=logic.sleep)
+    views: list[str] = []
+    orig = logic.replies
+
+    def spy(data: bytes) -> list[bytes]:
+        if data[0] == 0x90 and data[1] == P.Note.TRACK and data[2]:
+            views.append(logic.view)
+        return orig(data)
+    fake.replies = spy
+    assert d.read_strip_outputs()[:2] == ["St Out", ""]
+    assert views == ["pan", "pan"]                                       # Output 홀드, Volume 홀드 모두 PAN에서
+    assert logic.cs_param == 0 and surface.state.view.kind == "pan"
+
+
 def test_track_param_refuses_when_menu_label_differs():                 # Review Focus 5
     from tests.fake_assign import Track
     surface, fake, logic = make_assign_logic([Track(1, "1"), Track(2, "DeCl")])

@@ -23,12 +23,13 @@ class StripKinds:
         if not s.name and s.number is None:
             return True                                           # 빈 스트립: 판별할 것이 없다
         key = (s.number, s.name)
-        if key not in self.cache:
-            outs = d.read_strip_outputs()                         # TRACK 모드 Output 열 8개, 끝나면 PAN
-            for i, st in enumerate(d.surface.state.strips):
-                if st.name or st.number is not None:
-                    self.cache[(st.number, st.name)] = bool(outs[i])
-        return self.cache.get(key, True)
+        if s.number is not None and key in self.cache:
+            return self.cache[key]
+        outs = d.read_strip_outputs()                             # TRACK 모드 Output 열 8개, 끝나면 PAN. 실패하면 예외(캐시 없음)
+        for i, st in enumerate(d.surface.state.strips):
+            if st.number is not None:                             # 번호가 없으면 같은 이름끼리 충돌하므로 캐시하지 않는다(리뷰 M4)
+                self.cache[(st.number, st.name)] = bool(outs[i])
+        return bool(outs[ch])
 
     def ensure(self, d: ModeDriver, state: S.SurfaceState, ch: int) -> None:
         if not self.follows(d, state, ch):
