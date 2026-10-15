@@ -66,4 +66,7 @@ bank first   ok=True skipped    1049ms already
 - 수정 5(fix-5): 실기 5차 간헐 실패 2건(Z1·Z2). `fader()`는 에코·LCD 모두 없으면 이동 재전송, `flip()`은 LED 무변화면 재누름, `set_numeric`은 이동 전과 같은 값이면 시컨트 건너뜀. 가짜에 `drop_first_fader`·`drop_all_faders`·`drop_first_flip`.
 - 수정 6(fix-6, 최종 리뷰 반영): C1 `flip()` 재누름 제거(LED 대기 1.0 s, 늦은 LED와 겹치면 Flip이 꺼진 채 페이더가 트랙 볼륨을 움직임)와 `fader()` 송신 직전 Flip 확인·같은 위치 재전송 안 함, I1 `mixer_volume` Flip 가드, I2 `leave()` 전 단계 시도, I3 EQ 입력 검증·enum 파라미터 숫자 입력·`ValueError` → skipped, I4 프로빙 실패 시 원위치 복원, m5 실패한 map 무효화, I5 캐시 손상 파일 격리(`.bad-*`)·원자적 저장. `live_check2`에 미검증 경로 추가. m4(번들 갱신이 저장된 사용자 캐시에 반영 안 됨)는 2b로 이월.
 - 수정 7(fix-7, 리뷰 m6): 뱅크 전체 `plugin list` 가 첫 트랙 외에는 슬롯 대신 트랙 이름 조각을 읽던 문제(실기 8차, Z3). `_channel()` 이 이미 PL 이고 다른 스트립이면 PAN 으로 나가 다시 들어가도록 수정, 가짜 Logic 에 `pl_select_stale` 옵션과 회귀 테스트 추가, `live_check2` 에 식별 안 된 슬롯 검사 추가. 9차 실기 확인 필요.
-- 다음: 2b (센드·번들 생성·스킬)
+- 실기 9차(2026-10-16, 사용자가 새로 만든 테스트 프로젝트, 스트립 2): **17/17 verified**, 뱅크 `plugin list` 식별 안 된 슬롯 없음(수정 7 확인). 단, 뱅크 결과에서 Stereo Out·Master 가 직전 트랙의 `Cha EQ` 로 읽힘 → 실측 Z4(출력·마스터 스트립은 PL·SE 가 따라가지 않음). 출력 스트립 대상 insert/eq set 은 엉뚱한 트랙을 바꿀 수 있어 **수정 8 필요**(계획 2b 에 포함: TRACK 모드 Output 열로 스트립 판별, 미지원 스트립은 skipped).
+  - 9차 전에 Logic 재시작 뒤 장치 상태가 꼬여 첫 실행은 0/17(실측 Z6). 설정 창에서 Mackie Control 삭제 → 재연결로 복구.
+  - 계획 2b 준비 실측(센드 S1~S11, TRACK 모드 Z5) 완료 → `docs/mcu-protocol.md`.
+- 다음: 2b (수정 8 · 센드 · 번들 생성 · 스킬)
