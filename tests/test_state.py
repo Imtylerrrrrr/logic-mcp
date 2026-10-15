@@ -263,3 +263,14 @@ def test_fixture_assign1_view_kinds():
     assert {"pan", "eq_mixer", "eq_channel", "eq_menu", "send_mixer", "send_channel", "send_menu",
             "plugin_mixer", "plugin_channel", "plugin_edit", "midi_fx"} <= seen
     assert st.view.kind == "pan"
+
+
+def test_view_plugin_channel_by_code_only():                       # 실측 J
+    st = ready_pan()
+    overlay = "Insert 1 Plug-in     " + "Ins4Pl Ins5Pl Ins6Pl Ins7Pl Ins8Pl "   # 슬롯 1 오버레이가 1행 `Ins1Pl`을 덮음
+    st = apply(st, digit_evs("PL") + [lcd_ev(0, overlay + "Parametric EQ (s/s)  --     --     --     --     --     ")])
+    assert (st.view.kind, st.view.index) == ("plugin_channel", None)
+    assert st.strips[0].number == 15                                  # PL 1행은 채널명이 아님
+    st = apply(st, digit_evs("P1") + [lcd_ev(0, "Ins1Pl Ins2Pl Ins3Pl Ins4Pl Ins5Pl Ins6Pl Ins7Pl Ins8Pl "
+                                                "ParEQ  --     --     --     --     --     --     --     ")])
+    assert (st.view.kind, st.view.index) == ("plugin_edit", 1)        # `Ins1Pl` 1행이라도 P<n> 코드면 PL이 아님

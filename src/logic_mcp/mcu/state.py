@@ -127,7 +127,7 @@ def lcd_columns(lcd: tuple[str, str]) -> tuple[tuple[str, str], ...]:
 def classify_view(display: str, lcd: tuple[str, str], mode: str | None) -> tuple[str, int | None]:
     """2자리 표시 + LCD 레이아웃 → (뷰 종류, 번호). 실측 코드: PN E1 EQ E_ S1 SE D1 S_ P1..P9 10..16 PL M1."""
     d = (display + "  ")[:2]
-    row1, row2 = lcd
+    row2 = lcd[1]
     cols = [c for c, _ in lcd_columns(lcd)]
     if d == "PN":
         return "pan", None
@@ -146,7 +146,7 @@ def classify_view(display: str, lcd: tuple[str, str], mode: str | None) -> tuple
     if d[0] == "D" and d[1].isdigit():
         return "send_destlevel", int(d[1])
     if d == "PL":
-        return "plugin_channel", None
+        return "plugin_channel", None    # 코드만으로 판정: 슬롯 1 오버레이가 1행 `Ins1Pl`을 덮어도 `PL`은 그대로(실측 J)
     if d[0] == "M" and d[1].isdigit():
         return "midi_fx", int(d[1])
     slot = int(d[1]) if d[0] == "P" and d[1].isdigit() else (int(d) if d.strip().isdigit() else None)
@@ -155,8 +155,6 @@ def classify_view(display: str, lcd: tuple[str, str], mode: str | None) -> tuple
             return "empty_edit", slot
         if any(parse_column(c)[0] is not None for c in cols):
             return "plugin_mixer", slot
-        if row1.startswith("Ins1Pl"):
-            return "plugin_channel", slot
         return "plugin_edit", slot
     if mode == "track":
         return "track", None
