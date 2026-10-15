@@ -46,3 +46,9 @@ bank first   ok=True skipped    1049ms already
 ## 메모
 - 스파이크 자료: ~/logic-mcp-spike (진행상황.md, 리서치.md)
 - 실행 전 같은 이름("LogicMCP")의 가상 포트가 다른 프로세스에 있으면 안 된다(스파이크 capture2.py 종료).
+
+## 스펙 2a
+- Task 1~11 완료: (컨트롤러가 체크) 
+- 실기 결과 (scripts/live_check2.py, 트랙 22채널 테스트 프로젝트): (컨트롤러가 채움)
+  - 확인 대상: EQ 밴드 7·8 축약명, bypass의 `*` 표시, 스트립 7·8 오버레이 시작 열, plugin params 페이지 헤더, `--scan` 소요 시간·항목 수
+- 다음: 2b (센드·번들 생성·스킬)
