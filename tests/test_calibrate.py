@@ -1,7 +1,7 @@
 from logic_mcp.logic.commands import Commands
 from logic_mcp.logic.faders import FaderTable
 from logic_mcp.logic.plugins.cache import PluginCache
-from tests.fake_assign import PLUGIN_LIST, make_assign_logic
+from tests.fake_assign import PLUGIN_LIST, compressor, make_assign_logic
 
 
 def make(tmp_path):
@@ -34,3 +34,19 @@ def test_calibrate_on_empty_slot_is_skipped(tmp_path):
     cmds, surface, fake, logic, cache = make(tmp_path)
     r = cmds.plugin.calibrate(strip=1, number=None, slot=3)
     assert r.verified == "skipped" and "비어" in r.note and surface.state.view.kind == "pan"
+
+
+def test_calibrate_names_come_only_from_ticks_that_changed_the_lcd(tmp_path):       # 리뷰 I3
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Compressor")
+    logic.no_overlay_on_nochange = True                     # 끝값 무변화 틱은 오버레이를 그리지 않는다
+    params = logic.tracks[0].params[2]
+    assert params[0].value == 0 and params[13].value == params[13].hi   # CirTyp 첫 선택지, Mix 최댓값
+    r = cmds.plugin.calibrate(strip=1, number=None, slot=2)
+    assert r.verified == "verified"
+    items = {it["index"]: it for it in r.after["items"]}
+    assert items[1]["name"] == "Circuit Type"                 # 첫 선택지: -1 무반응 → +1 틱의 오버레이에서(정착 1행 조각 아님)
+    assert items[14]["name"] == "Mix"                          # 최댓값: +1 무반응 → -1 틱의 오버레이에서
+    true_names = {p.short: p.name for p in compressor()}              # 3페이지는 오른쪽 정렬이라 index가 아니라 축약명으로 맞춘다
+    for it in items.values():
+        assert it["name"] in (true_names[it["short"]], None), it

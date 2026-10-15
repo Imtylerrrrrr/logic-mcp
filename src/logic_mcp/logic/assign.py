@@ -736,19 +736,24 @@ class PluginCommands:
                 for item in table["items"]:
                     col = self._goto_param(item)                                   # VALUE 모드
                     v = d.read_column(col)[1]
+                    settled = d.read_overlay_name(col)                             # 정착 1행 조각(오버레이가 없을 때 보이는 것)
+                    name: str | None = None
+                    # 이름은 LCD가 바뀐 틱(tick() True)의 오버레이에서만 받는다. 끝값 무변화 틱은 오버레이가 없을 수 있어
+                    # 정착 1행 조각을 이름으로 읽게 된다(리뷰 I3).
                     if v.kind == "enum":
                         last = v.text
                         for _ in range(MAX_OPTIONS):                               # 처음(가장 앞 선택지)까지 -1
-                            d.tick(col, -1)
-                            name = d.read_overlay_name(col)
+                            if d.tick(col, -1) and name is None:
+                                name = d.read_overlay_name(col)
                             d.settle_overlay()
                             t = d.read_column(col)[1].text
                             if t == last:
                                 break
                             last = t
                         options = [last]
-                        for _ in range(MAX_OPTIONS - 1):                           # +1로 끝까지 모은다
-                            d.tick(col, 1)
+                        for _ in range(MAX_OPTIONS - 1):                           # +1로 끝까지 모은다(처음에 있었으면 여기서 이름)
+                            if d.tick(col, 1) and name is None:
+                                name = d.read_overlay_name(col)
                             d.settle_overlay()
                             t = d.read_column(col)[1].text
                             if t == options[-1]:
@@ -757,9 +762,12 @@ class PluginCommands:
                         item["map"] = {"type": "enum", "options": options}
                         enums += 1
                     else:
-                        d.tick(col, 1)
-                        name = d.read_overlay_name(col)
-                        d.tick(col, -1)
+                        if d.tick(col, 1):
+                            name = d.read_overlay_name(col)
+                            d.tick(col, -1)
+                        elif d.tick(col, -1):                                      # 최댓값이면 반대 방향으로 한 틱
+                            name = d.read_overlay_name(col)
+                            d.tick(col, 1)
                         d.settle_overlay()
                         if v.kind == "number" and not item.get("map"):
                             d.flip(True)
@@ -767,7 +775,7 @@ class PluginCommands:
                             if mapping is not None:
                                 item["map"] = _map_to(mapping)
                                 probed += 1
-                    if name and "Page" not in name:
+                    if name and "Page" not in name and name != settled:
                         item["name"] = name
                     d.toggle_name_value()                                           # NAME 모드로 복귀(다음 page_to가 헤더를 읽는다)
                 self.cache.save()
