@@ -9,6 +9,7 @@ drop_all_faders는 페이더 이동을 항상 무시한다(반응 없는 Logic).
 flip_led_lag(리뷰 C1)는 처음 처리된 FLIP 누름의 LED 변화를 flip_lagged에 쌓아 두었다가, 드라이버가 FLIP LED 대기에서 한 번
 시간 초과한 뒤 다음 판정 거짓 wait_for에 들어갈 때 보낸다. Flip이 꺼진 상태의 페이더 이동은 해당 스트립 트랙 볼륨(Track.volume, raw)을 바꾼다.
 drop_all_flips는 FLIP 누름을 항상, drop_all_name_value는 NAME/VALUE 누름을 항상 무시한다.
+name_value_lag(실기 10차)는 NAME/VALUE 누름의 1행 쓰기는 바로 보내고 2행 쓰기는 lagged에 쌓는다(lcd_lag와 같은 도착 규칙).
 no_overlay_on_nochange는 값이 끝에 닿아 바뀌지 않은 파라미터 틱에 LCD를 그리지 않는다(리뷰 I3, 실기 미측정).
 narrow_name_overlay(실기 10차)는 틱 이름 오버레이를 1행 해당 열부터 2열(이름이 길면 3열) 폭으로만 덧쓰고 나머지 1행 칸은 축약명을 남긴다.
 refuse에 V-Pot 누름 노트를 넣으면 누름이 드롭되어 미리 선택이 계속 깜박인다(리뷰 I2, 실측 S4)."""
@@ -295,6 +296,7 @@ class FakeLogic:
         self._flip_lag_used = False
         self.drop_all_flips = False                    # True면 FLIP 누름을 항상 무시
         self.drop_all_name_value = False               # True면 NAME/VALUE 누름을 항상 무시
+        self.name_value_lag = False                    # True면 NAME/VALUE 누름의 2행 쓰기가 늦게 도착(lagged, 실기 10차)
         self.refuse: set[int] = set()                  # 반응하지 않을 노트(고장 흉내)
         self.no_overlay_on_nochange = False            # True면 값이 안 바뀐 V-Pot 틱(끝값)에 오버레이를 그리지 않음(리뷰 I3)
         self.narrow_name_overlay = False               # True면 틱 이름 오버레이가 1행 2~3열만 덮음(실기 10차)
@@ -430,7 +432,8 @@ class FakeLogic:
             return self._names_row(), r2, "E1"
         if self.view == "eq_channel":
             ps = [p for band in t.eq[2 * self.page - 2:2 * self.page] for p in band]
-            return "".join(col(p.short) for p in ps).ljust(56), "".join(p.text() for p in ps).ljust(56), "EQ"
+            names = "".join(col(p.short) for p in ps).ljust(56)
+            return names, names if self.name_mode else "".join(p.text() for p in ps).ljust(56), "EQ"   # NAME/VALUE: 2행 이름/값 토글
         if self.view == "plugin_mixer":
             cells = [self._pre_cell(ch, self._abbrev(tr.inserts[self.slot], self.slot, tr))
                      for ch, tr in enumerate(self.tracks[:8])]
@@ -624,7 +627,12 @@ class FakeLogic:
             if self.drop_all_name_value:
                 return
             self.name_mode = not self.name_mode
-            self.redraw()
+            if self.name_value_lag:
+                r1, _r2, d = self._rows()
+                self._emit([lcd_write(0, r1)] + digits(d))
+                self.lagged.append(lambda: self._emit([lcd_write(56, self._rows()[1])]))
+            else:
+                self.redraw()
         elif N.VPOT_PUSH <= note < N.VPOT_PUSH + 8:
             if self.track_held and self.view == "track_menu":
                 self.cs_param = note - N.VPOT_PUSH               # 홀드 메뉴 선택. 6(DisplP)·7(Setup)의 부작용은 흉내 내지 않음

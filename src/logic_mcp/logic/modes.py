@@ -292,10 +292,14 @@ class ModeDriver:
         self._sleep(0.1)                      # 페이더 위치 에코가 오는 시간
 
     def toggle_name_value(self) -> None:
+        """편집 뷰에서 NAME↔VALUE는 2행(축약명 ↔ 값)을 바꾼다. 2행이 1행보다 늦게 올 수 있어 2행 변화를 기다린다(실기 10차)."""
+        before = self.surface.state.lcd[1]
         self._mark()
         self._press(P.Note.NAME_VALUE)
-        if not self._wait_change():
-            raise ModeError("name_value", "LCD 변화", "없음")
+        ok = self.surface.wait_for(lambda s: s.lcd[1] != before, FEEDBACK_TIMEOUT)
+        self._settle()
+        if not ok:
+            raise ModeError("name_value", "LCD 2행 변화", "없음")
         self._name_mode = not self._name_mode
 
     def hold_menu(self, button: int, vpot: int) -> None:

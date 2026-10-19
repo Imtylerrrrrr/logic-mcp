@@ -77,6 +77,19 @@ def test_calibrate_names_drop_neighbor_shorts_under_narrow_overlay(tmp_path):   
     assert {it["short"]: it["name"] for it in items.values()} == true_names            # 모든 이름이 그 파라미터의 이름 그대로
 
 
+def test_calibrate_reads_values_only_after_name_value_redraws_row2(tmp_path):    # 실기 10차: NAME/VALUE 뒤 2행이 늦게 바뀜
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Compressor")
+    logic.name_value_lag = True
+    r = cmds.plugin.calibrate(strip=1, number=None, slot=2)
+    assert r.verified == "verified"
+    items = {it["index"]: it for it in r.after["items"]}
+    assert items[5]["short"] == "Rel" and items[5]["map"]["type"] == "linear"          # 남은 축약명 `Rel`을 값으로 읽으면 enum
+    kinds = {p.short: p.kind for p in compressor()}
+    for it in items.values():
+        assert it["map"] is None or (it["map"]["type"] == "enum") == (kinds[it["short"]] == "enum"), it
+
+
 def _row(shorts: str) -> str:
     return "".join(x.ljust(7) for x in shorts.split())
 

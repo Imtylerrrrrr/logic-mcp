@@ -140,6 +140,21 @@ def test_plugin_channel_view_edit_page_name_value_and_restore():
     assert surface.state.view.kind == "pan" and logic.name_mode is False   # NAME 모드도 되돌림
 
 
+def test_toggle_name_value_waits_for_row2():                         # 실기 10차: 2행이 1행보다 늦게 바뀜
+    d, surface, fake, logic = make()
+    logic.tracks[0].insert(2, "Compressor")
+    d.focus(0)
+    d.enter("plugin_channel")
+    assert d.press_vpot_until(1, lambda v: v.kind == "plugin_edit" and v.index == 2, EDIT_OPEN_S)
+    logic.name_value_lag = True
+    d.toggle_name_value()                                           # NAME: 2행 축약명
+    assert surface.state.lcd[1].startswith("CirTyp Thrs   Ratio  ")
+    d.toggle_name_value()                                           # VALUE: 2행 값
+    assert surface.state.view.columns[0] == ("CirTyp ", "PltDig ") and surface.state.lcd[1] == logic._rows()[1]
+    d.leave()
+    assert surface.state.view.kind == "pan"
+
+
 def test_probe_pages_with_truncated_page1_header():                 # 실측 L
     d, surface, fake, logic = make()
     logic.tracks[0].name = "Deluxe Classic"
