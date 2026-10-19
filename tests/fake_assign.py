@@ -14,7 +14,9 @@ value_row_partial(재수집 근사)은 VALUE 전환의 2행 중 열 0만 바로 
 대상 열은 아직 축약명이다. stale_value_cols의 열은 VALUE 전환 뒤에도 2행에 축약명이 남아 다음 재묘사(틱 등)에서야 값이 된다.
 no_overlay_on_nochange는 값이 끝에 닿아 바뀌지 않은 파라미터 틱에 LCD를 그리지 않는다(리뷰 I3, 실기 미측정).
 narrow_name_overlay(실기 10차)는 틱 이름 오버레이를 1행 해당 열부터 2열(이름이 길면 3열) 폭으로만 덧쓰고 나머지 1행 칸은 축약명을 남긴다.
-refuse에 V-Pot 누름 노트를 넣으면 누름이 드롭되어 미리 선택이 계속 깜박인다(리뷰 I2, 실측 S4)."""
+refuse에 V-Pot 누름 노트를 넣으면 누름이 드롭되어 미리 선택이 계속 깜박인다(리뷰 I2, 실측 S4).
+late_preselect_items의 목록 항목은 처음 닿은 틱에 이전 항목 오버레이를 다시 그리고, LATE_PRESELECT_S 뒤 sleep에서야 제 이름을 그린다
+(재수집: 스캔에서 빠진 Rotor Cabinet·Fuzz Machine). 한 번 그린 항목은 집합에서 빠진다."""
 from __future__ import annotations
 
 import math
@@ -26,6 +28,7 @@ from logic_mcp.mcu.surface import Surface
 from tests.fakes import FakeTransport
 
 OVERLAY_S = 2.0
+LATE_PRESELECT_S = 0.5      # 틱 뒤 조용 대기(TICK_QUIET_S 0.4초)보다 늦게
 LCD_SYSEX = bytes.fromhex("F0 00 00 66 14 12")
 MAX = P.MAX_FADER
 SLOPES = ("6", "12", "18", "24", "36", "48")
@@ -302,6 +305,7 @@ class FakeLogic:
         self.value_row_partial = False                 # True면 VALUE 전환의 2행 열 1~7이 늦게 도착(lagged, 재수집 근사)
         self.stale_value_cols: set[int] = set()        # VALUE 전환 뒤에도 2행에 축약명이 남는 열(다음 재묘사까지)
         self.refuse: set[int] = set()                  # 반응하지 않을 노트(고장 흉내)
+        self.late_preselect_items: set[int] = set()    # 미리 선택 오버레이가 늦게 오는 목록 항목(처음 닿을 때 한 번)
         self.no_overlay_on_nochange = False            # True면 값이 안 바뀐 V-Pot 틱(끝값)에 오버레이를 그리지 않음(리뷰 I3)
         self.narrow_name_overlay = False               # True면 틱 이름 오버레이가 1행 2~3열만 덮음(실기 10차)
         fake.replies = self.replies
@@ -701,7 +705,17 @@ class FakeLogic:
         if ch not in self.pre:                                          # 실측: 다른 V-Pot의 미리 선택은 취소됨
             self.pre = {ch: 2 * self.plugin_list.index(current or "--")}
         self.pre[ch] = max(0, min(2 * (len(self.plugin_list) - 1), self.pre[ch] + ticks))
-        name = self.plugin_list[self._pre_index(ch)]
+        i = self._pre_index(ch)
+        if i in self.late_preselect_items:                              # 늦은 오버레이: 지금은 이전 항목, 나중에 그때의 항목
+            self.late_preselect_items.discard(i)
+            self._draw_pre(ch, slot, max(0, i - 1))
+            self.timers.append((self.clock() + LATE_PRESELECT_S,
+                                lambda: ch in self.pre and self._draw_pre(ch, slot, self._pre_index(ch))))
+            return
+        self._draw_pre(ch, slot, i)
+
+    def _draw_pre(self, ch: int, slot: int, i: int) -> None:
+        name = self.plugin_list[i]
         self.redraw(overlay=(ch, f"Insert {slot} Plug-in", name if name == "--" else f"{name} (s/s)"))
 
     def _send_at(self, ch: int) -> tuple[int, int, Send | None]:

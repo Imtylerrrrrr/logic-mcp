@@ -238,6 +238,14 @@ def test_scan_builds_list_without_inserting(tmp_path):
     assert cmds.plugin.scan(force=True).verified == "verified"
 
 
+def test_scan_rereads_in_place_when_overlay_is_late(tmp_path):        # 재수집: 오버레이가 늦은 항목이 목록에서 빠졌다
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.late_preselect_items = {7, 11}                            # Channel EQ, Space Designer
+    r = cmds.plugin.scan(force=True)
+    assert r.verified == "verified" and cache.items == PLUGIN_LIST and not logic.late_preselect_items
+    assert all(v is None for t in logic.tracks for v in t.inserts.values())
+
+
 def test_scan_needs_an_empty_slot(tmp_path):
     cmds, surface, fake, logic, cache = make(tmp_path)
     for t in logic.tracks:
