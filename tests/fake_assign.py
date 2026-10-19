@@ -217,6 +217,16 @@ def generic(name: str) -> list[Param]:
             Param("Output", f"{name} Output", "linear", -20.0, 20.0, -0.5, unit="dB", step=0.5)]
 
 
+_SPACED = ("OutDry OutWet Predly Length LatCom InCrss Qualit Revers VoInLe VoATim VolAX1 VolAY1 VolAX2 VolAY2 "
+           "VoDTim VolDX1 VolDY1 VolDX2 VolDY2 VoEnLe FiInLe FiATim FirAX1 FirAY1").split()
+
+
+def space_designer() -> list[Param]:
+    """Space Designer 실측 모델: 23페이지 × 8 = 184개. 1~3페이지 축약명은 실기, 나머지는 `P025`… 로 채움. 값은 전부 숫자."""
+    names = _SPACED + [f"P{i:03d}" for i in range(len(_SPACED) + 1, 185)]
+    return [Param(n, f"Space Designer {n}", "linear", 0.0, 100.0, 50.0, step=1.0) for n in names]
+
+
 def with_dash_cells(params: list[Param], n: int) -> list[Param]:
     """빈 파라미터 칸 n개를 끝에 붙인다: 1행 `-`, 2행 공백, 틱·페이더에 무반응(실기 10차: Adaptive Limiter·Overdrive·Distortion)."""
     return params + [Param("-", "-", "enum", options=(" ",)) for _ in range(n)]
@@ -249,6 +259,8 @@ class Track:
             self.params[slot] = channel_eq_edit(self.eq)
         elif name == "Compressor":
             self.params[slot] = compressor()
+        elif name == "Space Designer":
+            self.params[slot] = space_designer()
         else:
             self.params[slot] = generic(name)
 
@@ -272,6 +284,7 @@ class FakeLogic:
         self.pl_select_stale = False                   # 켜면 PL 안에서 SELECT 해도 2행이 이전 트랙 슬롯을 유지(실기 8차 Z3 근사)
         self.slot = 1
         self.page = 1
+        self.edit_open_page = 1                        # 편집 뷰가 1페이지가 아닌 곳에서 열림(실측 Space Designer: 임의 위치에서 시작)
         self.flip = False
         self.name_mode = False
         self.shift = False
@@ -471,7 +484,7 @@ class FakeLogic:
         full = prefix + f'{t.inserts[self.slot]} (s/s)"'
         page = f"Page {self.page}/{self._edit_pages()}"
         if len(full) <= 48:
-            return full.ljust(48) + page.rjust(8)
+            return full.ljust(56 - len(page)) + page          # 두 자리 페이지(`Page 20/23`)도 56칸 안
         if self.page == 1:
             return (full + " " + page)[:56]
         tail = page + " "
@@ -817,11 +830,11 @@ class FakeLogic:
             else:
                 if name != t.inserts[self.slot]:
                     t.insert(self.slot, name)                           # 같은 플러그인 확인은 값 보존(실측)
-                self.view, self.page = "plugin_edit", 1
+                self.view, self.page = "plugin_edit", self.edit_open_page
             self.redraw()
         elif t.inserts[self.slot]:
             self.selected = ch
-            self.view, self.page = "plugin_edit", 1
+            self.view, self.page = "plugin_edit", self.edit_open_page
             self.redraw()
 
     def _push_channel(self, ch: int) -> None:
@@ -837,7 +850,7 @@ class FakeLogic:
             self.pre.clear()
 
             def commit() -> None:
-                self.slot, self.page = slot, 1
+                self.slot, self.page = slot, self.edit_open_page
                 if name == "--":
                     t.remove(slot)
                     self.view = "empty_edit"
@@ -848,7 +861,7 @@ class FakeLogic:
                 self.redraw()
             self.timers.append((self.clock() + OVERLAY_S, commit))
         elif t.inserts[slot]:
-            self.slot, self.page = slot, 1
+            self.slot, self.page = slot, self.edit_open_page
             self.view = "plugin_edit"
             self.redraw()
 

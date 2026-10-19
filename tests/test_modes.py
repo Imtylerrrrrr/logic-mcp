@@ -140,6 +140,19 @@ def test_plugin_channel_view_edit_page_name_value_and_restore():
     assert surface.state.view.kind == "pan" and logic.name_mode is False   # NAME 모드도 되돌림
 
 
+def test_page_to_from_page_20_of_23():                              # 실측 2026-10-19: Space Designer 23페이지, 임의 위치에서 열림
+    d, surface, fake, logic = make()
+    logic.tracks[0].insert(2, "Space Designer")
+    logic.edit_open_page = 20
+    d.focus(0)
+    d.enter("plugin_channel")
+    assert d.press_vpot_until(1, lambda v: v.kind == "plugin_edit" and v.index == 2, EDIT_OPEN_S)
+    d.toggle_name_value()
+    assert d.probe_pages() == 23
+    d.page_to(1)
+    assert surface.state.view.page == (1, 23)
+
+
 def test_toggle_name_value_waits_for_row2():                         # 실기 10차: 2행이 1행보다 늦게 바뀜
     d, surface, fake, logic = make()
     logic.tracks[0].insert(2, "Compressor")

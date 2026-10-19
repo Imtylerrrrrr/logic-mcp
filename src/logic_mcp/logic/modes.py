@@ -173,19 +173,24 @@ class ModeDriver:
 
     def page_to(self, page: int) -> None:
         """Cursor ◀▶로 페이지 이동. 편집 뷰 NAME 모드는 헤더 `Page n/N`, 그 밖은 드라이버가 센 힌트로."""
-        for _ in range(16):
+        start = self.view.page[0] if self.view.page else self._page_hint
+        steps = 0
+        while True:
             cur = self.view.page[0] if self.view.page else self._page_hint
             if cur == page:
                 return
+            total = self.view.page[1] if self.view.page else 0     # 헤더가 안 보이면 16 유지, 보이면 총 페이지 + 1회까지
+            if steps >= (total + 1 if total else 16):
+                raise ModeError("page_to", f"page {page}", f"페이지 {start}에서 {steps}회 눌러 {cur}, 총 {total or '?'}페이지")
             forward = cur < page
             cols_before = self.view.columns
             self._mark()
             self._press(P.Note.CURSOR_RIGHT if forward else P.Note.CURSOR_LEFT)
+            steps += 1
             if not self.surface.wait_for(lambda s: s.view.columns != cols_before, MODE_TIMEOUT):
                 raise ModeError("page_to", f"page {page}", f"페이지 {cur}에서 커서 반응 없음")
             self._page_hint = cur + (1 if forward else -1)
             self.settle_smart()
-        raise ModeError("page_to", f"page {page}", "16회 안에 못 감")
 
     def page_until(self, pred: Callable[[S.View], bool], forward: bool = True, max_steps: int = 8) -> bool:
         """열 이름 조건이 맞는 페이지까지 커서를 누른다(헤더가 없는 EQ 채널 뷰용)."""
