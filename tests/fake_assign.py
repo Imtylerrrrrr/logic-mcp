@@ -16,7 +16,9 @@ no_overlay_on_nochange는 값이 끝에 닿아 바뀌지 않은 파라미터 틱
 narrow_name_overlay(실기 10차)는 틱 이름 오버레이를 1행 해당 열부터 2열(이름이 길면 3열) 폭으로만 덧쓰고 나머지 1행 칸은 축약명을 남긴다.
 refuse에 V-Pot 누름 노트를 넣으면 누름이 드롭되어 미리 선택이 계속 깜박인다(리뷰 I2, 실측 S4).
 late_preselect_items의 목록 항목은 처음 닿은 틱에 이전 항목 오버레이를 다시 그리고, LATE_PRESELECT_S 뒤 sleep에서야 제 이름을 그린다
-(재수집: 스캔에서 빠진 Rotor Cabinet·Fuzz Machine). 한 번 그린 항목은 집합에서 빠진다."""
+(재수집: 스캔에서 빠진 Rotor Cabinet·Fuzz Machine). 한 번 그린 항목은 집합에서 빠진다.
+미리 선택이 목록 끝에 클램프되어 위치가 그대로면 LCD를 그리지 않는다(실측 scan_diag). drop_preselect_at의 위치(`--`에서 센 틱 위치)에
+닿은 틱은 오버레이 쓰기를 빠뜨린다(늦는 게 아니라 안 옴, 실측 scan_diag 27번 위치)."""
 from __future__ import annotations
 
 import math
@@ -306,6 +308,7 @@ class FakeLogic:
         self.stale_value_cols: set[int] = set()        # VALUE 전환 뒤에도 2행에 축약명이 남는 열(다음 재묘사까지)
         self.refuse: set[int] = set()                  # 반응하지 않을 노트(고장 흉내)
         self.late_preselect_items: set[int] = set()    # 미리 선택 오버레이가 늦게 오는 목록 항목(처음 닿을 때 한 번)
+        self.drop_preselect_at: set[int] = set()       # 오버레이 쓰기가 오지 않는 미리 선택 틱 위치
         self.no_overlay_on_nochange = False            # True면 값이 안 바뀐 V-Pot 틱(끝값)에 오버레이를 그리지 않음(리뷰 I3)
         self.narrow_name_overlay = False               # True면 틱 이름 오버레이가 1행 2~3열만 덮음(실기 10차)
         fake.replies = self.replies
@@ -702,9 +705,13 @@ class FakeLogic:
 
     def _preselect(self, ch: int, current: str | None, slot: int, ticks: int) -> None:
         """미리 선택 틱. 차 있는 슬롯의 시작 위치는 2·항목(-1 → 현재 항목, +1 → 다음 항목, 실측 E)."""
-        if ch not in self.pre:                                          # 실측: 다른 V-Pot의 미리 선택은 취소됨
+        started = ch in self.pre
+        if not started:                                                 # 실측: 다른 V-Pot의 미리 선택은 취소됨
             self.pre = {ch: 2 * self.plugin_list.index(current or "--")}
+        before = self.pre[ch]
         self.pre[ch] = max(0, min(2 * (len(self.plugin_list) - 1), self.pre[ch] + ticks))
+        if (started and self.pre[ch] == before) or self.pre[ch] in self.drop_preselect_at:
+            return                                                      # 끝에 클램프(무변화) 또는 빠진 쓰기
         i = self._pre_index(ch)
         if i in self.late_preselect_items:                              # 늦은 오버레이: 지금은 이전 항목, 나중에 그때의 항목
             self.late_preselect_items.discard(i)

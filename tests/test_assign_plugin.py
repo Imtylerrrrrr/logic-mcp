@@ -255,6 +255,14 @@ def test_scan_rereads_in_place_when_overlay_is_late(tmp_path):        # 재수�
     assert all(v is None for t in logic.tracks for v in t.inserts.values())
 
 
+def test_scan_survives_dropped_overlay_writes(tmp_path):              # 실측 scan_diag: 틱 하나의 오버레이 쓰기가 안 온다
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.drop_preselect_at = {13, 20, 21}                          # Channel EQ 첫 위치, Noise Gate 둘째 위치 + Space Designer 첫 위치(연속 무변화 2틱)
+    r = cmds.plugin.scan(force=True)
+    assert r.verified == "verified" and cache.items == PLUGIN_LIST and r.after["count"] == len(PLUGIN_LIST)
+    assert all(v is None for t in logic.tracks for v in t.inserts.values()) and surface.state.view.kind == "pan"
+
+
 def test_scan_needs_an_empty_slot(tmp_path):
     cmds, surface, fake, logic, cache = make(tmp_path)
     for t in logic.tracks:

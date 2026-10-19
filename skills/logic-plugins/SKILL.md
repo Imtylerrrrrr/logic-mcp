@@ -7,7 +7,7 @@ description: Logic Pro MCP(logic-mcp)로 Channel EQ·인서트 플러그인·센
 
 ## 시작할 때
 1. `logic_session wait_ready` → `logic_session configure`(처음 한 번. Logic이 서피스를 다시 설치한 뒤에도 한 번 더).
-2. `logic://plugins` 리소스를 읽는다. `scanned_at`이 없거나 `logic_version`이 다르면 `logic_plugin scan`을 권한다(30~90초, 빈 슬롯 1개 필요, 화면의 슬롯이 깜박이지만 삽입은 없음).
+2. `logic://plugins` 리소스를 읽는다. `scanned_at`이 없거나 `logic_version`이 다르면 `logic_plugin scan`을 권한다(60~180초, 빈 슬롯 1개 필요, 화면의 슬롯이 깜박이지만 삽입은 없음).
 
 ## 플러그인
 - `insert`가 "목록에 없음"이면 `scan` 뒤 다시. 차 있는 슬롯은 `replace=true`가 있어야 바꾼다.

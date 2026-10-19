@@ -92,7 +92,7 @@ def register_tools(mcp: MCPServer, commands: Commands) -> None:
     @mcp.tool(name="logic_plugin",
               description="인서트 플러그인. list: 인벤토리(strip/number 없으면 뱅크 전체). params: 플러그인 파라미터 전체(인덱스·축약명·값). "
                           "get/set: param은 이름(부분 일치) 또는 인덱스, value는 숫자 또는 선택지 텍스트. insert: plugin 이름(부분 일치), "
-                          "차 있으면 replace=true 필요. remove. bypass(on). scan: 삽입 메뉴 전 범위 스캔(30~90초, 삽입 없음, 빈 슬롯 필요). "
+                          "차 있으면 replace=true 필요. remove. bypass(on). scan: 삽입 메뉴 전 범위 스캔(60~180초, 삽입 없음, 빈 슬롯 필요). "
                           "편집 뷰 진입 시 Logic이 플러그인 창을 열고 닫는다. 끝나면 PAN 모드로 돌아간다.")
     def logic_plugin(
         action: Literal["list", "params", "get", "set", "insert", "remove", "bypass", "scan"],
