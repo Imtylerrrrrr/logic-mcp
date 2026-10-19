@@ -95,7 +95,7 @@ logic_mixer {"action": "set_volume", "strip": 3, "db": -6.0}
 
 ## 개발
 
-- 단위 테스트: `uv run pytest` (실제 Logic 불필요, 가짜 Logic 모델로 273개)
+- 단위 테스트: `uv run pytest` (실제 Logic 불필요, 가짜 Logic 모델로 277개)
 - 실기 검증(Logic에서 테스트 프로젝트를 열어 둔 채): `uv run python scripts/live_check.py` (트랜스포트·트랙·믹서), `uv run python scripts/live_check2.py [strip] [--scan]` (EQ·플러그인·센드)
 - `scripts/calibrate_plugin.py "<플러그인>" [strip] [--write] [--yes]` 플러그인 파라미터 표 수집(`--write`면 번들 `known.json`에 병합)
 - `scripts/capture.py` MCU 트래픽 캡처, `scripts/calibrate_fader.py` 페이더 dB 표 생성

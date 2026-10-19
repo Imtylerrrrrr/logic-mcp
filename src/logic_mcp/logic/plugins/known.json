@@ -750,7 +750,11 @@
           "index": 2,
           "short": "Gain",
           "name": "Gain",
-          "map": null
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 12.0
+          }
         },
         {
           "index": 3,
@@ -776,7 +780,13 @@
           "index": 6,
           "short": "RemovC",
           "name": "Remove DC",
-          "map": null
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
         }
       ]
     },
