@@ -188,6 +188,7 @@ class EqCommands:
 
 MAX_SLOT = 8            # 2a는 Plug-in Channel 뷰(PL)의 슬롯 1~8만(실측 C: 9~15 접근 경로 미확인)
 MAX_OPTIONS = 16        # 열거형 선택지 수집 상한(캘리브레이션)
+VALUE_ROW_S = 1.0       # VALUE 전환 뒤 대상 열 2행이 축약명에서 값으로 바뀔 때까지(재수집: 토글 판정 뒤에도 축약명이 남음)
 EMPTY_TEXTS = ("", "--")  # PL·Mixer 2행에서 빈 슬롯(`--` 또는 갱신 전 공백, 실측 C·H)
 EMPTY_SHORTS = ("", "-")  # 편집 뷰 빈 파라미터 칸(공백 또는 1행 `-`, 실기 10차: Adaptive Limiter·Overdrive·Distortion)
 _HEADER_RE = re.compile(r'Ins\.(\d+) "([^"]*)("?)')
@@ -389,7 +390,10 @@ class PluginCommands:
         page = (item["index"] - 1) // 8 + 1
         self.d.page_to(page)
         self.d.toggle_name_value()
-        return (item["index"] - 1) % 8
+        col = (item["index"] - 1) % 8
+        self.d.surface.wait_for(lambda s: s.lcd[1][col * S.COL_W:(col + 1) * S.COL_W].strip() != item["short"],
+                                VALUE_ROW_S)                         # 시간 초과면 그대로 진행(값이 축약명과 같은 파라미터)
+        return col
 
     def _param_dict(self, full: str, slot: int, item: dict, v: Value) -> dict:
         return {"plugin": full, "slot": slot, "index": item["index"], "short": item["short"],
@@ -782,8 +786,17 @@ class PluginCommands:
                             if t == options[-1]:
                                 break
                             options.append(t)
-                        item["map"] = {"type": "enum", "options": options}
-                        enums += 1
+                        if len(options) >= MAX_OPTIONS and all(parse_value(o).kind == "number" for o in options):
+                            # 상한까지 모인 숫자 선택지 = 첫 읽기가 남은 축약명을 받은 연속 숫자 파라미터(재수집 Rel·Q·Gain)
+                            d.flip(True)
+                            mapping, _lo, _hi = probe_mapping(d, col)
+                            item["map"] = None
+                            if mapping is not None:
+                                item["map"] = _map_to(mapping)
+                                probed += 1
+                        else:
+                            item["map"] = {"type": "enum", "options": options}
+                            enums += 1
                     else:
                         if d.tick(col, 1):
                             name = overlay_param_name(header, d.surface.state.lcd[0], col)

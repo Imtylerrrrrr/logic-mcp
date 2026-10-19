@@ -2,7 +2,7 @@ from logic_mcp.logic.assign import overlay_param_name
 from logic_mcp.logic.commands import Commands
 from logic_mcp.logic.faders import FaderTable
 from logic_mcp.logic.plugins.cache import PluginCache
-from tests.fake_assign import PLUGIN_LIST, compressor, make_assign_logic, with_dash_cells
+from tests.fake_assign import PLUGIN_LIST, SLOPES, Param, compressor, make_assign_logic, with_dash_cells
 
 
 def make(tmp_path):
@@ -89,6 +89,34 @@ def test_calibrate_reads_values_only_after_name_value_redraws_row2(tmp_path):   
     for it in items.values():
         assert it["map"] is None or (it["map"]["type"] == "enum") == (kinds[it["short"]] == "enum"), it
 
+
+def test_goto_param_waits_until_target_column_leaves_its_short(tmp_path):     # 재수집: 토글 판정이 참이어도 대상 열은 아직 축약명
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Compressor")
+    logic.value_row_partial = True
+    r = cmds.plugin.get(1, None, 2, "Thrs")
+    assert r.verified == "verified" and r.after["value"] == -20.0 and r.after["text"] == "-20.0"
+    r = cmds.plugin.calibrate(strip=1, number=None, slot=2)
+    assert r.verified == "verified"
+    items = {it["index"]: it for it in r.after["items"]}
+    assert items[2]["short"] == "Thrs" and items[2]["map"]["type"] == "linear"
+
+def test_calibrate_probes_capped_all_numeric_options_as_numeric(tmp_path):     # 재수집: 첫 읽기가 축약명이면 숫자 파라미터가 선택지 16개로 모임
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Chorus")
+    logic.tracks[0].params[2] = [
+        Param("Slope", "Slope", "enum", options=SLOPES, value=1, unit=" dB/Oct"),               # 숫자 선택지지만 상한 미만 = 열거형
+        Param("RelStp", "Release", "enum", options=tuple(f"{20 + i:.1f} ms" for i in range(20))),   # 단계식 숫자(실기 Rel 모양)
+        Param("Thrs", "Threshold", "linear", -60.0, 0.0, -20.0, unit="n1", step=0.5),
+        Param("Mix", "Mix", "linear", 0.0, 100.0, 50.0, unit="%", step=1.0)]                      # 열 3은 제때 바뀜(토글 판정용)
+    logic.stale_value_cols = {0, 1, 2}                      # VALUE_ROW_S를 넘겨도 축약명 → 첫 읽기가 enum
+    r = cmds.plugin.calibrate(strip=1, number=None, slot=2)
+    assert r.verified == "verified"
+    items = {it["index"]: it for it in r.after["items"]}
+    assert items[1]["map"] == {"type": "enum", "options": ["6", "12", "18", "24", "36", "48"]}
+    assert items[2]["map"] == {"type": "linear", "lo": 20.0, "hi": 39.0}                        # 선택지 대신 페이더 프로빙
+    assert items[3]["map"]["type"] == "linear" and abs(items[3]["map"]["lo"] - -60.0) < 0.5 and abs(items[3]["map"]["hi"]) < 0.5
+    assert r.after["enums"] == 1 and r.after["probed"] == 3
 
 def _row(shorts: str) -> str:
     return "".join(x.ljust(7) for x in shorts.split())
