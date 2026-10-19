@@ -396,5 +396,9 @@ class Commands:
         action = "wait_ready"
         t0 = self._now_ms()
         ok = self.surface.wait_for(lambda s: s.connection.state == "ready", timeout_s)
-        return self._result(action, ok, "verified" if ok else "timeout", t0, after=self.status(),
-                            note="" if ok else "Logic이 서피스를 설치하지 않음. Logic에서 프로젝트를 열거나 다시 여세요")
+        note = ""
+        if not ok:
+            note = "Logic이 서피스를 설치하지 않음. Logic에서 프로젝트를 열거나 다시 여세요"
+            if self._logic_running():
+                note += ". Logic이 실행 중이면 Logic 창의 모달 대화상자(예: 오디오 인터페이스 변경 알림)를 먼저 닫으세요"
+        return self._result(action, ok, "verified" if ok else "timeout", t0, after=self.status(), note=note)

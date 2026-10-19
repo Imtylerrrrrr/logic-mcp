@@ -345,6 +345,7 @@ def test_wait_ready():
     cmds, surface, fake = make_commands(ready=False)
     r = cmds.wait_ready(0.05)
     assert r.ok is False and r.verified == "timeout"
+    assert "모달 대화상자" in r.note  # logic_running=True: Z10 힌트
     fake.feed(lcd_row1(b"1:1"))
     surface.tick()
     assert cmds.wait_ready(0.05).ok is True
