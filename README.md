@@ -82,7 +82,8 @@ logic_mixer {"action": "set_volume", "strip": 3, "db": -6.0}
 | Channel EQ·인서트 플러그인 | 완료 (실기 9차 17/17) |
 | 출력·Master 스트립 가드 | 완료 (실기 10차, Stereo Out 스트립에서 skipped) |
 | 센드(`logic_send`) | 완료 (실기 10차 9/9) |
-| 플러그인 파라미터 번들 표 | 수집 스크립트만 있음, 10종 수집 예정 |
+| 플러그인 파라미터 번들 표 | 8종(10/19 실기 수집: Compressor·Adaptive Limiter·Noise Gate·Tape Delay·Stereo Delay·Overdrive·Distortion, Channel EQ는 2a 표). 숫자 파라미터 10개는 map 없음(쓸 때 프로빙), Space Designer·ChromaVerb는 다음 수집 |
+| 캘리브레이션·스캔 보정(10/19: 값 읽기 대기, 1틱 스캔, insert 근처 탐색) | 단위 테스트만, 실기 대기 |
 
 ## 주의
 
@@ -94,7 +95,7 @@ logic_mixer {"action": "set_volume", "strip": 3, "db": -6.0}
 
 ## 개발
 
-- 단위 테스트: `uv run pytest` (실제 Logic 불필요, 가짜 Logic 모델로 263개)
+- 단위 테스트: `uv run pytest` (실제 Logic 불필요, 가짜 Logic 모델로 273개)
 - 실기 검증(Logic에서 테스트 프로젝트를 열어 둔 채): `uv run python scripts/live_check.py` (트랜스포트·트랙·믹서), `uv run python scripts/live_check2.py [strip] [--scan]` (EQ·플러그인·센드)
 - `scripts/calibrate_plugin.py "<플러그인>" [strip] [--write] [--yes]` 플러그인 파라미터 표 수집(`--write`면 번들 `known.json`에 병합)
 - `scripts/capture.py` MCU 트래픽 캡처, `scripts/calibrate_fader.py` 페이더 dB 표 생성

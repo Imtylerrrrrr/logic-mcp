@@ -73,6 +73,7 @@ bank first   ok=True skipped    1049ms already
 ## 스펙 2b
 - Task 1~9 완료(2026-10-16, SDD, 263 테스트, Opus 최종 리뷰 C1·I1~I3 수정·재리뷰 통과, main 87aff9b 머지·push; docs/reviews/2026-10-16-assign-2b-*).
 - 실기 10차(2026-10-19): `scripts/live_check2.py 1` 29/29 ok(verified 28, 기대된 skipped 1). 출력 스트립 가드: Stereo Out(LCD `SOu`, 번호 15)에 `plugin list`·`send get` skipped, `eq get`은 has_eq만. Aux 자동 생성은 마지막 트랙 뒤에 놓여 대상 스트립이 밀리지 않음(M6 미발현). 다섯 확인 항목 모두 1회 통과. 상세 `docs/mcu-protocol.md` 실기 10차.
-- `scripts/calibrate_plugin.py` 10종(Channel EQ, Compressor, Limiter, Noise Gate, Tape Delay, Stereo Delay, Space Designer, ChromaVerb, Overdrive, Distortion) 수집 결과 자리.
+- 캘리브레이션(2026-10-19, 3회 수집): 1차 8종에서 결함 셋(이름에 이웃 축약명, `-` 빈 칸, NAME/VALUE 뒤 축약명을 값으로 읽어 enum 오판) → `fix/calibrate-quality` 1차 수정(3커밋) → 2차 8종은 이름·`-` 해결, 숫자 10개 enum 잔존 → 2차 수정(값 열 대기·상한 숫자 선택지 프로빙·스캔 재읽기·insert 근처 탐색, 3커밋) → 스캔 진단(Z8: 항목당 2위치, 오버레이 쓰기 가끔 누락) → 3차 수정(1틱 스캔, 1커밋). 273 테스트. 번들 known.json: 2차 표 7종(Compressor·Adaptive Limiter·Noise Gate·Tape Delay·Stereo Delay·Overdrive·Distortion) + Channel EQ(2a 표), 오판 enum map 10개는 None(쓸 때 프로빙). 메뉴에 `Limiter` 없음(Adaptive Limiter로 대체). Space Designer·ChromaVerb는 목록 위치 오류로 미수집. 2·3차 수정은 실기 전에 Logic 수신이 끊겨(no_logic, Z6 의심) 미검증.
+- 다음 세션: Logic 재연결(안 되면 Z6 복구: Mackie Control 삭제→재연결) → 1틱 스캔으로 목록 재수집(진단 1~30번과 대조) → Space Designer·ChromaVerb·Channel EQ calibrate + None map 10개 프로빙 → M2(사용자 캐시가 번들 갱신을 가림) 결정.
 - 미검증 경로 자리.
 - 다음: 스펙 3(공개 준비: GitHub 원격, 설치 문서, 악기 슬롯 검토).
