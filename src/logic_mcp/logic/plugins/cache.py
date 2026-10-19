@@ -1,5 +1,6 @@
 """플러그인 목록·축약·파라미터 캐시. 번들(known.json)과 사용자(~/.logic-mcp/plugins-<Logic 버전>.json)를 병합한다.
-사용자 목록이 있으면 목록은 사용자 것을 쓰고(설치된 플러그인에 따라 순서가 다름), 축약·파라미터 표는 둘을 합친다."""
+사용자 목록이 있으면 목록은 사용자 것을 쓰고(설치된 플러그인에 따라 순서가 다름), 축약·파라미터 표는 둘을 합친다.
+번들 `generated`가 사용자 파일의 `bundled_generated`와 다르면 번들에 있는 이름의 표는 번들을 쓴다(리뷰 M2)."""
 from __future__ import annotations
 
 import copy
@@ -51,9 +52,12 @@ class PluginCache:
         path = user_dir / f"plugins-{version}.json"
         u = cls._read_user(path)
         b_abbrev, b_params = dict(b.get("abbrev", {})), copy.deepcopy(b.get("params", {}))
+        u_params = u.get("params", {})
+        if u.get("bundled_generated") != b.get("generated"):          # 번들이 재생성됨 → 번들에 있는 이름은 번들 우선(리뷰 M2)
+            u_params = {k: v for k, v in u_params.items() if k not in b_params}
         return cls(version=version, bundled_list=list(b.get("list", [])), user_list=list(u.get("list", [])),
                    abbrev={**b_abbrev, **u.get("abbrev", {})},
-                   params={**copy.deepcopy(b_params), **u.get("params", {})},
+                   params={**copy.deepcopy(b_params), **u_params},
                    scanned_at=u.get("scanned_at"), path=path,
                    bundled_abbrev=b_abbrev, bundled_params=b_params, bundled_generated=b.get("generated"))
 

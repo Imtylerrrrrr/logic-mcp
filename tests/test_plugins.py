@@ -110,3 +110,29 @@ def test_merge_bundled_replaces_table_and_generated(tmp_path):
     assert data["params"]["B"] == table and data["params"]["A"]["pages"] == 1 and data["generated"] == "2026-10-17"
     assert json.loads(bundled.read_text()) == data and not list(tmp_path.glob("*.tmp"))
     assert bundled.read_text().startswith('{\n  "logic_version"')         # 2칸 들여쓰기(리뷰 M3)
+
+
+def _m2_setup(tmp_path, user_extra):
+    bundled = tmp_path / "known.json"
+    B = {"pages": 5, "items": []}
+    U = {"pages": 2, "items": []}
+    M = {"pages": 1, "items": []}
+    bundled.write_text(json.dumps({"logic_version": "12.0.1", "generated": "2026-10-19", "list": ["--", "Compressor"],
+                                   "abbrev": {}, "params": {"Compressor": B}}))
+    (tmp_path / "plugins-12.0.1.json").write_text(json.dumps({"params": {"Compressor": U, "MyPlug": M}, **user_extra}))
+    return PluginCache.load(version="12.0.1", user_dir=tmp_path, bundled=bundled), B, U, M
+
+
+def test_load_drops_user_tables_for_bundled_keys_when_bundle_regenerated(tmp_path):      # 리뷰 M2
+    c, B, _, M = _m2_setup(tmp_path, {"bundled_generated": "2026-10-01"})
+    assert c.params["Compressor"] == B and c.params["MyPlug"] == M
+
+
+def test_load_old_format_user_file_without_bundled_generated_yields_to_bundle(tmp_path):   # 리뷰 M2
+    c, B, _, M = _m2_setup(tmp_path, {})
+    assert c.params["Compressor"] == B and c.params["MyPlug"] == M
+
+
+def test_load_keeps_user_tables_when_bundle_unchanged(tmp_path):                           # 리뷰 M2
+    c, _, U, _ = _m2_setup(tmp_path, {"bundled_generated": "2026-10-19"})
+    assert c.params["Compressor"] == U
