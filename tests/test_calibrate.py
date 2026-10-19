@@ -1,7 +1,7 @@
 from logic_mcp.logic.commands import Commands
 from logic_mcp.logic.faders import FaderTable
 from logic_mcp.logic.plugins.cache import PluginCache
-from tests.fake_assign import PLUGIN_LIST, compressor, make_assign_logic
+from tests.fake_assign import PLUGIN_LIST, compressor, make_assign_logic, with_dash_cells
 
 
 def make(tmp_path):
@@ -50,3 +50,14 @@ def test_calibrate_names_come_only_from_ticks_that_changed_the_lcd(tmp_path):   
     true_names = {p.short: p.name for p in compressor()}              # 3페이지는 오른쪽 정렬이라 index가 아니라 축약명으로 맞춘다
     for it in items.values():
         assert it["name"] in (true_names[it["short"]], None), it
+
+
+def test_dash_cells_are_not_params(tmp_path):                        # 실기 10차: 빈 칸을 1행 `-`(2행 공백)로 보이는 플러그인
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Chorus")
+    logic.tracks[0].params[2] = with_dash_cells(logic.tracks[0].params[2], 2)      # 열 3·4가 `-`
+    r = cmds.plugin.params(1, None, 2)
+    assert r.verified == "verified" and [p["index"] for p in r.after["params"]] == [1, 2, 3]
+    r = cmds.plugin.calibrate(strip=1, number=None, slot=2)
+    assert r.verified == "verified" and [it["index"] for it in r.after["items"]] == [1, 2, 3]
+    assert [it["short"] for it in cache.param_table("Chorus")["items"]] == ["Drive", "Tone", "Output"]

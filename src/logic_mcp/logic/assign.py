@@ -187,6 +187,7 @@ class EqCommands:
 MAX_SLOT = 8            # 2a는 Plug-in Channel 뷰(PL)의 슬롯 1~8만(실측 C: 9~15 접근 경로 미확인)
 MAX_OPTIONS = 16        # 열거형 선택지 수집 상한(캘리브레이션)
 EMPTY_TEXTS = ("", "--")  # PL·Mixer 2행에서 빈 슬롯(`--` 또는 갱신 전 공백, 실측 C·H)
+EMPTY_SHORTS = ("", "-")  # 편집 뷰 빈 파라미터 칸(공백 또는 1행 `-`, 실기 10차: Adaptive Limiter·Overdrive·Distortion)
 _HEADER_RE = re.compile(r'Ins\.(\d+) "([^"]*)("?)')
 _PAGE_TAIL_RE = re.compile(r"\s*Page\s*\d+/\d+.*$")
 
@@ -299,7 +300,7 @@ class PluginCommands:
             if page == pages and pages >= 2:     # 마지막 페이지는 오른쪽 정렬이라 앞 k열이 직전 페이지와 겹친다(실측 W)
                 skip = next((k for k in range(7, 0, -1) if prev[8 - k:] == pairs[:k]), 0)
             for i, short in enumerate(shorts):
-                if short and i >= skip:
+                if short not in EMPTY_SHORTS and i >= skip:
                     items.append({"index": (page - 1) * 8 + i + 1, "short": short, "value": values[i].number,
                                   "text": values[i].text})
             prev = pairs

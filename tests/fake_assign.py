@@ -208,6 +208,11 @@ def generic(name: str) -> list[Param]:
             Param("Output", f"{name} Output", "linear", -20.0, 20.0, -0.5, unit="dB", step=0.5)]
 
 
+def with_dash_cells(params: list[Param], n: int) -> list[Param]:
+    """빈 파라미터 칸 n개를 끝에 붙인다: 1행 `-`, 2행 공백, 틱·페이더에 무반응(실기 10차: Adaptive Limiter·Overdrive·Distortion)."""
+    return params + [Param("-", "-", "enum", options=(" ",)) for _ in range(n)]
+
+
 @dataclass
 class Track:
     number: int
@@ -714,7 +719,7 @@ class FakeLogic:
             p = t.eq[0][0] if (t and t.eq) else None
         else:
             p = self._column_param(ch)
-        if p is None:
+        if p is None or p.short == "-":                                 # 빈 칸(1행 `-`)은 틱에 무반응
             return
         before = p.full()
         p.tick(ticks)
