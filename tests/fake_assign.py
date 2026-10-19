@@ -10,6 +10,7 @@ flip_led_lag(리뷰 C1)는 처음 처리된 FLIP 누름의 LED 변화를 flip_la
 시간 초과한 뒤 다음 판정 거짓 wait_for에 들어갈 때 보낸다. Flip이 꺼진 상태의 페이더 이동은 해당 스트립 트랙 볼륨(Track.volume, raw)을 바꾼다.
 drop_all_flips는 FLIP 누름을 항상, drop_all_name_value는 NAME/VALUE 누름을 항상 무시한다.
 no_overlay_on_nochange는 값이 끝에 닿아 바뀌지 않은 파라미터 틱에 LCD를 그리지 않는다(리뷰 I3, 실기 미측정).
+narrow_name_overlay(실기 10차)는 틱 이름 오버레이를 1행 해당 열부터 2열(이름이 길면 3열) 폭으로만 덧쓰고 나머지 1행 칸은 축약명을 남긴다.
 refuse에 V-Pot 누름 노트를 넣으면 누름이 드롭되어 미리 선택이 계속 깜박인다(리뷰 I2, 실측 S4)."""
 from __future__ import annotations
 
@@ -296,6 +297,7 @@ class FakeLogic:
         self.drop_all_name_value = False               # True면 NAME/VALUE 누름을 항상 무시
         self.refuse: set[int] = set()                  # 반응하지 않을 노트(고장 흉내)
         self.no_overlay_on_nochange = False            # True면 값이 안 바뀐 V-Pot 틱(끝값)에 오버레이를 그리지 않음(리뷰 I3)
+        self.narrow_name_overlay = False               # True면 틱 이름 오버레이가 1행 2~3열만 덮음(실기 10차)
         fake.replies = self.replies
 
     # ---------- 시간 ----------
@@ -461,7 +463,8 @@ class FakeLogic:
         tail = page + " "
         return (prefix + t.inserts[self.slot])[:56 - len(tail) - 5].ljust(56 - len(tail)) + tail
 
-    def redraw(self, overlay: tuple[int, str, str] | None = None, mode_overlay: str | None = None) -> None:
+    def redraw(self, overlay: tuple[int, str, str] | None = None, mode_overlay: str | None = None,
+               narrow_name: bool = False) -> None:
         """정착 화면을 그린다. 오버레이가 있으면 오버레이 판을 지금 그리고 2.0초 뒤 재묘사를 예약한다."""
         r1, r2, d = self._rows()
         if self.eq_held:
@@ -476,7 +479,12 @@ class FakeLogic:
             ch, name, value = overlay
             start = min(ch * 7, 56 - 21)
             fit = (lambda s: s[:20].rjust(20) + " ") if ch >= 6 else (lambda s: s[:21].ljust(21))   # 7·8: 오른쪽 정렬 + 끝 공백(실측 D)
-            o1 = o1[:start] + fit(name) + o1[start + 21:]
+            if narrow_name:     # 실기 10차: 이름 뒤 공백 1칸 이상인 7칸 단위 폭(최소 14), 오른쪽 끝에서 밀리면 오른쪽 정렬 + 끝 공백
+                w = max(14, (len(name) // 7 + 1) * 7)
+                at = min(ch * 7, 56 - w)
+                o1 = o1[:at] + (name.ljust(w) if at == ch * 7 else name.rjust(w - 1) + " ") + o1[at + w:]
+            else:
+                o1 = o1[:start] + fit(name) + o1[start + 21:]
             o2 = r2[:start] + fit(value) + r2[start + 21:]
         self._emit([lcd_write(0, o1[:56] + o2[:56])] + digits(d))
         self.pending = [self.clock() + OVERLAY_S]           # 새 오버레이가 이전 만기를 대체한다(마지막 쓰기 뒤 2.0초)
@@ -725,7 +733,7 @@ class FakeLogic:
         p.tick(ticks)
         if self.no_overlay_on_nochange and p.full() == before:
             return                                                      # 끝값 무변화 틱: 오버레이 없음(실기 미측정, 리뷰 I3)
-        self.redraw(overlay=(ch, p.name, p.full()))
+        self.redraw(overlay=(ch, p.name, p.full()), narrow_name=self.narrow_name_overlay)
 
     def _push_send(self, ch: int) -> None:
         """dest 열 누름: 미리 선택이 있으면 `Send n Instantiate` 오버레이 → 2초 뒤 센드 생성/제거(실측 S5)."""

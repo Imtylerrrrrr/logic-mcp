@@ -1,3 +1,4 @@
+from logic_mcp.logic.assign import overlay_param_name
 from logic_mcp.logic.commands import Commands
 from logic_mcp.logic.faders import FaderTable
 from logic_mcp.logic.plugins.cache import PluginCache
@@ -61,3 +62,45 @@ def test_dash_cells_are_not_params(tmp_path):                        # 실기 10
     r = cmds.plugin.calibrate(strip=1, number=None, slot=2)
     assert r.verified == "verified" and [it["index"] for it in r.after["items"]] == [1, 2, 3]
     assert [it["short"] for it in cache.param_table("Chorus")["items"]] == ["Drive", "Tone", "Output"]
+
+
+def test_calibrate_names_drop_neighbor_shorts_under_narrow_overlay(tmp_path):    # 실기 10차: 이름 오버레이는 1행 2~3열만 덮는다
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Compressor")
+    logic.narrow_name_overlay = True
+    r = cmds.plugin.calibrate(strip=1, number=None, slot=2)
+    assert r.verified == "verified"
+    items = {it["index"]: it for it in r.after["items"]}
+    assert items[1]["name"] == "Circuit Type" and items[2]["name"] == "Threshold"      # 옛 21칸 창: `Circuit Type  Ratio`
+    assert items[7]["name"] == "Make Up" and items[8]["name"] == "Auto Gain"           # 열 7·8: 창 앞의 `AutRel`이 섞이던 곳
+    true_names = {p.short: p.name for p in compressor()}
+    assert {it["short"]: it["name"] for it in items.values()} == true_names            # 모든 이름이 그 파라미터의 이름 그대로
+
+
+def _row(shorts: str) -> str:
+    return "".join(x.ljust(7) for x in shorts.split())
+
+
+EQ1 = _row("LoCutS LoShGa Pea1Ga Pea2Ga Pea3Ga Pea4Ga HiShGa HiCutS")
+EQ2 = _row("LoCutF LoShF Peak1F Peak2F Peak3F Peak4F HiShF HiCutF")
+CMP = _row("CirTyp Thrs Ratio Attack Rel AutRel MakeUp AutGai")
+
+
+def test_overlay_param_name_cases():                                   # 실기 10차 관찰: (1행, 열, 덧쓴 위치, 덧쓴 글자, 옛 21칸 창이 읽은 값, 기대)
+    cases = [
+        (EQ1, 0, 0, "Low Cut Slope".ljust(14), "Low Cut Slope Pea1Ga", "Low Cut Slope"),
+        (EQ1, 1, 7, "Low Shelf Gain".ljust(21), "Low Shelf Gain", "Low Shelf Gain"),
+        (CMP, 0, 0, "Circuit Type".ljust(14), "Circuit Type  Ratio", "Circuit Type"),
+        (CMP, 1, 7, "Threshold".ljust(14), "Threshold     Attack", "Threshold"),
+        (CMP, 3, 21, "Attack".ljust(14), "Attack        AutRel", "Attack"),
+        (CMP, 6, 42, "Make Up".ljust(14), "AutRel Make Up", "Make Up"),
+        (CMP, 7, 42, "    Auto Gain ", "AutRel     Auto Gain", "Auto Gain"),       # 오른쪽 끝: 46~54칸
+        (EQ2, 6, 35, "High Shelf Frequency ", "High Shelf Frequency", "High Shelf Frequency"),
+    ]
+    for header, col, at, text, seen, want in cases:
+        assert len(header) == 56
+        row = header[:at] + text + header[at + len(text):]
+        start = min(col * 7, 35)
+        assert row[start:start + 21].strip() == seen, (col, seen)          # 관찰을 재현하는 행인지
+        assert overlay_param_name(header, row, col) == want, (col, want)
+    assert overlay_param_name(CMP, CMP, 2) == ""                        # 무변화

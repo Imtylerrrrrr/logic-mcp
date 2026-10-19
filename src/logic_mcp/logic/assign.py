@@ -7,7 +7,9 @@ import re
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from .modes import CONFIRM_S, EDIT_OPEN_S, ModeError
+from ..mcu import protocol as P
+from ..mcu import state as S
+from .modes import CONFIRM_S, EDIT_OPEN_S, OVERLAY_WIDTH, ModeError
 from .plugins.cache import PluginCache
 from .plugins.scan import rewind_to_empty, scan_list
 from .plugins.match import find, normalize, strip_suffix
@@ -200,6 +202,26 @@ def _header_name(row1: str) -> tuple[int | None, str, bool]:
         return None, "", False
     text = _PAGE_TAIL_RE.sub("", m.group(2))
     return int(m.group(1)), strip_suffix(text).rstrip(" ("), m.group(3) == '"'
+
+
+def overlay_param_name(header: str, row: str, col: int) -> str:
+    """편집 뷰 1행에서 파라미터 전체 이름만 떼어 낸다. header = 틱 전 1행(축약명), row = 틱 뒤 1행(오버레이를 덧쓴 상태).
+    이름은 해당 열부터 2열(길면 3열) 폭으로만 덧쓰이고 나머지 칸은 축약명이 남는다(실기 10차). 창은 min(col*7, 56-21)부터
+    3칸(7자 단위): 대상 열 앞 칸은 바뀌었을 때만, 대상 열 칸은 항상 넣고, 그 뒤 칸은 바뀌지 않은 첫 칸부터 버린다.
+    이어 붙여 strip. 아무것도 안 바뀌면 ""."""
+    w = S.COL_W
+    first = min(col * w, P.LCD_WIDTH - OVERLAY_WIDTH) // w
+    cells = [(c, row[c * w:(c + 1) * w], row[c * w:(c + 1) * w] != header[c * w:(c + 1) * w])
+             for c in range(first, first + OVERLAY_WIDTH // w)]
+    if not any(changed for _c, _t, changed in cells):
+        return ""
+    parts = []
+    for c, text, changed in cells:
+        if c > col and not changed:
+            break
+        if c >= col or changed:
+            parts.append(text)
+    return "".join(parts).strip()
 
 
 class SlotEmpty(Exception):
@@ -737,7 +759,7 @@ class PluginCommands:
                 for item in table["items"]:
                     col = self._goto_param(item)                                   # VALUE 모드
                     v = d.read_column(col)[1]
-                    settled = d.read_overlay_name(col)                             # 정착 1행 조각(오버레이가 없을 때 보이는 것)
+                    header = d.surface.state.lcd[0]                                # 틱 전 1행(축약명). 이름은 틱 뒤 바뀐 칸에서만 뗀다
                     name: str | None = None
                     # 이름은 LCD가 바뀐 틱(tick() True)의 오버레이에서만 받는다. 끝값 무변화 틱은 오버레이가 없을 수 있어
                     # 정착 1행 조각을 이름으로 읽게 된다(리뷰 I3).
@@ -745,7 +767,7 @@ class PluginCommands:
                         last = v.text
                         for _ in range(MAX_OPTIONS):                               # 처음(가장 앞 선택지)까지 -1
                             if d.tick(col, -1) and name is None:
-                                name = d.read_overlay_name(col)
+                                name = overlay_param_name(header, d.surface.state.lcd[0], col)
                             d.settle_overlay()
                             t = d.read_column(col)[1].text
                             if t == last:
@@ -754,7 +776,7 @@ class PluginCommands:
                         options = [last]
                         for _ in range(MAX_OPTIONS - 1):                           # +1로 끝까지 모은다(처음에 있었으면 여기서 이름)
                             if d.tick(col, 1) and name is None:
-                                name = d.read_overlay_name(col)
+                                name = overlay_param_name(header, d.surface.state.lcd[0], col)
                             d.settle_overlay()
                             t = d.read_column(col)[1].text
                             if t == options[-1]:
@@ -764,10 +786,10 @@ class PluginCommands:
                         enums += 1
                     else:
                         if d.tick(col, 1):
-                            name = d.read_overlay_name(col)
+                            name = overlay_param_name(header, d.surface.state.lcd[0], col)
                             d.tick(col, -1)
                         elif d.tick(col, -1):                                      # 최댓값이면 반대 방향으로 한 틱
-                            name = d.read_overlay_name(col)
+                            name = overlay_param_name(header, d.surface.state.lcd[0], col)
                             d.tick(col, 1)
                         d.settle_overlay()
                         if v.kind == "number" and not item.get("map"):
@@ -776,7 +798,7 @@ class PluginCommands:
                             if mapping is not None:
                                 item["map"] = _map_to(mapping)
                                 probed += 1
-                    if name and "Page" not in name and name != settled:
+                    if name and "Page" not in name:
                         item["name"] = name
                     d.toggle_name_value()                                           # NAME 모드로 복귀(다음 page_to가 헤더를 읽는다)
                 self.cache.save()
