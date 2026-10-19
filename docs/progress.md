@@ -71,7 +71,8 @@ bank first   ok=True skipped    1049ms already
   - 계획 2b 준비 실측(센드 S1~S11, TRACK 모드 Z5) 완료 → `docs/mcu-protocol.md`.
 
 ## 스펙 2b
-- Task 1~9 완료 표시 자리(컨트롤러가 채움).
-- 실기 결과 자리: `scripts/live_check2.py <strip>`(센드 단계 포함), 출력 스트립 skipped 확인, `scripts/calibrate_plugin.py` 10종(Channel EQ, Compressor, Limiter, Noise Gate, Tape Delay, Stereo Delay, Space Designer, ChromaVerb, Overdrive, Distortion) 수집 결과.
+- Task 1~9 완료(2026-10-16, SDD, 263 테스트, Opus 최종 리뷰 C1·I1~I3 수정·재리뷰 통과, main 87aff9b 머지·push; docs/reviews/2026-10-16-assign-2b-*).
+- 실기 10차(2026-10-19): `scripts/live_check2.py 1` 29/29 ok(verified 28, 기대된 skipped 1). 출력 스트립 가드: Stereo Out(LCD `SOu`, 번호 15)에 `plugin list`·`send get` skipped, `eq get`은 has_eq만. Aux 자동 생성은 마지막 트랙 뒤에 놓여 대상 스트립이 밀리지 않음(M6 미발현). 다섯 확인 항목 모두 1회 통과. 상세 `docs/mcu-protocol.md` 실기 10차.
+- `scripts/calibrate_plugin.py` 10종(Channel EQ, Compressor, Limiter, Noise Gate, Tape Delay, Stereo Delay, Space Designer, ChromaVerb, Overdrive, Distortion) 수집 결과 자리.
 - 미검증 경로 자리.
 - 다음: 스펙 3(공개 준비: GitHub 원격, 설치 문서, 악기 슬롯 검토).

@@ -61,8 +61,8 @@ try:
     r = run("send get (after)", lambda: commands.send.get(strip, None))
     print("  send 1:", r.after and r.after["sends"]["1"])
     run("send remove s1", lambda: commands.send.remove(strip, None, 1))
-    outs = [s.number for s in commands.surface.state.strips if s.number is not None and s.name.startswith(("St", "Mas"))]
-    if outs:                                                                                   # 출력 스트립 가드(Z4): skipped 기대
+    outs = [s.number for s in commands.surface.state.strips if s.number is not None and s.name.startswith(("St", "SOu", "Mas"))]
+    if outs:                                                                                   # 출력 스트립 가드(Z4): skipped 기대. Stereo Out은 LCD에 'SOu'(실기 10차)
         run(f"plugin list #{outs[0]} (출력, skipped 기대)", lambda: commands.plugin.list(None, outs[0]))
         run(f"send get #{outs[0]} (출력, skipped 기대)", lambda: commands.send.get(None, outs[0]))
     if "--scan" in sys.argv:

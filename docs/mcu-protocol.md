@@ -96,3 +96,12 @@
 - S9. Mute 틱: +1 → `muted`(dest 열이 `*Bus 2`), -1 → `active`. 오버레이 1행 `Send 1 Mute   -`.
 - S10. SE 안에서 SELECT 로 Stereo Out 을 고르면 2행에 잠깐 조각(`Aux 1`)이 뜨고 3초 뒤 **여전히 트랙 2의 센드**(Z4 와 같음). 실제 트랙으로 돌아오면 이름(`Deluxe Classic`) 조각 뒤 그 트랙 센드. 센드 명령도 PAN → SELECT → SE 재진입 경로를 쓴다.
 - S11. 센드 없는 열의 level/pos/mute V-Pot 은 무반응(스파이크와 같음).
+
+## 실기 10차 실측(2026-10-19, Logic 12.0.1, 사용자 테스트 프로젝트, 스트립 1 = 트랙 1)
+- `scripts/live_check2.py 1` 29/29 ok(verified 28, 기대된 skipped 1 = `eq set b8 on False` 기본값 Off). EQ get·set 7, 플러그인 list·insert·params·get·set·bypass·replace·remove 13, 센드 get·set_dest·set_level(-6, -inf)·set_pos·mute·remove 9. 끝 상태 PAN. 단일 실행이라 재현성은 미평가.
+- 계획 2b가 실기 확인 항목으로 남긴 다섯 가지가 모두 1회 통과: PAN에서 TRACK 홀드 직접 진입, Output 열로 스트립 종류 판별, 목적지 확정 뒤 깜박임 정지(`set_dest` verified), 끝 값 틱 오버레이(`set_level -inf` verified), 확정 지연 `CONFIRM_S` 3.0(`set_dest` 전체 6.6 s).
+- 첫 채널 뷰 명령은 스트립 종류 첫 판별(TRACK 홀드 + Output 열 읽기)을 포함해 길다: `eq get` 10.9 s, 마지막 뱅크 `plugin list` 8.2 s. 같은 뱅크의 두 번째부터는 캐시(0 ms). `plugin list`(뱅크 전체 8트랙) 32 s.
+- **Z4 가드 실기.** 마지막 뱅크 스트립 `[(9,'DeCl'),(10,'1')…(14,'5'),(17,'Au1'),(15,'SOu')]`. **Stereo Out의 LCD 약칭은 `SOu`**(`St Out`이 아님). `plugin list #15`·`send get #15` → skipped(note "출력·Master 채널 스트립…지원하지 않음"), `eq get #15` → ok verified에 note "밴드 값은 읽지 않음"(has_eq만). 양성 대조 `send get #17`(Au1) verified. 가드 뒤 PAN 복귀·`bank first` 정상. Master 스트립은 이 뱅크에 보이지 않아 미확인.
+- **S5 재확인.** `Bus 1` 센드 확정으로 생긴 Aux 1(`Au1`, 번호 17)은 마지막 트랙 `5`(14) 뒤·`SOu`(15) 앞에 놓였다. 대상 스트립 1은 밀리지 않았고, `send remove`는 Aux 트랙을 지우지 않는다(프로젝트에 남음). 리뷰 M6(선택 복원 인덱스 밀림)은 이 배치에서는 발현하지 않았다.
+- Z6 없음: 10/16 이후 Logic을 다시 켰지만 할당 버튼이 모두 정상(장치 재설치 불필요).
+- `live_check2.py`의 출력 스트립 감지가 `St`·`Mas`로 시작하는 이름만 봐서 `SOu`를 놓쳤다 → `SOu` 추가.
