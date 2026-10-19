@@ -11,7 +11,7 @@ from ..mcu import protocol as P
 from ..mcu import state as S
 from .modes import CONFIRM_S, EDIT_OPEN_S, OVERLAY_WIDTH, ModeError
 from .plugins.cache import PluginCache
-from .plugins.scan import rewind_to_empty, scan_list
+from .plugins.scan import ITEM_TICKS, rewind_to_empty, scan_list
 from .plugins.match import find, normalize, strip_suffix
 from .strips import StripUnsupported
 from .setter import probe_mapping, set_enum, set_numeric
@@ -266,6 +266,14 @@ class PluginCommands:
     def _slot_text(self, slot: int) -> str:
         """PL 2행의 슬롯 열(축약). `--`·공백은 빈 슬롯."""
         return self.d.read_column(slot - 1)[1].text
+
+    def _shown(self, v: int, want: str) -> str:
+        """미리 선택 오버레이의 이름. 기대와 다르면 오버레이가 늦게 올 수 있어 0.3초 뒤 한 번 더 읽는다(실측 S)."""
+        shown = strip_suffix(self.d.read_overlay_text(v))
+        if normalize(shown) != normalize(want):
+            self.d.pause(0.3)
+            shown = strip_suffix(self.d.read_overlay_text(v))
+        return shown
 
     def _channel(self, ch: int) -> None:
         """대상 트랙을 선택하고 Plug-in Channel 뷰(PL)로 간다. 2행 = 선택 트랙의 슬롯 1~8, V-Pot n = 슬롯 n(실측 C·D).
@@ -629,21 +637,16 @@ class PluginCommands:
                                      note=f"슬롯 {slot}에 {current!r}가 있음. 교체하려면 replace=true")
                 rewind_to_empty(d, v)
                 d.tick(v, 2 * idx)                                   # `--`(0)에서 2·i틱 = i번째 항목(ceil 모델)
-                shown = strip_suffix(d.read_overlay_text(v))
-                if normalize(shown) != normalize(want):              # 오버레이가 늦게 올 수 있어 0.3초 뒤 한 번 더 읽는다(실측 S)
-                    d.pause(0.3)
-                    shown = strip_suffix(d.read_overlay_text(v))
+                shown = first = self._shown(v, want)
                 for _ in range(3):                                   # 목록이 캐시와 조금 어긋나면 근처에서 찾는다
                     if normalize(shown) == normalize(want):
                         break
                     j, _c = find(self.cache.items, shown)
-                    if j is None:
-                        break
-                    d.tick(v, 2 * (idx - j))
-                    shown = strip_suffix(d.read_overlay_text(v))
+                    d.tick(v, ITEM_TICKS if j is None else 2 * (idx - j))   # 모르는 이름 = 캐시 목록에 빠진 항목 → 실제 위치는 뒤(재수집)
+                    shown = self._shown(v, want)
                 if normalize(shown) != normalize(want):              # 누르지 않는다: finally의 leave가 미리 선택을 취소
                     return b._result(action, False, "unverified", t0, target=target,
-                                     note=f"목록 위치 {idx}에 {shown!r}가 보임(기대 {want!r}). 설치된 플러그인이 달라진 듯. `logic_plugin scan` 권장")
+                                     note=f"목록 위치 {idx}에 {first!r}가 보임(기대 {want!r}). 설치된 플러그인이 달라진 듯. `logic_plugin scan` 권장")
                 if not d.press_vpot_until(v, lambda w: w.kind == "plugin_edit" and w.index == slot, CONFIRM_S):
                     return b._result(action, False, "unverified", t0, target=target,
                                      note=f"확정 뒤 {CONFIRM_S:.0f}초 안에 편집 뷰가 아니라 {d.view.kind}")

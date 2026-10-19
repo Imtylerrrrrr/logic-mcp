@@ -202,6 +202,15 @@ def test_insert_overlay_mismatch_never_presses(tmp_path):
     assert not logic.pre and surface.state.view.kind == "pan"       # leave가 미리 선택을 취소
 
 
+def test_insert_steps_past_a_name_missing_from_the_cache_list(tmp_path):   # 재수집: 목록 위치 53에 'Rotor Cabinet'
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    i = PLUGIN_LIST.index("Compressor")
+    logic.plugin_list = PLUGIN_LIST[:i] + ["Rotor Cabinet"] + PLUGIN_LIST[i:]   # 캐시 목록에 빠진 항목이 목표 바로 앞
+    r = cmds.plugin.insert(2, None, 1, "Compressor")
+    assert r.verified == "verified" and logic.tracks[1].inserts[1] == "Compressor" and r.after["plugin"] == "Compressor"
+    assert surface.state.view.kind == "pan"
+
+
 def test_insert_unknown_or_ambiguous_name_sends_nothing(tmp_path):
     cmds, surface, fake, logic, cache = make(tmp_path)
     n = len(fake.sent)
