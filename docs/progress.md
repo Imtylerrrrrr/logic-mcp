@@ -77,6 +77,7 @@ bank first   ok=True skipped    1049ms already
 - 리뷰 M2·M5·M6 처리(2026-10-19): M2 수정 — `PluginCache.load`에서 사용자 파일의 `bundled_generated`가 번들 `generated`와 다르면(키 없는 옛 형식 포함) 번들에 있는 이름의 표는 번들 우선, 사용자만 가진 표는 유지(테스트 3건, 276 테스트). M5(가짜 Logic PL 쓰기 경로가 Z4를 흉내 내지 않음) 폐기 — Z4 가드는 실기 10차에서 `SOu`로 확인했고 가짜 모델 확장은 비용 대비 이득 없음. M6(Aux 자동 생성 뒤 선택 복원 인덱스 밀림) 종결 — 실기에서 Aux는 마지막 트랙 뒤에 놓여 발현하지 않음(S5 재확인). Z10 기록: Logic 모달(오디오 인터페이스 변경 알림)이 MIDI 수신을 멈춤 → `wait_ready` 실패 노트에 모달 확인 힌트.
 - page_to 한도 수정(2026-10-19, Sonnet 구현): Space Designer 진단으로 편집 뷰가 23페이지이고 임의 위치(15번 파라미터)에서 열림을 확인 → `page_to` 한도를 고정 16회에서 총 페이지+1회로, 실패 메시지에 출발·횟수·현재·총 페이지(가짜 Logic `edit_open_page` 스위치, 277 테스트). Adaptive Limiter 재수집 성공(Gain·Remove DC map 채움, 번들 갱신).
 - Space Designer 수집 1차 시도(2026-10-19 21:12): 삽입까지 정상, 수집 도중 프로젝트가 닫혀(Z11) `name_value` 실패 → 미수집. page_to 수정은 이 시도에서 검증되지 않음.
+- Space Designer 수집 2차 시도(2026-10-20 00:04): Logic에 프로젝트 없이 '시작' 대화상자만 떠 있어 `plugin list`가 Volume 복원 단계에서 실패(Z11-b, 2회 재현) → 수집 못 함. Z11의 "Quartz 창 0개"는 측정 오류(소유자 이름 NBSP)로 정정. 사용자가 testForMcp_1을 열면 재시도(슬롯 1에 Space Designer가 남아 있으면 스크립트가 다음 빈 슬롯에 넣는다).
 - 다음: 테스트 프로젝트를 연 상태에서 Space Designer 수집(23페이지, 약 1시간 예상) → 스펙 3.
 - 미검증 경로 자리.
 - 다음: 스펙 3(공개 준비: GitHub 원격, 설치 문서, 악기 슬롯 검토).
