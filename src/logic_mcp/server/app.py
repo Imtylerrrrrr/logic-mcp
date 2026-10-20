@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from importlib.metadata import version as _pkg_version
 
 from mcp.server import MCPServer
 
@@ -31,7 +32,7 @@ def create_server(commands: Commands, *, start_surface: bool) -> MCPServer:
             if start_surface:
                 commands.surface.stop()
 
-    mcp = MCPServer("logic-mcp", instructions=INSTRUCTIONS, lifespan=lifespan)
+    mcp = MCPServer("logic-mcp", version=_pkg_version("logic-mcp"), instructions=INSTRUCTIONS, lifespan=lifespan)
     register_tools(mcp, commands)
     register_resources(mcp, commands)
     return mcp
