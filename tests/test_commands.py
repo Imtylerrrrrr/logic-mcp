@@ -290,6 +290,7 @@ def test_configure_turns_on_numbers_and_value_mode_and_beats():
     fake.feed(lcd_row1(b"Audio 1St Out Master "))
     fake.feed(P.button_down(P.Note.SMPTE_LED))
     fake.feed(bytes([0xE0, 0x00, 0x60]))      # 페이더 1 위치 수신
+    fake.feed(lcd_row2(b"       " * 8))           # 시작 시 2행 공백(NAME 상태)
     surface.tick()
     state = {"numbers": False, "value": False, "beats": False}
 
@@ -299,9 +300,7 @@ def test_configure_turns_on_numbers_and_value_mode_and_beats():
             return [lcd_row1(b"1:Audio2:St Ou3:Maste")]
         if data == P.button_down(P.Note.NAME_VALUE):
             state["value"] = True
-            return []
-        if data[0] & 0xF0 == 0xE0:
-            return [lcd_row2(b"+0.0 dB" if state["value"] else b"Volume ")]
+            return [lcd_row2(b"-64    0      0      0      ")]
         if data == P.button_down(P.Note.SMPTE_BEATS):
             state["beats"] = True
             return [P.button_up(P.Note.SMPTE_LED), P.button_down(P.Note.BEATS_LED)]
@@ -312,6 +311,26 @@ def test_configure_turns_on_numbers_and_value_mode_and_beats():
     assert cmds.status()["configured"] is True and cmds.status()["name_format_ok"] is True
     r2 = cmds.configure()
     assert r2.ok and r2.verified == "skipped"
+
+
+def test_configure_already_when_row2_shows_values():
+    cmds, surface, fake = make_commands()        # 번호·Beats 켜짐
+    fake.feed(bytes([0xE0, 0x00, 0x60]))
+    fake.feed(lcd_row2(b"-64    0      0      0      "))
+    surface.tick()
+    r = cmds.configure()
+    assert r.ok and r.note == "already"
+    assert P.button_down(P.Note.NAME_VALUE) not in fake.sent
+
+
+def test_configure_unverified_when_name_value_gets_no_response():
+    cmds, surface, fake = make_commands()
+    fake.feed(bytes([0xE0, 0x00, 0x60]))
+    fake.feed(lcd_row2(b"       " * 8))
+    surface.tick()
+    r = cmds.configure()
+    assert r.verified == "unverified" and "되돌려 눌렀음" in r.note
+    assert fake.sent.count(P.button_down(P.Note.NAME_VALUE)) == 2
 
 
 def test_configure_without_known_fader_skips_probe():

@@ -12,8 +12,8 @@ from pydantic import BaseModel
 from ..mcu import protocol as P
 from ..mcu import state as S
 from ..mcu.surface import Surface
-from .faders import FaderTable, parse_db_text, parse_pan_text
-from .modes import ModeDriver
+from .faders import FaderTable, parse_pan_text
+from .modes import FEEDBACK_TIMEOUT, ModeDriver
 
 if TYPE_CHECKING:
     from .plugins.cache import PluginCache
@@ -365,21 +365,20 @@ class Commands:
             if not self.surface.state.strips[0].fader_known:
                 return self._result(action, False, "unverified", t0, after=self.status(),
                                     note="페이더 1 위치를 아직 못 받음. 페이더 1을 살짝 움직이거나 프로젝트를 다시 연 뒤 configure를 다시 실행")
-            # 2) 값 표시 모드: 페이더 1을 현재값으로 다시 보내 dB 텍스트가 뜨는지 본다
-            def probe_value_mode() -> bool:
-                raw = self.surface.state.strips[0].fader_raw
-                for msg in P.fader_move(0, raw):
-                    self.surface.send(msg)
-                return self.surface.wait_for(lambda s: parse_db_text(s.strips[0].value_text) is not None, FADER_TIMEOUT)
-            if not probe_value_mode():
-                self._press(P.Note.NAME_VALUE)
+            # 2) 값 표시 모드: PAN 뷰 2행에 이름 있는 스트립의 값이 보이는가(실측 2026-10-20: NAME 상태는 2행 전부 공백.
+            #    페이더 재전송 프로브는 두 상태 모두 +0.0 dB가 약 2초 과도 표시돼 NAME 상태를 못 가렸다)
+            def value_mode_shown(s) -> bool:
+                return any(st.value_text.strip() for st in s.strips if st.name)
+            if any(st.name for st in self.surface.state.strips):
                 self.surface.wait_settled(0.5)
-                if not probe_value_mode():
+                if not value_mode_shown(self.surface.state):
                     self._press(P.Note.NAME_VALUE)
-                    self.surface.wait_settled(0.5)
-                    return self._result(action, False, "unverified", t0, after=self.status(),
-                                        note="NAME/VALUE 뒤에도 LCD 2행에 dB 값이 안 보임 (되돌려 눌렀음)")
-                done.append("value_mode")
+                    if not self.surface.wait_for(value_mode_shown, FEEDBACK_TIMEOUT):
+                        self._press(P.Note.NAME_VALUE)
+                        self.surface.wait_settled(0.5)
+                        return self._result(action, False, "unverified", t0, after=self.status(),
+                                            note="NAME/VALUE 뒤에도 LCD 2행에 값이 안 보임 (되돌려 눌렀음)")
+                    done.append("value_mode")
             # 3) Beats 클락
             if self.surface.state.time.mode != "beats":
                 self._press(P.Note.SMPTE_BEATS)
