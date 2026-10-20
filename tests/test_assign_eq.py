@@ -204,3 +204,17 @@ def test_eq_get_on_output_strip_reports_has_eq_only_and_set_is_skipped():     # 
     r = cmds.eq.set(strip=2, number=None, band=3, param="gain", value=-3.0)
     assert r.verified == "skipped" and "출력" in r.note
     assert logic.tracks[0].eq is None and logic.tracks[1].eq is None and surface.state.view.kind == "pan"
+
+
+def test_eq_get_turns_strip_unsupported_into_skipped_result(monkeypatch):
+    # 출력 스트립은 follows 검사에서 먼저 걸러져 eq.get 안에서 StripUnsupported 가 실제로 나올 길이 없다 → 예외를 주입해 변환만 고정
+    from logic_mcp.logic.strips import StripUnsupported
+    cmds, surface, fake, logic = make()
+    err = StripUnsupported(0, 1, "StOu")
+
+    def boom(ch):
+        raise err
+    monkeypatch.setattr(cmds.eq, "_has_eq", boom)
+    r = cmds.eq.get(strip=1, number=None)
+    assert r.ok is False and r.verified == "skipped" and err.note in r.note
+    assert surface.state.view.kind == "pan"

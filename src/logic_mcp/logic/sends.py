@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING
 
 from .modes import CONFIRM_S, ModeError
 from .plugins.scan import rewind_to_empty
-from .strips import StripUnsupported
 from .setter import set_numeric
 from .values import Mapping, parse_value
 
@@ -114,16 +113,9 @@ class SendCommands:
     def _row(self, send: int) -> dict:
         return parse_send(self.d.view.columns, send)
 
-    def _fail(self, action: str, t0: int, target: dict, e: Exception) -> "ToolResult":
-        if isinstance(e, StripUnsupported):
-            return self.b._result(action, False, "skipped", t0, target=target, note=e.note)
-        if isinstance(e, ModeError):
-            return self.b._result(action, False, "unverified", t0, target=target, note=str(e))
-        return self.b._result(action, False, "skipped", t0, target=target, note=f"값 오류: {e}")
-
     # ---------- 명령 ----------
     def get(self, strip: int | None, number: int | None) -> "ToolResult":
-        b, d, action = self.b, self.d, "send_get"
+        b, action = self.b, "send_get"
         t0 = b._now_ms()
         with b._lock:
             if (r := b._require_ready(action, t0)) is not None:
@@ -132,7 +124,8 @@ class SendCommands:
             if not isinstance(ch, int):
                 return ch
             target = b._target(ch)
-            try:
+
+            def body() -> "ToolResult":
                 self.b._fresh()
                 self.b._channel(ch, "send_channel")
                 sends: dict[str, dict] = {}
@@ -141,10 +134,7 @@ class SendCommands:
                     for send in (2 * page - 1, 2 * page):
                         sends[str(send)] = self._row(send)
                 return b._result(action, True, "verified", t0, target=target, after={"sends": sends})
-            except (StripUnsupported, ModeError, ValueError) as e:
-                return self._fail(action, t0, target, e)
-            finally:
-                d.leave_safely()
+            return b._guarded(action, t0, target, body)
 
     def set_dest(self, strip: int | None, number: int | None, send: int, dest) -> "ToolResult":
         b, d = self.b, self.d
@@ -162,7 +152,8 @@ class SendCommands:
                 return ch
             target = {**b._target(ch), "send": send}
             col = col_of(send, "dest")
-            try:
+
+            def body() -> "ToolResult":
                 self.b._fresh()
                 self.b._channel(ch, "send_channel")
                 self._goto_page(send)
@@ -197,10 +188,7 @@ class SendCommands:
                             f"(기대 {'--' if want == 0 else f'Bus {want}'}). 확정 누름이 무시된 듯(미리 선택 깜박임, 실측 S4)")
                 return b._result(action, ok, "verified" if ok else "unverified", t0, target=target, before=before,
                                  after=after, note=note)
-            except (StripUnsupported, ModeError, ValueError) as e:
-                return self._fail(action, t0, target, e)
-            finally:
-                d.leave_safely()
+            return b._guarded(action, t0, target, body)
 
     def remove(self, strip: int | None, number: int | None, send: int) -> "ToolResult":
         return self.set_dest(strip, number, send, "--")
@@ -218,7 +206,8 @@ class SendCommands:
                 return ch
             target = {**b._target(ch), "send": send}
             col = col_of(send, "level")
-            try:
+
+            def body() -> "ToolResult":
                 self.b._fresh()
                 self.b._channel(ch, "send_channel")
                 self._goto_page(send)
@@ -245,10 +234,7 @@ class SendCommands:
                         return b._result(action, True, "skipped", t0, target=target, before=before, after=after, note="already")
                 return b._result(action, ok, "verified" if ok else "unverified", t0, target=target, before=before,
                                  after=after, note=" ".join(x for x in (clamp, detail) if x))
-            except (StripUnsupported, ModeError, ValueError) as e:
-                return self._fail(action, t0, target, e)
-            finally:
-                d.leave_safely()
+            return b._guarded(action, t0, target, body)
 
     def set_pos(self, strip: int | None, number: int | None, send: int, pos: str) -> "ToolResult":
         b, d, action = self.b, self.d, "send_set_pos"
@@ -263,7 +249,8 @@ class SendCommands:
                 return ch
             target = {**b._target(ch), "send": send}
             col = col_of(send, "pos")
-            try:
+
+            def body() -> "ToolResult":
                 self.b._fresh()
                 self.b._channel(ch, "send_channel")
                 self._goto_page(send)
@@ -287,10 +274,7 @@ class SendCommands:
                 ok = after["pos"] == pos
                 return b._result(action, ok, "verified" if ok else "unverified", t0, target=target, before=before,
                                  after=after, note="" if ok else f"위치가 {after['text'][2]!r}(기대 {pos})")
-            except (StripUnsupported, ModeError, ValueError) as e:
-                return self._fail(action, t0, target, e)
-            finally:
-                d.leave_safely()
+            return b._guarded(action, t0, target, body)
 
     def mute(self, strip: int | None, number: int | None, send: int, on: bool) -> "ToolResult":
         b, d, action = self.b, self.d, "send_mute"
@@ -303,7 +287,8 @@ class SendCommands:
                 return ch
             target = {**b._target(ch), "send": send}
             col = col_of(send, "mute")
-            try:
+
+            def body() -> "ToolResult":
                 self.b._fresh()
                 self.b._channel(ch, "send_channel")
                 self._goto_page(send)
@@ -319,7 +304,4 @@ class SendCommands:
                 ok = after["muted"] == on
                 return b._result(action, ok, "verified" if ok else "unverified", t0, target=target, before=before,
                                  after=after, note="" if ok else f"뮤트 열이 {after['text'][3]!r}")
-            except (StripUnsupported, ModeError, ValueError) as e:
-                return self._fail(action, t0, target, e)
-            finally:
-                d.leave_safely()
+            return b._guarded(action, t0, target, body)

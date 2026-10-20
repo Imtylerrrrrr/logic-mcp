@@ -12,11 +12,11 @@ from pydantic import BaseModel
 from ..mcu import protocol as P
 from ..mcu import state as S
 from ..mcu.surface import Surface
-from .assign import EqCommands, PluginCommands
+from .assign import EqCommands, ParamNotFound, PluginCommands, SlotEmpty
 from .faders import FaderTable, parse_pan_text
-from .modes import FEEDBACK_TIMEOUT, ModeDriver
+from .modes import FEEDBACK_TIMEOUT, ModeDriver, ModeError
 from .sends import SendCommands
-from .strips import StripKinds
+from .strips import StripKinds, StripUnsupported
 
 if TYPE_CHECKING:
     from .plugins.cache import PluginCache
@@ -142,6 +142,21 @@ class Commands:
         if not 1 <= index <= max_index:
             return self._result(action, False, "skipped", t0, note=range_note)
         return self._resolve(strip, number, action, t0)
+
+    def _guarded(self, action: str, t0: int, target: dict | None, body: Callable[[], ToolResult]) -> ToolResult:
+        """서브커맨드 공통: body의 예외를 결과로 바꾸고 뷰를 항상 PAN으로 되돌린다."""
+        try:
+            return body()
+        except SlotEmpty as e:
+            return self._result(action, False, "skipped", t0, target=target, note=f"슬롯 {e.slot}이 비어 있음")
+        except (ParamNotFound, StripUnsupported) as e:
+            return self._result(action, False, "skipped", t0, target=target, note=e.note)
+        except ModeError as e:
+            return self._result(action, False, "unverified", t0, target=target, note=str(e))
+        except ValueError as e:
+            return self._result(action, False, "skipped", t0, target=target, note=f"값 오류: {e}")
+        finally:
+            self.modes.leave_safely()
 
     _BANK_NOTES = {"left": P.Note.BANK_LEFT, "right": P.Note.BANK_RIGHT,
                    "channel_left": P.Note.CHANNEL_LEFT, "channel_right": P.Note.CHANNEL_RIGHT}

@@ -105,7 +105,8 @@ class EqCommands:
             if not isinstance(ch, int):
                 return ch
             target = b._target(ch)
-            try:
+
+            def body() -> "ToolResult":
                 if not b.strips.follows(d, b.surface.state, ch):           # 출력·Master: E1 뷰의 유무만(실측 Z4)
                     d.focus(ch)
                     return b._result(action, True, "verified", t0, target=target,
@@ -121,12 +122,7 @@ class EqCommands:
                     bands[str(band)] = _band_dict(d.view.columns, band)
                     bands[str(band + 1)] = _band_dict(d.view.columns, band + 1)
                 return b._result(action, True, "verified", t0, target=target, after={"has_eq": True, "bands": bands})
-            except ModeError as e:
-                return b._result(action, False, "unverified", t0, target=target, note=str(e))
-            except ValueError as e:
-                return b._result(action, False, "skipped", t0, target=target, note=f"값 오류: {e}")
-            finally:
-                d.leave_safely()
+            return b._guarded(action, t0, target, body)
 
     def set(self, strip: int | None, number: int | None, band: int, param: str, value,
             allow_insert: bool = True) -> "ToolResult":
@@ -149,7 +145,9 @@ class EqCommands:
                 return ch
             target = b._target(ch)
             inserted = False
-            try:
+
+            def body() -> "ToolResult":
+                nonlocal inserted
                 b.strips.ensure(d, b.surface.state, ch)
                 d.focus(ch)
                 if not self._has_eq(ch):
@@ -175,15 +173,15 @@ class EqCommands:
                     return b._result(action, True, "skipped", t0, target=target, before=before, after=after, note="already")
                 return b._result(action, out.ok, "verified" if out.ok else "unverified", t0, target=target,
                                  before=before, after=after, note=note.strip())
-            except StripUnsupported as e:
-                return b._result(action, False, "skipped", t0, target=target, note=e.note)
-            except ModeError as e:
-                return b._result(action, False, "unverified", t0, target=target,
-                                 note=("Channel EQ 삽입됨. " if inserted else "") + str(e))
-            except ValueError as e:
-                return b._result(action, False, "skipped", t0, target=target, note=f"값 오류: {e}")
-            finally:
-                d.leave_safely()
+
+            def body_noting_insert() -> "ToolResult":                  # ModeError 에도 삽입 여부를 알린다
+                try:
+                    return body()
+                except ModeError as e:
+                    if not inserted:
+                        raise
+                    return b._result(action, False, "unverified", t0, target=target, note="Channel EQ 삽입됨. " + str(e))
+            return b._guarded(action, t0, target, body_noting_insert)
 
 
 MAX_SLOT = 8            # 2a는 Plug-in Channel 뷰(PL)의 슬롯 1~8만(실측 C: 9~15 접근 경로 미확인)
@@ -226,7 +224,9 @@ def overlay_param_name(header: str, row: str, col: int) -> str:
 
 
 class SlotEmpty(Exception):
-    pass
+    def __init__(self, slot: int) -> None:
+        super().__init__(slot)
+        self.slot = slot
 
 
 class ParamNotFound(Exception):
@@ -404,7 +404,8 @@ class PluginCommands:
                 if not isinstance(ch, int):
                     return ch
                 only = ch
-            try:
+
+            def body() -> "ToolResult":
                 self.b._fresh()
                 targets = [only] if only is not None else [
                     ch for ch, s in enumerate(b.surface.state.strips) if s.number is not None]
@@ -447,15 +448,10 @@ class PluginCommands:
                 self.inventory.update(tracks)
                 after = {"tracks": tracks} if only is not None else {"tracks": tracks, "unsupported": unsupported}
                 return b._result(action, True, "verified", t0, after=after)
-            except ModeError as e:
-                return b._result(action, False, "unverified", t0, note=str(e))
-            except ValueError as e:
-                return b._result(action, False, "skipped", t0, note=f"값 오류: {e}")
-            finally:
-                d.leave_safely()
+            return b._guarded(action, t0, None, body)
 
     def params(self, strip: int | None, number: int | None, slot: int) -> "ToolResult":
-        b, d, action = self.b, self.d, "plugin_params"
+        b, action = self.b, "plugin_params"
         t0 = b._now_ms()
         with b._lock:
             if (r := b._require_ready(action, t0)) is not None:
@@ -465,7 +461,8 @@ class PluginCommands:
             if not isinstance(ch, int):
                 return ch
             target = {**b._target(ch), "slot": slot}
-            try:
+
+            def body() -> "ToolResult":
                 self.b._fresh()
                 full, abbrev, pages = self._open_edit(ch, slot)
                 observed = self._read_pages(pages)
@@ -476,16 +473,7 @@ class PluginCommands:
                         "value": o["value"], "text": o["text"]} for o in observed]
                 return b._result(action, True, "verified", t0, target=target,
                                  after={"plugin": full, "abbrev": abbrev, "slot": slot, "pages": pages, "params": out})
-            except SlotEmpty:
-                return b._result(action, False, "skipped", t0, target=target, note=f"슬롯 {slot}이 비어 있음")
-            except StripUnsupported as e:
-                return b._result(action, False, "skipped", t0, target=target, note=e.note)
-            except ModeError as e:
-                return b._result(action, False, "unverified", t0, target=target, note=str(e))
-            except ValueError as e:
-                return b._result(action, False, "skipped", t0, target=target, note=f"값 오류: {e}")
-            finally:
-                d.leave_safely()
+            return b._guarded(action, t0, target, body)
 
     def get(self, strip: int | None, number: int | None, slot: int, param) -> "ToolResult":
         b, d, action = self.b, self.d, "plugin_get"
@@ -498,25 +486,15 @@ class PluginCommands:
             if not isinstance(ch, int):
                 return ch
             target = {**b._target(ch), "slot": slot}
-            try:
+
+            def body() -> "ToolResult":
                 self.b._fresh()
                 full, _abbrev, pages = self._open_edit(ch, slot)
                 item = self._locate(full, pages, param)
                 col = self._goto_param(item)
                 v = d.read_column(col)[1]
                 return b._result(action, True, "verified", t0, target=target, after=self._param_dict(full, slot, item, v))
-            except SlotEmpty:
-                return b._result(action, False, "skipped", t0, target=target, note=f"슬롯 {slot}이 비어 있음")
-            except ParamNotFound as e:
-                return b._result(action, False, "skipped", t0, target=target, note=e.note)
-            except StripUnsupported as e:
-                return b._result(action, False, "skipped", t0, target=target, note=e.note)
-            except ModeError as e:
-                return b._result(action, False, "unverified", t0, target=target, note=str(e))
-            except ValueError as e:
-                return b._result(action, False, "skipped", t0, target=target, note=f"값 오류: {e}")
-            finally:
-                d.leave_safely()
+            return b._guarded(action, t0, target, body)
 
     def set(self, strip: int | None, number: int | None, slot: int, param, value,
             tolerance: float | None = None) -> "ToolResult":
@@ -530,7 +508,9 @@ class PluginCommands:
             if not isinstance(ch, int):
                 return ch
             target = {**b._target(ch), "slot": slot}
-            try:
+
+            def body() -> "ToolResult":
+                nonlocal value
                 self.b._fresh()
                 full, _abbrev, pages = self._open_edit(ch, slot)
                 item = self._locate(full, pages, param)
@@ -576,18 +556,7 @@ class PluginCommands:
                     return b._result(action, True, "skipped", t0, target=target, before=before, after=after, note="already")
                 return b._result(action, out.ok, "verified" if out.ok else "unverified", t0, target=target,
                                  before=before, after=after, note=out.note)
-            except SlotEmpty:
-                return b._result(action, False, "skipped", t0, target=target, note=f"슬롯 {slot}이 비어 있음")
-            except ParamNotFound as e:
-                return b._result(action, False, "skipped", t0, target=target, note=e.note)
-            except StripUnsupported as e:
-                return b._result(action, False, "skipped", t0, target=target, note=e.note)
-            except ModeError as e:
-                return b._result(action, False, "unverified", t0, target=target, note=str(e))
-            except ValueError as e:
-                return b._result(action, False, "skipped", t0, target=target, note=f"값 오류: {e}")
-            finally:
-                d.leave_safely()
+            return b._guarded(action, t0, target, body)
 
     def insert(self, strip: int | None, number: int | None, slot: int, plugin: str,
                replace: bool = False) -> "ToolResult":
@@ -608,7 +577,8 @@ class PluginCommands:
             target = {**b._target(ch), "slot": slot}
             want = self.cache.items[idx]
             v = slot - 1
-            try:
+
+            def body() -> "ToolResult":
                 self.b._fresh()
                 self.b._channel(ch, "plugin_channel")
                 current = self._slot_text(slot)
@@ -645,14 +615,7 @@ class PluginCommands:
                 return b._result(action, True, "verified", t0, target=target, before={"slot": slot, "text": current},
                                  after={"slot": slot, "plugin": want, "abbrev": abbrev,
                                         "replaced": current if occupied else None})
-            except StripUnsupported as e:
-                return b._result(action, False, "skipped", t0, target=target, note=e.note)
-            except ModeError as e:
-                return b._result(action, False, "unverified", t0, target=target, note=str(e))
-            except ValueError as e:
-                return b._result(action, False, "skipped", t0, target=target, note=f"값 오류: {e}")
-            finally:
-                d.leave_safely()
+            return b._guarded(action, t0, target, body)
 
     def remove(self, strip: int | None, number: int | None, slot: int) -> "ToolResult":
         b, d, action = self.b, self.d, "plugin_remove"
@@ -665,7 +628,8 @@ class PluginCommands:
             if not isinstance(ch, int):
                 return ch
             target = {**b._target(ch), "slot": slot}
-            try:
+
+            def body() -> "ToolResult":
                 self.b._fresh()
                 self.b._channel(ch, "plugin_channel")
                 current = self._slot_text(slot)
@@ -681,14 +645,7 @@ class PluginCommands:
                 return b._result(action, ok, "verified" if ok else "unverified", t0, target=target,
                                  before={"slot": slot, "text": current}, after={"slot": slot, "text": after},
                                  note="" if ok else "제거 뒤에도 슬롯에 이름이 보임")
-            except StripUnsupported as e:
-                return b._result(action, False, "skipped", t0, target=target, note=e.note)
-            except ModeError as e:
-                return b._result(action, False, "unverified", t0, target=target, note=str(e))
-            except ValueError as e:
-                return b._result(action, False, "skipped", t0, target=target, note=f"값 오류: {e}")
-            finally:
-                d.leave_safely()
+            return b._guarded(action, t0, target, body)
 
     def bypass(self, strip: int | None, number: int | None, slot: int, on: bool) -> "ToolResult":
         b, d, action = self.b, self.d, "plugin_bypass"
@@ -701,7 +658,8 @@ class PluginCommands:
             if not isinstance(ch, int):
                 return ch
             target = {**b._target(ch), "slot": slot}
-            try:
+
+            def body() -> "ToolResult":
                 self.b._fresh()
                 self.b._channel(ch, "plugin_channel")
                 current = self._slot_text(slot)
@@ -718,14 +676,7 @@ class PluginCommands:
                 return b._result(action, ok, "verified" if ok else "unverified", t0, target=target,
                                  before={"slot": slot, "text": current}, after={"slot": slot, "text": after},
                                  note="" if ok else "SHIFT+V-Pot 뒤 `*` 표시가 기대와 다름")
-            except StripUnsupported as e:
-                return b._result(action, False, "skipped", t0, target=target, note=e.note)
-            except ModeError as e:
-                return b._result(action, False, "unverified", t0, target=target, note=str(e))
-            except ValueError as e:
-                return b._result(action, False, "skipped", t0, target=target, note=f"값 오류: {e}")
-            finally:
-                d.leave_safely()
+            return b._guarded(action, t0, target, body)
 
     def calibrate(self, strip: int | None, number: int | None, slot: int) -> "ToolResult":
         """편집 뷰에서 파라미터마다 전체 이름(틱 오버레이 1행), 숫자 매핑(Flip 페이더 프로빙), 열거형 선택지(-1로 처음까지 간 뒤
@@ -741,7 +692,8 @@ class PluginCommands:
             if not isinstance(ch, int):
                 return ch
             target = {**b._target(ch), "slot": slot}
-            try:
+
+            def body() -> "ToolResult":
                 self.b._fresh()
                 full, _abbrev, pages = self._open_edit(ch, slot)
                 self._merge_items(full, pages, self._read_pages(pages))
@@ -806,16 +758,7 @@ class PluginCommands:
                 self.cache.save()
                 return b._result(action, True, "verified", t0, target=target,
                                  after={"plugin": full, "pages": pages, "items": table["items"], "probed": probed, "enums": enums})
-            except SlotEmpty:
-                return b._result(action, False, "skipped", t0, target=target, note=f"슬롯 {slot}이 비어 있음")
-            except StripUnsupported as e:
-                return b._result(action, False, "skipped", t0, target=target, note=e.note)
-            except ModeError as e:
-                return b._result(action, False, "unverified", t0, target=target, note=str(e))
-            except ValueError as e:
-                return b._result(action, False, "skipped", t0, target=target, note=f"값 오류: {e}")
-            finally:
-                d.leave_safely()
+            return b._guarded(action, t0, target, body)
 
     def scan(self, force: bool = False) -> "ToolResult":
         b, d, action = self.b, self.d, "plugin_scan"
@@ -826,7 +769,8 @@ class PluginCommands:
             if self.cache.user_list and not force:
                 return b._result(action, True, "skipped", t0, after=self.cache.to_resource(),
                                  note=f"already: {self.cache.scanned_at}에 스캔한 {len(self.cache.user_list)}개. 다시 하려면 force=true")
-            try:
+
+            def body() -> "ToolResult":
                 self.b._fresh()
                 d.enter("plugin_mixer")                              # P1 Mixer: 스트립 ch의 V-Pot = 그 트랙의 슬롯 1
                 slot = d.view.index or 1
@@ -848,9 +792,4 @@ class PluginCommands:
                 return b._result(action, still_empty, "verified" if still_empty else "unverified", t0,
                                  after={"count": len(names), "path": str(self.cache.path), "strip": ch + 1, "slot": slot},
                                  note="" if still_empty else "스캔 뒤 슬롯이 비어 있지 않음(확인 누름이 섞였을 수 있음)")
-            except ModeError as e:
-                return b._result(action, False, "unverified", t0, note=str(e))
-            except ValueError as e:
-                return b._result(action, False, "skipped", t0, note=f"값 오류: {e}")
-            finally:
-                d.leave_safely()
+            return b._guarded(action, t0, None, body)
