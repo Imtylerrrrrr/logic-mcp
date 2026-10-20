@@ -187,3 +187,11 @@ async def test_plugin_calibrate_with_force_calls_command(setup, monkeypatch):
         result = await client.call_tool("logic_plugin", {"action": "calibrate", "strip": 1, "slot": 2, "force": True})
         sc = result.structured_content
         assert sc["ok"] is True and sc["note"] == "1/None/2"
+
+
+@pytest.mark.anyio
+async def test_server_instructions_reach_client(setup):
+    mcp, fake = setup
+    async with Client(mcp, raise_exceptions=True) as client:
+        assert client.instructions is not None
+        assert "wait_ready" in client.instructions
