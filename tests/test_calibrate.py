@@ -1,4 +1,4 @@
-from logic_mcp.logic.assign import overlay_param_name
+from logic_mcp.logic.plugin import overlay_param_name
 from logic_mcp.logic.commands import Commands
 from logic_mcp.logic.faders import FaderTable
 from logic_mcp.logic.plugins.cache import PluginCache

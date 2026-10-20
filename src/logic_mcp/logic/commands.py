@@ -12,9 +12,10 @@ from pydantic import BaseModel
 from ..mcu import protocol as P
 from ..mcu import state as S
 from ..mcu.surface import Surface
-from .assign import EqCommands, ParamNotFound, PluginCommands, SlotEmpty
+from .eq import EqCommands
 from .faders import FaderTable, parse_pan_text
 from .modes import FEEDBACK_TIMEOUT, ModeDriver, ModeError
+from .plugin import ParamNotFound, PluginCommands, SlotEmpty
 from .sends import SendCommands
 from .strips import StripKinds, StripUnsupported
 
