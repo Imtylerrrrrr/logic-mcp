@@ -172,7 +172,8 @@ class ModeDriver:
         self.settle_overlay()
 
     def page_to(self, page: int) -> None:
-        """Cursor ◀▶로 페이지 이동. 편집 뷰 NAME 모드는 헤더 `Page n/N`, 그 밖은 드라이버가 센 힌트로."""
+        """Cursor ◀▶로 페이지 이동. 편집 뷰 NAME 모드는 헤더 `Page n/N`, 그 밖은 드라이버가 센 힌트로.
+        커서 무응답이면 1회 더 누른다: NAME 모드는 헤더로 현재 페이지를 다시 읽어 첫 누름이 처리됐어도 루프가 바로잡는다(실측 2026-10-20: 4→5 ▶ 1회 무응답, 재현 46회는 모두 35 ms 응답)."""
         start = self.view.page[0] if self.view.page else self._page_hint
         steps = 0
         while True:
@@ -188,7 +189,11 @@ class ModeDriver:
             self._press(P.Note.CURSOR_RIGHT if forward else P.Note.CURSOR_LEFT)
             steps += 1
             if not self.surface.wait_for(lambda s: s.view.columns != cols_before, MODE_TIMEOUT):
-                raise ModeError("page_to", f"page {page}", f"페이지 {cur}에서 커서 반응 없음")
+                self._mark()
+                self._press(P.Note.CURSOR_RIGHT if forward else P.Note.CURSOR_LEFT)
+                steps += 1
+                if not self.surface.wait_for(lambda s: s.view.columns != cols_before, MODE_TIMEOUT):
+                    raise ModeError("page_to", f"page {page}", f"페이지 {cur}에서 커서 반응 없음")
             self._page_hint = cur + (1 if forward else -1)
             self.settle_smart()
 

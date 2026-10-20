@@ -153,6 +153,33 @@ def test_page_to_from_page_20_of_23():                              # 실측 202
     assert surface.state.view.page == (1, 23)
 
 
+def _open_compressor_edit():
+    d, surface, fake, logic = make()
+    logic.tracks[0].insert(2, "Compressor")
+    d.focus(0)
+    d.enter("plugin_channel")
+    assert d.press_vpot_until(1, lambda v: v.kind == "plugin_edit" and v.index == 2, EDIT_OPEN_S)
+    d.toggle_name_value()
+    return d, surface, fake, logic
+
+
+def test_page_to_retries_once_when_cursor_ignored():                 # 실측 2026-10-20: 4→5 ▶ 1회 무응답
+    d, surface, fake, logic = _open_compressor_edit()
+    logic.drop_next_cursor = 1
+    fake.sent.clear()
+    d.page_to(2)
+    assert surface.state.view.page == (2, 3)
+    assert fake.sent.count(P.button_down(P.Note.CURSOR_RIGHT)) == 2
+
+
+def test_page_to_raises_when_cursor_ignored_twice():
+    d, surface, fake, logic = _open_compressor_edit()
+    logic.drop_next_cursor = 2
+    with pytest.raises(ModeError) as e:
+        d.page_to(2)
+    assert "커서 반응 없음" in str(e.value)
+
+
 def test_toggle_name_value_waits_for_row2():                         # 실기 10차: 2행이 1행보다 늦게 바뀜
     d, surface, fake, logic = make()
     logic.tracks[0].insert(2, "Compressor")

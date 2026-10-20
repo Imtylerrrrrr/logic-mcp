@@ -9,6 +9,7 @@ drop_all_faders는 페이더 이동을 항상 무시한다(반응 없는 Logic).
 flip_led_lag(리뷰 C1)는 처음 처리된 FLIP 누름의 LED 변화를 flip_lagged에 쌓아 두었다가, 드라이버가 FLIP LED 대기에서 한 번
 시간 초과한 뒤 다음 판정 거짓 wait_for에 들어갈 때 보낸다. Flip이 꺼진 상태의 페이더 이동은 해당 스트립 트랙 볼륨(Track.volume, raw)을 바꾼다.
 drop_all_flips는 FLIP 누름을 항상, drop_all_name_value는 NAME/VALUE 누름을 항상 무시한다.
+drop_next_cursor(실측 2026-10-20)는 커서 ◀▶ 누름을 그 횟수만큼 무시한다.
 name_value_lag(실기 10차)는 NAME/VALUE 누름의 1행 쓰기는 바로 보내고 2행 쓰기는 lagged에 쌓는다(lcd_lag와 같은 도착 규칙).
 value_row_partial(재수집 근사)은 VALUE 전환의 2행 중 열 0만 바로 쓰고 열 1~7은 lagged에 쌓는다: 토글의 2행 변화 판정은 참이 되지만
 대상 열은 아직 축약명이다. stale_value_cols의 열은 VALUE 전환 뒤에도 2행에 축약명이 남아 다음 재묘사(틱 등)에서야 값이 된다.
@@ -316,6 +317,7 @@ class FakeLogic:
         self._flip_lag_used = False
         self.drop_all_flips = False                    # True면 FLIP 누름을 항상 무시
         self.drop_all_name_value = False               # True면 NAME/VALUE 누름을 항상 무시
+        self.drop_next_cursor = 0                      # 0보다 크면 커서 ◀▶ 누름을 그 횟수만큼 무시(실측 2026-10-20)
         self.name_value_lag = False                    # True면 NAME/VALUE 누름의 2행 쓰기가 늦게 도착(lagged, 실기 10차)
         self.value_row_partial = False                 # True면 VALUE 전환의 2행 열 1~7이 늦게 도착(lagged, 재수집 근사)
         self.stale_value_cols: set[int] = set()        # VALUE 전환 뒤에도 2행에 축약명이 남는 열(다음 재묘사까지)
@@ -620,6 +622,8 @@ class FakeLogic:
                 self._set_mode("plugin_mixer", N.PLUGIN)
             self.pre.clear()
             self.redraw()
+        elif note in (N.CURSOR_RIGHT, N.CURSOR_LEFT) and self.drop_next_cursor > 0:
+            self.drop_next_cursor -= 1
         elif note == N.CURSOR_RIGHT:
             self._page(+1)
         elif note == N.CURSOR_LEFT:
