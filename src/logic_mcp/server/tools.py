@@ -93,9 +93,10 @@ def register_tools(mcp: MCPServer, commands: Commands) -> None:
               description="인서트 플러그인. list: 인벤토리(strip/number 없으면 뱅크 전체). params: 플러그인 파라미터 전체(인덱스·축약명·값). "
                           "get/set: param은 이름(부분 일치) 또는 인덱스, value는 숫자 또는 선택지 텍스트. insert: plugin 이름(부분 일치), "
                           "차 있으면 replace=true 필요. remove. bypass(on). scan: 삽입 메뉴 전 범위 스캔(60~180초, 삽입 없음, 빈 슬롯 필요). "
-                          "편집 뷰 진입 시 Logic이 플러그인 창을 열고 닫는다. 끝나면 PAN 모드로 돌아간다.")
+                          "편집 뷰 진입 시 Logic이 플러그인 창을 열고 닫는다. 끝나면 PAN 모드로 돌아간다. "
+                          "calibrate: 슬롯 플러그인의 파라미터 표를 전부 수집해 사용자 캐시에 저장(2~20분, 값을 되돌리지 않으므로 force=true 필요).")
     def logic_plugin(
-        action: Literal["list", "params", "get", "set", "insert", "remove", "bypass", "scan"],
+        action: Literal["list", "params", "get", "set", "insert", "remove", "bypass", "scan", "calibrate"],
         strip: Strip = None,
         number: Number = None,
         slot: Slot = None,
@@ -114,6 +115,11 @@ def register_tools(mcp: MCPServer, commands: Commands) -> None:
             return commands.plugin.list(strip, number)
         if slot is None:
             return ToolResult(ok=False, verified="skipped", action=name, note="slot(1-8)이 필요")
+        if action == "calibrate":
+            if not force:
+                return ToolResult(ok=False, verified="skipped", action=name,
+                                  note="calibrate는 파라미터 값을 되돌리지 않고 움직인다. 테스트 프로젝트에서 force=true로 실행")
+            return commands.plugin.calibrate(strip, number, slot)
         if action == "params":
             return commands.plugin.params(strip, number, slot)
         if action == "get":

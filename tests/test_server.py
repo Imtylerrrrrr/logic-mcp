@@ -151,3 +151,39 @@ async def test_send_tool_via_client(assign_setup):
         assert r.structured_content["verified"] == "skipped" and "pos" in r.structured_content["note"]
         r = await client.call_tool("logic_send", {"action": "remove", "strip": 2, "send": 1})
         assert r.structured_content["verified"] == "verified" and logic.tracks[1].sends[1] is None
+
+
+@pytest.mark.anyio
+async def test_plugin_calibrate_requires_force(setup, monkeypatch):
+    from logic_mcp.logic.commands import ToolResult
+    from logic_mcp.logic.plugin import PluginCommands
+
+    called = []
+
+    def fake_calibrate(self, strip, number, slot):
+        called.append((strip, number, slot))
+        return ToolResult(ok=True, verified="verified", action="plugin_calibrate", note=f"{strip}/{number}/{slot}")
+
+    monkeypatch.setattr(PluginCommands, "calibrate", fake_calibrate)
+    mcp, fake = setup
+    async with Client(mcp, raise_exceptions=True) as client:
+        result = await client.call_tool("logic_plugin", {"action": "calibrate", "strip": 1, "slot": 2})
+        sc = result.structured_content
+        assert sc["ok"] is False and sc["verified"] == "skipped"
+        assert "force=true" in sc["note"]
+        assert called == []
+
+
+@pytest.mark.anyio
+async def test_plugin_calibrate_with_force_calls_command(setup, monkeypatch):
+    from logic_mcp.logic.commands import ToolResult
+    from logic_mcp.logic.plugin import PluginCommands
+
+    monkeypatch.setattr(
+        PluginCommands, "calibrate",
+        lambda self, strip, number, slot: ToolResult(ok=True, verified="verified", action="plugin_calibrate", note=f"{strip}/{number}/{slot}"))
+    mcp, fake = setup
+    async with Client(mcp, raise_exceptions=True) as client:
+        result = await client.call_tool("logic_plugin", {"action": "calibrate", "strip": 1, "slot": 2, "force": True})
+        sc = result.structured_content
+        assert sc["ok"] is True and sc["note"] == "1/None/2"
