@@ -1,6 +1,6 @@
 {
   "logic_version": "12.0.1",
-  "generated": "2026-10-19",
+  "generated": "2026-10-20",
   "complete": false,
   "list": [
     "--",
@@ -1972,6 +1972,1825 @@
             "type": "linear",
             "lo": 0.1,
             "hi": 20000.0
+          }
+        }
+      ]
+    },
+    "Space Designer": {
+      "pages": 23,
+      "items": [
+        {
+          "index": 1,
+          "short": "OutDry",
+          "name": "Output Dry",
+          "map": null
+        },
+        {
+          "index": 2,
+          "short": "OutWet",
+          "name": "Output Wet",
+          "map": null
+        },
+        {
+          "index": 3,
+          "short": "Predly",
+          "name": "Predelay",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 999.0
+          }
+        },
+        {
+          "index": 4,
+          "short": "Length",
+          "name": "Length",
+          "map": null
+        },
+        {
+          "index": 5,
+          "short": "LatCom",
+          "name": "Latency Compensation",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 6,
+          "short": "InCrss",
+          "name": "Input Crossfeed",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 7,
+          "short": "Qualit",
+          "name": "Quality",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Lo-Fi",
+              "Low",
+              "Medium",
+              "High"
+            ]
+          }
+        },
+        {
+          "index": 8,
+          "short": "Revers",
+          "name": "Reverse",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 9,
+          "short": "VoInLe",
+          "name": "Volume Init Level",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 10,
+          "short": "VoATim",
+          "name": "Volume Attack Time",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 11,
+          "short": "VolAX1",
+          "name": "Volume Attack X1",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 12,
+          "short": "VolAY1",
+          "name": "Volume Attack Y1",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 13,
+          "short": "VolAX2",
+          "name": "Volume Attack X2",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 14,
+          "short": "VolAY2",
+          "name": "Volume Attack Y2",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 15,
+          "short": "VoDTim",
+          "name": "Volume Decay Time",
+          "map": null
+        },
+        {
+          "index": 16,
+          "short": "VolDX1",
+          "name": "Volume Decay X1",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 17,
+          "short": "VolDY1",
+          "name": "Volume Decay Y1",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 18,
+          "short": "VolDX2",
+          "name": "Volume Decay X2",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 19,
+          "short": "VolDY2",
+          "name": "Volume Decay Y2",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 20,
+          "short": "VoEnLe",
+          "name": "Volume End Level",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 21,
+          "short": "FiInLe",
+          "name": "Filter Init Level",
+          "map": {
+            "type": "log",
+            "lo": 0.1,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 22,
+          "short": "FiATim",
+          "name": "Filter Attack Time",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 23,
+          "short": "FirAX1",
+          "name": "Filter Attack X1",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 24,
+          "short": "FirAY1",
+          "name": "Filter Attack Y1",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 25,
+          "short": "FirAX2",
+          "name": "Filter Attack X2",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 26,
+          "short": "FirAY2",
+          "name": "Filter Attack Y2",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 27,
+          "short": "FiMaLe",
+          "name": "Filter Max Level",
+          "map": {
+            "type": "log",
+            "lo": 0.1,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 28,
+          "short": "FiDTim",
+          "name": "Filter Decay Time",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 29,
+          "short": "FirDX1",
+          "name": "Filter Decay X1",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 30,
+          "short": "FirDY1",
+          "name": "Filter Decay Y1",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 31,
+          "short": "FirDX2",
+          "name": "Filter Decay X2",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 32,
+          "short": "FirDY2",
+          "name": "Filter Decay Y2",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 33,
+          "short": "FiEnLe",
+          "name": "Filter End Level",
+          "map": {
+            "type": "log",
+            "lo": 0.1,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 34,
+          "short": "Filter",
+          "name": "Filter",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 35,
+          "short": "FilrMd",
+          "name": "Filter Mode",
+          "map": {
+            "type": "enum",
+            "options": [
+              "LP 6dB",
+              "LP 12dB",
+              "BP",
+              "HP"
+            ]
+          }
+        },
+        {
+          "index": 36,
+          "short": "FilRes",
+          "name": "Filter Resonance",
+          "map": {
+            "type": "linear",
+            "lo": 0.6,
+            "hi": 60.0
+          }
+        },
+        {
+          "index": 37,
+          "short": "LoShGa",
+          "name": "Low Shelf Gain",
+          "map": {
+            "type": "linear",
+            "lo": -24.0,
+            "hi": 24.0
+          }
+        },
+        {
+          "index": 38,
+          "short": "LoShF",
+          "name": "Low Shelf Freq",
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 20000.0
+          }
+        },
+        {
+          "index": 39,
+          "short": "X-OvrF",
+          "name": "X-Over Freq",
+          "map": {
+            "type": "log",
+            "lo": 200.0,
+            "hi": 16.0
+          }
+        },
+        {
+          "index": 40,
+          "short": "StSpLo",
+          "name": "Stereo Spread Low",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 41,
+          "short": "VolDMd",
+          "name": "Volume Decay Mode",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Linear",
+              "Exponen",
+              "Expnnt"
+            ]
+          }
+        },
+        {
+          "index": 42,
+          "short": "ReVoCo",
+          "name": "Rev. Vol. Comp.",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 43,
+          "short": "IntDen",
+          "name": "Init Density",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 44,
+          "short": "EndDen",
+          "name": "End Density",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 45,
+          "short": "RefShp",
+          "name": "Reflection Shape",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 46,
+          "short": "RamTim",
+          "name": "Ramp Time",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 0.18
+          }
+        },
+        {
+          "index": 47,
+          "short": "IROffs",
+          "name": "IR Offset",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 3.0
+          }
+        },
+        {
+          "index": 48,
+          "short": "IR Md",
+          "name": "IR Mode",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Sampld",
+              "zed IR",
+              "Synths",
+              "zed IR",
+              "Synths",
+              "zed IR",
+              "Synths"
+            ]
+          }
+        },
+        {
+          "index": 49,
+          "short": "Load R",
+          "name": null,
+          "map": null
+        },
+        {
+          "index": 50,
+          "short": "CreatR",
+          "name": null,
+          "map": null
+        },
+        {
+          "index": 51,
+          "short": "DecodR",
+          "name": null,
+          "map": null
+        },
+        {
+          "index": 52,
+          "short": "Rest..",
+          "name": null,
+          "map": null
+        },
+        {
+          "index": 53,
+          "short": "Env Md",
+          "name": "Envelope Mode",
+          "map": {
+            "type": "enum",
+            "options": [
+              "VolEnv",
+              "Filter",
+              "DenEnv",
+              "EQ"
+            ]
+          }
+        },
+        {
+          "index": 54,
+          "short": "EQ",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 55,
+          "short": "Lo Sh",
+          "name": "Low Shelf",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 56,
+          "short": "Lo Mid",
+          "name": "Low Mid",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 57,
+          "short": "Hi Mid",
+          "name": "High Mid",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 58,
+          "short": "Hi Sh",
+          "name": "High Shelf",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 59,
+          "short": "LoMiGa",
+          "name": "Low Mid Gain",
+          "map": {
+            "type": "linear",
+            "lo": -24.0,
+            "hi": 24.0
+          }
+        },
+        {
+          "index": 60,
+          "short": "LoMidF",
+          "name": "Low Mid Freq",
+          "map": null
+        },
+        {
+          "index": 61,
+          "short": "LoMidQ",
+          "name": "Low Mid Q",
+          "map": {
+            "type": "linear",
+            "lo": 0.1,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 62,
+          "short": "HiMiGa",
+          "name": "High Mid Gain",
+          "map": {
+            "type": "linear",
+            "lo": -24.0,
+            "hi": 24.0
+          }
+        },
+        {
+          "index": 63,
+          "short": "HiMidF",
+          "name": "High Mid Freq",
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 20000.0
+          }
+        },
+        {
+          "index": 64,
+          "short": "HiMidQ",
+          "name": "High Mid Q",
+          "map": {
+            "type": "linear",
+            "lo": 0.1,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 65,
+          "short": "HiShGa",
+          "name": "High Shelf Gain",
+          "map": {
+            "type": "linear",
+            "lo": -24.0,
+            "hi": 24.0
+          }
+        },
+        {
+          "index": 66,
+          "short": "HiShF",
+          "name": "High Shelf Freq",
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 20000.0
+          }
+        },
+        {
+          "index": 67,
+          "short": "Defnto",
+          "name": "Definition",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 68,
+          "short": "CenLev",
+          "name": "Center Level",
+          "map": null
+        },
+        {
+          "index": 69,
+          "short": "BalF/R",
+          "name": "Balance F/R",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 70,
+          "short": "LoShY",
+          "name": "Low Shelf Y",
+          "map": {
+            "type": "linear",
+            "lo": -24.0,
+            "hi": 24.0
+          }
+        },
+        {
+          "index": 71,
+          "short": "HiShY",
+          "name": "High Shelf Y",
+          "map": {
+            "type": "linear",
+            "lo": -24.0,
+            "hi": 24.0
+          }
+        },
+        {
+          "index": 72,
+          "short": "PrcsMd",
+          "name": "Process Mode",
+          "map": {
+            "type": "enum",
+            "options": [
+              "i Mono",
+              "TreMul",
+              "Multi",
+              "TreMul",
+              "Multi",
+              "TreMul",
+              "Multi",
+              "TreMul",
+              "Multi",
+              "TreMul"
+            ]
+          }
+        },
+        {
+          "index": 73,
+          "short": "LFETRe",
+          "name": "LFE to Rev",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 74,
+          "short": "PrdSyn",
+          "name": "Predelay Sync",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 75,
+          "short": "Size",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 10.0,
+            "hi": 1000.0
+          }
+        },
+        {
+          "index": 76,
+          "short": "StSpHi",
+          "name": "Stereo Spread High",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 77,
+          "short": "ShBeHa",
+          "name": "Show Bezier Handles",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 78,
+          "short": "Lo Cut",
+          "name": "Low Cut",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 79,
+          "short": "LoCuOr",
+          "name": "Low Cut Order",
+          "map": {
+            "type": "linear",
+            "lo": 6.0,
+            "hi": 12.0
+          }
+        },
+        {
+          "index": 80,
+          "short": "LoCutF",
+          "name": "Low Cut Freq",
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 0.0
+          }
+        },
+        {
+          "index": 81,
+          "short": "LoCutQ",
+          "name": "Low Cut Q",
+          "map": {
+            "type": "linear",
+            "lo": 0.1,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 82,
+          "short": "LoShQ",
+          "name": "Low Shelf Q",
+          "map": {
+            "type": "linear",
+            "lo": 0.1,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 83,
+          "short": "HiShQ",
+          "name": "High Shelf Q",
+          "map": {
+            "type": "linear",
+            "lo": 0.1,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 84,
+          "short": "Hi Cut",
+          "name": "High Cut",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 85,
+          "short": "HiCuOr",
+          "name": "High Cut Order",
+          "map": {
+            "type": "linear",
+            "lo": 6.0,
+            "hi": 12.0
+          }
+        },
+        {
+          "index": 86,
+          "short": "HiCutF",
+          "name": "High Cut Freq",
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 20000.0
+          }
+        },
+        {
+          "index": 87,
+          "short": "HiCutQ",
+          "name": "High Cut Q",
+          "map": {
+            "type": "linear",
+            "lo": 0.1,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 88,
+          "short": "Volume",
+          "name": "Volume",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 89,
+          "short": "Densit",
+          "name": "Density",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 90,
+          "short": "OutDry",
+          "name": "Output Dry",
+          "map": null
+        },
+        {
+          "index": 91,
+          "short": "OutWet",
+          "name": "Output Wet",
+          "map": null
+        },
+        {
+          "index": 92,
+          "short": "Predly",
+          "name": "Predelay",
+          "map": {
+            "type": "enum",
+            "options": [
+              "None"
+            ]
+          }
+        },
+        {
+          "index": 93,
+          "short": "Length",
+          "name": "Length",
+          "map": null
+        },
+        {
+          "index": 94,
+          "short": "LatCom",
+          "name": "Latency Compensation",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 95,
+          "short": "InCrss",
+          "name": "Input Crossfeed",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 96,
+          "short": "Qualit",
+          "name": "Quality",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Lo-Fi",
+              "Low",
+              "Medium",
+              "High"
+            ]
+          }
+        },
+        {
+          "index": 97,
+          "short": "Revers",
+          "name": "Reverse",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 98,
+          "short": "VoInLe",
+          "name": "Volume Init Level",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 99,
+          "short": "VoATim",
+          "name": "Volume Attack Time",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 100,
+          "short": "VolAX1",
+          "name": "Volume Attack X1",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 101,
+          "short": "VolAY1",
+          "name": "Volume Attack Y1",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 102,
+          "short": "VolAX2",
+          "name": "Volume Attack X2",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 103,
+          "short": "VolAY2",
+          "name": "Volume Attack Y2",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 104,
+          "short": "VoDTim",
+          "name": "Volume Decay Time",
+          "map": null
+        },
+        {
+          "index": 105,
+          "short": "VolDX1",
+          "name": "Volume Decay X1",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 106,
+          "short": "VolDY1",
+          "name": "Volume Decay Y1",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 107,
+          "short": "VolDX2",
+          "name": "Volume Decay X2",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 108,
+          "short": "VolDY2",
+          "name": "Volume Decay Y2",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 109,
+          "short": "VoEnLe",
+          "name": "Volume End Level",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 110,
+          "short": "FiInLe",
+          "name": "Filter Init Level",
+          "map": {
+            "type": "log",
+            "lo": 0.1,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 111,
+          "short": "FiATim",
+          "name": "Filter Attack Time",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 112,
+          "short": "FirAX1",
+          "name": "Filter Attack X1",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 113,
+          "short": "FirAY1",
+          "name": "Filter Attack Y1",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 114,
+          "short": "FirAX2",
+          "name": "Filter Attack X2",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 115,
+          "short": "FirAY2",
+          "name": "Filter Attack Y2",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 116,
+          "short": "FiMaLe",
+          "name": "Filter Max Level",
+          "map": {
+            "type": "log",
+            "lo": 0.1,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 117,
+          "short": "FiDTim",
+          "name": "Filter Decay Time",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 118,
+          "short": "FirDX1",
+          "name": "Filter Decay X1",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 119,
+          "short": "FirDY1",
+          "name": "Filter Decay Y1",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 120,
+          "short": "FirDX2",
+          "name": "Filter Decay X2",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 121,
+          "short": "FirDY2",
+          "name": "Filter Decay Y2",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 122,
+          "short": "FiEnLe",
+          "name": "Filter End Level",
+          "map": {
+            "type": "log",
+            "lo": 0.1,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 123,
+          "short": "Filter",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 124,
+          "short": "FilrMd",
+          "name": "Filter Mode",
+          "map": {
+            "type": "enum",
+            "options": [
+              "LP 6dB",
+              "LP12dB",
+              "BP",
+              "HP"
+            ]
+          }
+        },
+        {
+          "index": 125,
+          "short": "FilRes",
+          "name": "Filter Resonance",
+          "map": {
+            "type": "linear",
+            "lo": 0.6,
+            "hi": 60.0
+          }
+        },
+        {
+          "index": 126,
+          "short": "LoShGa",
+          "name": "Low Shelf Gain",
+          "map": {
+            "type": "linear",
+            "lo": -24.0,
+            "hi": 24.0
+          }
+        },
+        {
+          "index": 127,
+          "short": "LoShF",
+          "name": "Low Shelf Freq",
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 20000.0
+          }
+        },
+        {
+          "index": 128,
+          "short": "X-OvrF",
+          "name": "X-Over Freq",
+          "map": null
+        },
+        {
+          "index": 129,
+          "short": "StSpLo",
+          "name": "Stereo Spread Low",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 130,
+          "short": "VolDMd",
+          "name": "Volume Decay Mode",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Linear",
+              "Exponen",
+              "Expnnt"
+            ]
+          }
+        },
+        {
+          "index": 131,
+          "short": "ReVoCo",
+          "name": "Rev. Vol. Comp.",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 132,
+          "short": "IntDen",
+          "name": "Init Density",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 133,
+          "short": "EndDen",
+          "name": "End Density",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 134,
+          "short": "RefShp",
+          "name": "Reflection Shape",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 135,
+          "short": "RamTim",
+          "name": "Ramp Time",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 0.03
+          }
+        },
+        {
+          "index": 136,
+          "short": "IROffs",
+          "name": "IR Offset",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 18.3
+          }
+        },
+        {
+          "index": 137,
+          "short": "IR Md",
+          "name": "IR Mode",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Sampld",
+              "Synthes",
+              "Synths",
+              "Synthes",
+              "Synths",
+              "Synthes",
+              "Synths",
+              "Synthes",
+              "Synths",
+              "Synthes",
+              "Synths"
+            ]
+          }
+        },
+        {
+          "index": 138,
+          "short": "Load R",
+          "name": null,
+          "map": null
+        },
+        {
+          "index": 139,
+          "short": "CreatR",
+          "name": null,
+          "map": null
+        },
+        {
+          "index": 140,
+          "short": "DecodR",
+          "name": null,
+          "map": null
+        },
+        {
+          "index": 141,
+          "short": "Rest..",
+          "name": null,
+          "map": null
+        },
+        {
+          "index": 142,
+          "short": "Env Md",
+          "name": "Envelope Mode",
+          "map": {
+            "type": "enum",
+            "options": [
+              "VolEnv",
+              "Filter",
+              "DenEnv",
+              "EQ"
+            ]
+          }
+        },
+        {
+          "index": 143,
+          "short": "EQ",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 144,
+          "short": "Lo Sh",
+          "name": "Low Shelf",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 145,
+          "short": "Lo Mid",
+          "name": "Low Mid",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 146,
+          "short": "Hi Mid",
+          "name": "High Mid",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 147,
+          "short": "Hi Sh",
+          "name": "High Shelf",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 148,
+          "short": "LoMiGa",
+          "name": "Low Mid Gain",
+          "map": {
+            "type": "linear",
+            "lo": -24.0,
+            "hi": 24.0
+          }
+        },
+        {
+          "index": 149,
+          "short": "LoMidF",
+          "name": "Low Mid Freq",
+          "map": null
+        },
+        {
+          "index": 150,
+          "short": "LoMidQ",
+          "name": "Low Mid Q",
+          "map": {
+            "type": "linear",
+            "lo": 0.1,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 151,
+          "short": "HiMiGa",
+          "name": "High Mid Gain",
+          "map": {
+            "type": "linear",
+            "lo": -24.0,
+            "hi": 24.0
+          }
+        },
+        {
+          "index": 152,
+          "short": "HiMidF",
+          "name": "High Mid Freq",
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 0.0
+          }
+        },
+        {
+          "index": 153,
+          "short": "HiMidQ",
+          "name": "High Mid Q",
+          "map": {
+            "type": "linear",
+            "lo": 0.1,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 154,
+          "short": "HiShGa",
+          "name": "High Shelf Gain",
+          "map": {
+            "type": "linear",
+            "lo": -24.0,
+            "hi": 24.0
+          }
+        },
+        {
+          "index": 155,
+          "short": "HiShF",
+          "name": "High Shelf Freq",
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 20000.0
+          }
+        },
+        {
+          "index": 156,
+          "short": "Defnto",
+          "name": "Definition",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 157,
+          "short": "CenLev",
+          "name": "Center Level",
+          "map": null
+        },
+        {
+          "index": 158,
+          "short": "BalF/R",
+          "name": "Balance F/R",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 159,
+          "short": "LoShY",
+          "name": "Low Shelf Y",
+          "map": {
+            "type": "linear",
+            "lo": -24.0,
+            "hi": 24.0
+          }
+        },
+        {
+          "index": 160,
+          "short": "HiShY",
+          "name": "High Shelf Y",
+          "map": {
+            "type": "linear",
+            "lo": -24.0,
+            "hi": 24.0
+          }
+        },
+        {
+          "index": 161,
+          "short": "PrcsMd",
+          "name": "Process Mode",
+          "map": {
+            "type": "enum",
+            "options": [
+              "MulMon",
+              "True Mu",
+              "TreMul"
+            ]
+          }
+        },
+        {
+          "index": 162,
+          "short": "LFETRe",
+          "name": "LFE to Rev",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 163,
+          "short": "PrdSyn",
+          "name": "Predelay Sync",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 164,
+          "short": "Size",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 10.0,
+            "hi": 1000.0
+          }
+        },
+        {
+          "index": 165,
+          "short": "StSpHi",
+          "name": "Stereo Spread High",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 166,
+          "short": "ShBeHa",
+          "name": "Show Bezier Handles",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 167,
+          "short": "Lo Cut",
+          "name": "Low Cut",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 168,
+          "short": "LoCuOr",
+          "name": "Low Cut Order",
+          "map": null
+        },
+        {
+          "index": 169,
+          "short": "LoCutF",
+          "name": "Low Cut Freq",
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 20000.0
+          }
+        },
+        {
+          "index": 170,
+          "short": "LoCutQ",
+          "name": "Low Cut Q",
+          "map": {
+            "type": "linear",
+            "lo": 0.1,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 171,
+          "short": "LoShQ",
+          "name": "Low Shelf Q",
+          "map": {
+            "type": "linear",
+            "lo": 0.1,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 172,
+          "short": "HiShQ",
+          "name": "High Shelf Q",
+          "map": {
+            "type": "linear",
+            "lo": 0.1,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 173,
+          "short": "Hi Cut",
+          "name": "High Cut",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 174,
+          "short": "HiCuOr",
+          "name": "High Cut Order",
+          "map": {
+            "type": "linear",
+            "lo": 6.0,
+            "hi": 12.0
+          }
+        },
+        {
+          "index": 175,
+          "short": "HiCutF",
+          "name": "High Cut Freq",
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 20000.0
+          }
+        },
+        {
+          "index": 176,
+          "short": "HiCutQ",
+          "name": "High Cut Q",
+          "map": {
+            "type": "linear",
+            "lo": 0.1,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 183,
+          "short": "Volume",
+          "name": "Volume",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 184,
+          "short": "Densit",
+          "name": "Density",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
           }
         }
       ]

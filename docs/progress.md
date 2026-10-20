@@ -77,7 +77,13 @@ bank first   ok=True skipped    1049ms already
 - 리뷰 M2·M5·M6 처리(2026-10-19): M2 수정 — `PluginCache.load`에서 사용자 파일의 `bundled_generated`가 번들 `generated`와 다르면(키 없는 옛 형식 포함) 번들에 있는 이름의 표는 번들 우선, 사용자만 가진 표는 유지(테스트 3건, 276 테스트). M5(가짜 Logic PL 쓰기 경로가 Z4를 흉내 내지 않음) 폐기 — Z4 가드는 실기 10차에서 `SOu`로 확인했고 가짜 모델 확장은 비용 대비 이득 없음. M6(Aux 자동 생성 뒤 선택 복원 인덱스 밀림) 종결 — 실기에서 Aux는 마지막 트랙 뒤에 놓여 발현하지 않음(S5 재확인). Z10 기록: Logic 모달(오디오 인터페이스 변경 알림)이 MIDI 수신을 멈춤 → `wait_ready` 실패 노트에 모달 확인 힌트.
 - page_to 한도 수정(2026-10-19, Sonnet 구현): Space Designer 진단으로 편집 뷰가 23페이지이고 임의 위치(15번 파라미터)에서 열림을 확인 → `page_to` 한도를 고정 16회에서 총 페이지+1회로, 실패 메시지에 출발·횟수·현재·총 페이지(가짜 Logic `edit_open_page` 스위치, 277 테스트). Adaptive Limiter 재수집 성공(Gain·Remove DC map 채움, 번들 갱신).
 - Space Designer 수집 1차 시도(2026-10-19 21:12): 삽입까지 정상, 수집 도중 프로젝트가 닫혀(Z11) `name_value` 실패 → 미수집. page_to 수정은 이 시도에서 검증되지 않음.
-- Space Designer 수집 2차 시도(2026-10-20 00:04): Logic에 프로젝트 없이 '시작' 대화상자만 떠 있어 `plugin list`가 Volume 복원 단계에서 실패(Z11-b, 2회 재현) → 수집 못 함. Z11의 "Quartz 창 0개"는 측정 오류(소유자 이름 NBSP)로 정정. 사용자가 testForMcp_1을 열면 재시도(슬롯 1에 Space Designer가 남아 있으면 스크립트가 다음 빈 슬롯에 넣는다).
-- 다음: 테스트 프로젝트를 연 상태에서 Space Designer 수집(23페이지, 약 1시간 예상) → 스펙 3.
+- Space Designer 수집 2차 시도(2026-10-20 00:04): `plugin list`가 Volume 복원 단계에서 실패 → 당시엔 프로젝트 닫힘으로 봤으나 16:00 프로젝트를 연 뒤에도 같아 원인은 Z12(NAME 표시 상태 잔존)로 정정. Z11의 "Quartz 창 0개"는 측정 오류(소유자 이름 NBSP)로 정정.
+- 서피스 견고성 수정(2026-10-20 16:10~16:25, Sonnet 구현, 282 테스트, main c14dce1): `configure` 값 표시 판정을 2행 값 유무로 교체(Z12), `page_to` 커서 무응답 1회 재시도(Z13), `probe_pages` 마지막 페이지 ◀ 확인. 16:03 3차 시도는 Z13으로 중단(31초), 재현 실행 2회는 통과.
+- Space Designer 수집 3~6차(2026-10-20 16:03~16:38): Z13(16:03 커서 무응답), Z14(16:20 7페이지 동작 파라미터 → '열기' 대화상자 → NAME/VALUE 사망; Logic 재실행으로 안 풀림). 19:45 사용자가 설정 창에서 Mackie Control 2대를 삭제 → 포트 재연결·재설치로 복구.
+- Space Designer 수집 7차(2026-10-20 19:49~20:12, 23분): 성공(178개·23페이지, 동작 파라미터 8개 틱 차단, map None 비움) — 그러나 map None 77개. 원인은 Z15(Flip 페이더 값 오버레이 14칸이 옆 열을 2초 덮음) + `_NUM_RE` 공백·`infer_mapping` 단위 불일치. `fix/fader-overlay`(Sonnet 구현) 뒤 재수집 예정.
+- 페이더 오버레이 수정(2026-10-20 20:25~20:34, Sonnet 구현, 285 테스트, main 9fad1a4): calibrate 프로빙 뒤 `settle_overlay`, `_NUM_RE` 공백 1칸, `infer_mapping` 단위 불일치 → None. 8차 수집(20:35)은 25번째 항목에서 Z16(커서 무응답)으로 중단 → `page_to` 지연 허용(Sonnet 구현, 287 테스트, main 81c65bc) 뒤 9차(20:5x).
+- 9차(20:50)도 7→8페이지에서 Z16으로 중단. 그 뒤 PAN 뷰 `-`·TRACK `Ch Out`(Z17: 서라운드 파라미터 `중앙`+표시 모드 `이름`, 설정 창 캡처로 확인) → PAN 홀드 항목 0 + NAME/VALUE로 복구. 10차(21:0x)는 실패해도 같은 프로세스에서 최대 3회 재시도(캐시 진행분 유지).
+- **Space Designer 수집 10차 성공(2026-10-20 21:02~21:19, 17분)**: 178개·23페이지, 1회 시도에 완료(page_to 202회 재시도 0, NAME/VALUE 404회 최대 380 ms, 동작 파라미터 틱 차단 16회 = 7·18페이지 각 4개×2). map: linear 96·log 17·enum 43·None 22(동작 8 + 최소가 `Mute`인 Output Dry/Wet·Center Level, 단위가 바뀌는 Length·Volume Decay Time·Low Mid Freq·X-Over Freq·Low Cut Order — 설계상 None, 틱으로 설정). 이름 165/178(없음: 동작 8·EQ·Size·Filter). 번들 표 10종 357 파라미터, known.json 갱신. 7차 대비 map None 77 → 22.
+- 다음: 스펙 3(공개 릴리스 준비). 수정 후보: `configure`의 값 표시 판정(`-`·`Ch Out`, PAN 파라미터 복구, Z17), `플러그인 윈도우 열기/닫기` 해제 뒤 Z16 재측정.
 - 미검증 경로 자리.
 - 다음: 스펙 3(공개 준비: GitHub 원격, 설치 문서, 악기 슬롯 검토).
