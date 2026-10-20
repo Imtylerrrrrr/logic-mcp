@@ -793,6 +793,7 @@ class PluginCommands:
                             # 상한까지 모인 숫자 선택지 = 첫 읽기가 남은 축약명을 받은 연속 숫자 파라미터(재수집 Rel·Q·Gain)
                             d.flip(True)
                             mapping, _lo, _hi = probe_mapping(d, col)
+                            d.settle_overlay()                                     # 페이더 값 오버레이(14칸, 2.0초)가 다음 열을 덮어 공백·이전 값으로 읽힌다(실측 2026-10-20 Space Designer 77/178 map None)
                             item["map"] = None
                             if mapping is not None:
                                 item["map"] = _map_to(mapping)
@@ -811,6 +812,7 @@ class PluginCommands:
                         if v.kind == "number" and not item.get("map"):
                             d.flip(True)
                             mapping, _lo, _hi = probe_mapping(d, col)              # 페이더 1·16383 → 범위(실측 X: 에코 뒤 LCD까지 대기)
+                            d.settle_overlay()
                             if mapping is not None:
                                 item["map"] = _map_to(mapping)
                                 probed += 1

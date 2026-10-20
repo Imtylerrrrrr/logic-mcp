@@ -118,6 +118,20 @@ def test_calibrate_probes_capped_all_numeric_options_as_numeric(tmp_path):     #
     assert items[3]["map"]["type"] == "linear" and abs(items[3]["map"]["lo"] - -60.0) < 0.5 and abs(items[3]["map"]["hi"]) < 0.5
     assert r.after["enums"] == 1 and r.after["probed"] == 3
 
+def test_calibrate_waits_out_fader_overlay_before_next_column(tmp_path):        # 실측 2026-10-20 G1~G3: 페이더 오버레이 14칸이 다음 열 값을 공백으로 만든다
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.overlay_survives_toggle = True
+    logic.tracks[0].insert(2, "Chorus")
+    logic.tracks[0].params[2] = [
+        Param("Thrs", "Threshold", "linear", -60.0, 0.0, -20.0, unit="n1", step=0.5),
+        Param("Mix", "Mix", "linear", 0.0, 100.0, 50.0, unit="%", step=1.0),
+        Param("Wet", "Wet", "linear", 0.0, 100.0, 30.0, unit="%", step=1.0),
+        Param("Dry", "Dry", "linear", 0.0, 100.0, 70.0, unit="%", step=1.0)]                      # 열 3은 오버레이(열 0~2)에 안 덮여 토글 판정이 선다
+    r = cmds.plugin.calibrate(strip=1, number=None, slot=2)
+    items = {it["index"]: it for it in r.after["items"]}
+    assert items[1]["map"] is not None and items[2]["map"] is not None
+
+
 def _row(shorts: str) -> str:
     return "".join(x.ljust(7) for x in shorts.split())
 

@@ -16,6 +16,7 @@ value_row_partial(재수집 근사)은 VALUE 전환의 2행 중 열 0만 바로 
 대상 열은 아직 축약명이다. stale_value_cols의 열은 VALUE 전환 뒤에도 2행에 축약명이 남아 다음 재묘사(틱 등)에서야 값이 된다.
 no_overlay_on_nochange는 값이 끝에 닿아 바뀌지 않은 파라미터 틱에 LCD를 그리지 않는다(리뷰 I3, 실기 미측정).
 narrow_name_overlay(실기 10차)는 틱 이름 오버레이를 1행 해당 열부터 2열(이름이 길면 3열) 폭으로만 덧쓰고 나머지 1행 칸은 축약명을 남긴다.
+overlay_survives_toggle(실측 2026-10-20 G2)은 오버레이 만기 전의 NAME/VALUE 전환이 마지막으로 그린 21칸 오버레이 영역을 지우지 않고 남긴다(만기 재묘사에서는 지운다).
 refuse에 V-Pot 누름 노트를 넣으면 누름이 드롭되어 미리 선택이 계속 깜박인다(리뷰 I2, 실측 S4).
 late_preselect_items의 목록 항목은 처음 닿은 틱에 이전 항목 오버레이를 다시 그리고, LATE_PRESELECT_S 뒤 sleep에서야 제 이름을 그린다
 (재수집: 스캔에서 빠진 Rotor Cabinet·Fuzz Machine). 한 번 그린 항목은 집합에서 빠진다.
@@ -329,6 +330,8 @@ class FakeLogic:
         self.drop_preselect_at: set[int] = set()       # 오버레이 쓰기가 오지 않는 미리 선택 틱 위치
         self.no_overlay_on_nochange = False            # True면 값이 안 바뀐 V-Pot 틱(끝값)에 오버레이를 그리지 않음(리뷰 I3)
         self.narrow_name_overlay = False               # True면 틱 이름 오버레이가 1행 2~3열만 덮음(실기 10차)
+        self.overlay_survives_toggle = False           # True면 만기 전 NAME/VALUE 전환이 마지막 오버레이 21칸을 남김(실측 2026-10-20 G2)
+        self._kept_overlay: tuple[int, str, str] | None = None   # 마지막 오버레이 영역(시작, 1행 21칸, 2행 21칸)
         fake.replies = self.replies
 
     # ---------- 시간 ----------
@@ -498,12 +501,15 @@ class FakeLogic:
         return (prefix + t.inserts[self.slot])[:56 - len(tail) - 5].ljust(56 - len(tail)) + tail
 
     def redraw(self, overlay: tuple[int, str, str] | None = None, mode_overlay: str | None = None,
-               narrow_name: bool = False) -> None:
+               narrow_name: bool = False, keep_overlay: bool = False, remember: bool = False) -> None:
         """정착 화면을 그린다. 오버레이가 있으면 오버레이 판을 지금 그리고 2.0초 뒤 재묘사를 예약한다."""
         r1, r2, d = self._rows()
         if self.eq_held:
             d = "E_"
         if overlay is None and mode_overlay is None:
+            if keep_overlay and self.overlay_survives_toggle and self.pending and self._kept_overlay:
+                at, k1, k2 = self._kept_overlay
+                r1, r2 = r1[:at] + k1 + r1[at + 21:], r2[:at] + k2 + r2[at + 21:]
             self._emit([lcd_write(0, r1 + r2)] + digits(d))
             return
         o1, o2 = r1, r2
@@ -520,6 +526,7 @@ class FakeLogic:
             else:
                 o1 = o1[:start] + fit(name) + o1[start + 21:]
             o2 = r2[:start] + fit(value) + r2[start + 21:]
+            self._kept_overlay = (start, o1[start:start + 21], o2[start:start + 21]) if remember else None
         self._emit([lcd_write(0, o1[:56] + o2[:56])] + digits(d))
         self.pending = [self.clock() + OVERLAY_S]           # 새 오버레이가 이전 만기를 대체한다(마지막 쓰기 뒤 2.0초)
 
@@ -673,7 +680,7 @@ class FakeLogic:
                 r2 = "".join((r1 if c in self.stale_value_cols else r2)[c * 7:(c + 1) * 7] for c in range(8))
                 self._emit([lcd_write(0, r1 + r2)] + digits(d))
             else:
-                self.redraw()
+                self.redraw(keep_overlay=True)
         elif N.VPOT_PUSH <= note < N.VPOT_PUSH + 8:
             if self.track_held and self.view == "track_menu":
                 self.cs_param = note - N.VPOT_PUSH               # 홀드 메뉴 선택. 6(DisplP)·7(Setup)의 부작용은 흉내 내지 않음
@@ -906,9 +913,9 @@ class FakeLogic:
             return
         self._emit([fader_echo(ch, p.raw())])
         if self.lcd_lag:
-            self.lagged.append(lambda: self.redraw(overlay=(ch, p.name, p.full())))
+            self.lagged.append(lambda: self.redraw(overlay=(ch, p.name, p.full()), remember=True))
         else:
-            self.redraw(overlay=(ch, p.name, p.full()))
+            self.redraw(overlay=(ch, p.name, p.full()), remember=True)
 
 
 def default_tracks() -> list[Track]:
