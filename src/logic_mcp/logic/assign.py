@@ -258,11 +258,6 @@ class PluginCommands:
         self.inventory: dict[str, dict[str, dict | None] | None] = {}
 
     # ---------- 공통 ----------
-    def _fresh(self) -> None:
-        """남은 미리 선택·Flip·NAME 모드를 지우고 PAN에서 시작한다."""
-        if self.d.view.kind != "pan" or self.b.surface.state.assignment.flip:
-            self.d.leave(keep_select=True)
-
     def _slot_text(self, slot: int) -> str:
         """PL 2행의 슬롯 열(축약). `--`·공백은 빈 슬롯."""
         return self.d.read_column(slot - 1)[1].text
@@ -275,17 +270,6 @@ class PluginCommands:
             shown = strip_suffix(self.d.read_overlay_text(v))
         return shown
 
-    def _channel(self, ch: int) -> None:
-        """대상 트랙을 선택하고 Plug-in Channel 뷰(PL)로 간다. 2행 = 선택 트랙의 슬롯 1~8, V-Pot n = 슬롯 n(실측 C·D).
-        PL 안에서 SELECT 만 눌러 트랙을 바꾸면 2행이 그 트랙의 슬롯으로 바뀌지 않는다(실기 8차: 트랙 이름 조각이 읽힘, 실측 Z3)
-        → 이미 PL 이고 다른 스트립이면 PAN 으로 나가 다시 들어간다. 출력·Master 스트립은 PL이 아예 따라가지 않으므로
-        먼저 막는다(실측 Z4, 수정 8)."""
-        self.b.strips.ensure(self.d, self.b.surface.state, ch)
-        if self.d.view.kind != "pan" and not self.b.surface.state.strips[ch].select:
-            self.d.leave(keep_select=True)
-        self.d.focus(ch)
-        self.d.enter("plugin_channel")
-
     def _complete(self, name: str) -> str:
         """잘렸을 수 있는 이름(오버레이 21칸·헤더 56칸)을 목록의 전체 이름으로 채운다. 못 채우면 그대로."""
         j, _c = find(self.cache.items, name)
@@ -297,7 +281,7 @@ class PluginCommands:
         """PL에서 틱 없이 슬롯 V-Pot을 눌러 값이 보존된 편집 뷰를 연다(실측 F(2)). NAME 모드로 두고
         (전체 이름, 축약, 페이지 수)를 돌려준다. 틱을 보내지 않으므로 미리 선택·교체가 생기지 않는다."""
         d = self.d
-        self._channel(ch)
+        self.b._channel(ch, "plugin_channel")
         abbrev = self._slot_text(slot)
         if abbrev in EMPTY_TEXTS:
             raise SlotEmpty(slot)
@@ -421,7 +405,7 @@ class PluginCommands:
                     return ch
                 only = ch
             try:
-                self._fresh()
+                self.b._fresh()
                 targets = [only] if only is not None else [
                     ch for ch, s in enumerate(b.surface.state.strips) if s.number is not None]
                 tracks: dict[str, dict[str, dict | None] | None] = {}
@@ -430,7 +414,7 @@ class PluginCommands:
                 for ch in targets:
                     num = b.surface.state.strips[ch].number     # PL은 1행이 채널명이 아니라 PAN에서 읽은 번호를 쓴다
                     try:
-                        self._channel(ch)
+                        self.b._channel(ch, "plugin_channel")
                     except StripUnsupported as e:
                         if only is not None:
                             return b._result(action, False, "skipped", t0, note=e.note)
@@ -470,25 +454,19 @@ class PluginCommands:
             finally:
                 d.leave_safely()
 
-    def _begin(self, action: str, strip, number, slot, t0):
-        if not 1 <= slot <= MAX_SLOT:
-            return self.b._result(action, False, "skipped", t0,
-                                  note=f"slot은 1-{MAX_SLOT}(Plug-in Channel 뷰에서 닿는 슬롯만 지원)")
-        ch = self.b._resolve(strip, number, action, t0)
-        return ch
-
     def params(self, strip: int | None, number: int | None, slot: int) -> "ToolResult":
         b, d, action = self.b, self.d, "plugin_params"
         t0 = b._now_ms()
         with b._lock:
             if (r := b._require_ready(action, t0)) is not None:
                 return r
-            ch = self._begin(action, strip, number, slot, t0)
+            ch = self.b._begin(action, strip, number, t0, slot, MAX_SLOT,
+                               f"slot은 1-{MAX_SLOT}(Plug-in Channel 뷰에서 닿는 슬롯만 지원)")
             if not isinstance(ch, int):
                 return ch
             target = {**b._target(ch), "slot": slot}
             try:
-                self._fresh()
+                self.b._fresh()
                 full, abbrev, pages = self._open_edit(ch, slot)
                 observed = self._read_pages(pages)
                 self._merge_items(full, pages, observed)
@@ -515,12 +493,13 @@ class PluginCommands:
         with b._lock:
             if (r := b._require_ready(action, t0)) is not None:
                 return r
-            ch = self._begin(action, strip, number, slot, t0)
+            ch = self.b._begin(action, strip, number, t0, slot, MAX_SLOT,
+                               f"slot은 1-{MAX_SLOT}(Plug-in Channel 뷰에서 닿는 슬롯만 지원)")
             if not isinstance(ch, int):
                 return ch
             target = {**b._target(ch), "slot": slot}
             try:
-                self._fresh()
+                self.b._fresh()
                 full, _abbrev, pages = self._open_edit(ch, slot)
                 item = self._locate(full, pages, param)
                 col = self._goto_param(item)
@@ -546,12 +525,13 @@ class PluginCommands:
         with b._lock:
             if (r := b._require_ready(action, t0)) is not None:
                 return r
-            ch = self._begin(action, strip, number, slot, t0)
+            ch = self.b._begin(action, strip, number, t0, slot, MAX_SLOT,
+                               f"slot은 1-{MAX_SLOT}(Plug-in Channel 뷰에서 닿는 슬롯만 지원)")
             if not isinstance(ch, int):
                 return ch
             target = {**b._target(ch), "slot": slot}
             try:
-                self._fresh()
+                self.b._fresh()
                 full, _abbrev, pages = self._open_edit(ch, slot)
                 item = self._locate(full, pages, param)
                 col = self._goto_param(item)
@@ -621,15 +601,16 @@ class PluginCommands:
                 note = (f"{plugin!r}가 여럿에 맞음: {cands}" if cands
                         else f"{plugin!r}가 목록({self.cache.source}, {len(self.cache.items)}개)에 없음. `logic_plugin scan` 뒤 다시 시도")
                 return b._result(action, False, "skipped", t0, note=note)
-            ch = self._begin(action, strip, number, slot, t0)
+            ch = self.b._begin(action, strip, number, t0, slot, MAX_SLOT,
+                               f"slot은 1-{MAX_SLOT}(Plug-in Channel 뷰에서 닿는 슬롯만 지원)")
             if not isinstance(ch, int):
                 return ch
             target = {**b._target(ch), "slot": slot}
             want = self.cache.items[idx]
             v = slot - 1
             try:
-                self._fresh()
-                self._channel(ch)
+                self.b._fresh()
+                self.b._channel(ch, "plugin_channel")
                 current = self._slot_text(slot)
                 occupied = current not in EMPTY_TEXTS
                 if occupied and not replace:
@@ -679,13 +660,14 @@ class PluginCommands:
         with b._lock:
             if (r := b._require_ready(action, t0)) is not None:
                 return r
-            ch = self._begin(action, strip, number, slot, t0)
+            ch = self.b._begin(action, strip, number, t0, slot, MAX_SLOT,
+                               f"slot은 1-{MAX_SLOT}(Plug-in Channel 뷰에서 닿는 슬롯만 지원)")
             if not isinstance(ch, int):
                 return ch
             target = {**b._target(ch), "slot": slot}
             try:
-                self._fresh()
-                self._channel(ch)
+                self.b._fresh()
+                self.b._channel(ch, "plugin_channel")
                 current = self._slot_text(slot)
                 if current in EMPTY_TEXTS:
                     return b._result(action, True, "skipped", t0, target=target, note="already")
@@ -714,13 +696,14 @@ class PluginCommands:
         with b._lock:
             if (r := b._require_ready(action, t0)) is not None:
                 return r
-            ch = self._begin(action, strip, number, slot, t0)
+            ch = self.b._begin(action, strip, number, t0, slot, MAX_SLOT,
+                               f"slot은 1-{MAX_SLOT}(Plug-in Channel 뷰에서 닿는 슬롯만 지원)")
             if not isinstance(ch, int):
                 return ch
             target = {**b._target(ch), "slot": slot}
             try:
-                self._fresh()
-                self._channel(ch)
+                self.b._fresh()
+                self.b._channel(ch, "plugin_channel")
                 current = self._slot_text(slot)
                 if current in EMPTY_TEXTS:
                     return b._result(action, False, "skipped", t0, target=target, note=f"슬롯 {slot}이 비어 있음")
@@ -753,12 +736,13 @@ class PluginCommands:
         with b._lock:
             if (r := b._require_ready(action, t0)) is not None:
                 return r
-            ch = self._begin(action, strip, number, slot, t0)
+            ch = self.b._begin(action, strip, number, t0, slot, MAX_SLOT,
+                               f"slot은 1-{MAX_SLOT}(Plug-in Channel 뷰에서 닿는 슬롯만 지원)")
             if not isinstance(ch, int):
                 return ch
             target = {**b._target(ch), "slot": slot}
             try:
-                self._fresh()
+                self.b._fresh()
                 full, _abbrev, pages = self._open_edit(ch, slot)
                 self._merge_items(full, pages, self._read_pages(pages))
                 table = self._table(full, pages)
@@ -843,7 +827,7 @@ class PluginCommands:
                 return b._result(action, True, "skipped", t0, after=self.cache.to_resource(),
                                  note=f"already: {self.cache.scanned_at}에 스캔한 {len(self.cache.user_list)}개. 다시 하려면 force=true")
             try:
-                self._fresh()
+                self.b._fresh()
                 d.enter("plugin_mixer")                              # P1 Mixer: 스트립 ch의 V-Pot = 그 트랙의 슬롯 1
                 slot = d.view.index or 1
 

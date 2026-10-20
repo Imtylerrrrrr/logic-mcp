@@ -120,6 +120,29 @@ class Commands:
         visible = [n for n in numbers if n is not None]
         return self._result(action, False, "skipped", t0, note=f"번호 {number} 없음. 보이는 번호: {visible}")
 
+    def _fresh(self) -> None:
+        """남은 미리 선택·Flip·NAME 모드를 지우고 PAN에서 시작한다."""
+        if self.modes.view.kind != "pan" or self.surface.state.assignment.flip:
+            self.modes.leave(keep_select=True)
+
+    def _channel(self, ch: int, kind: str) -> None:
+        """대상 트랙을 선택하고 kind 뷰(PL 또는 SE)로 간다. PL: 2행 = 선택 트랙의 슬롯 1~8, V-Pot n = 슬롯 n(실측 C·D).
+        PL 안에서 SELECT 만 눌러 트랙을 바꾸면 2행이 그 트랙의 슬롯으로 바뀌지 않는다(실기 8차: 트랙 이름 조각이 읽힘, 실측 Z3)
+        → 이미 PL/SE 이고 다른 스트립이면 PAN 으로 나가 다시 들어간다(SE도 같은 규칙). 출력·Master 스트립은 PL/SE가
+        따라가지 않으므로 먼저 막는다(실측 Z4·S10, 수정 8)."""
+        self.strips.ensure(self.modes, self.surface.state, ch)
+        if self.modes.view.kind != "pan" and not self.surface.state.strips[ch].select:
+            self.modes.leave(keep_select=True)
+        self.modes.focus(ch)
+        self.modes.enter(kind)
+
+    def _begin(self, action: str, strip, number, t0: int, index: int, max_index: int,
+               range_note: str) -> int | ToolResult:
+        """index(slot/send)가 1~max_index 밖이면 skipped(range_note), 아니면 _resolve 결과."""
+        if not 1 <= index <= max_index:
+            return self._result(action, False, "skipped", t0, note=range_note)
+        return self._resolve(strip, number, action, t0)
+
     _BANK_NOTES = {"left": P.Note.BANK_LEFT, "right": P.Note.BANK_RIGHT,
                    "channel_left": P.Note.CHANNEL_LEFT, "channel_right": P.Note.CHANNEL_RIGHT}
 

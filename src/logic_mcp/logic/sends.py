@@ -100,19 +100,6 @@ class SendCommands:
         self.d = base.modes
 
     # ---------- 공통 ----------
-    def _fresh(self) -> None:
-        if self.d.view.kind != "pan" or self.b.surface.state.assignment.flip:
-            self.d.leave(keep_select=True)
-
-    def _channel(self, ch: int) -> None:
-        """대상 트랙을 선택하고 SE 뷰로 간다. 출력·Master는 SE가 따라가지 않으므로 먼저 막는다(실측 Z4·S10).
-        이미 SE고 다른 스트립이면 PAN으로 나가 다시 들어간다(PL의 Z3와 같은 규칙)."""
-        self.b.strips.ensure(self.d, self.b.surface.state, ch)
-        if self.d.view.kind != "pan" and not self.b.surface.state.strips[ch].select:
-            self.d.leave(keep_select=True)
-        self.d.focus(ch)
-        self.d.enter("send_channel")
-
     def _goto_page(self, send: int) -> None:
         """SE는 마지막 페이지를 기억하므로(실측 S3) 1행 `Sen<n>`으로 현재 페이지를 읽어 커서로 간다."""
         page = page_of(send)
@@ -126,11 +113,6 @@ class SendCommands:
 
     def _row(self, send: int) -> dict:
         return parse_send(self.d.view.columns, send)
-
-    def _begin(self, action: str, strip, number, send, t0):
-        if not 1 <= send <= MAX_SEND:
-            return self.b._result(action, False, "skipped", t0, note=f"send는 1-{MAX_SEND}")
-        return self.b._resolve(strip, number, action, t0)
 
     def _fail(self, action: str, t0: int, target: dict, e: Exception) -> "ToolResult":
         if isinstance(e, StripUnsupported):
@@ -151,8 +133,8 @@ class SendCommands:
                 return ch
             target = b._target(ch)
             try:
-                self._fresh()
-                self._channel(ch)
+                self.b._fresh()
+                self.b._channel(ch, "send_channel")
                 sends: dict[str, dict] = {}
                 for page in range(1, MAX_SEND // 2 + 1):
                     self._goto_page(2 * page - 1)
@@ -175,14 +157,14 @@ class SendCommands:
             if want is None:
                 return b._result(action, False, "skipped", t0,
                                  note=f"dest는 버스 번호(1-{MAX_BUS}, 예: \"Bus 3\"·3) 또는 \"--\"(제거). 받은 값: {dest!r}")
-            ch = self._begin(action, strip, number, send, t0)
+            ch = self.b._begin(action, strip, number, t0, send, MAX_SEND, f"send는 1-{MAX_SEND}")
             if not isinstance(ch, int):
                 return ch
             target = {**b._target(ch), "send": send}
             col = col_of(send, "dest")
             try:
-                self._fresh()
-                self._channel(ch)
+                self.b._fresh()
+                self.b._channel(ch, "send_channel")
                 self._goto_page(send)
                 before = self._row(send)
                 if (not before["present"]) if want == 0 else (before["present"] and before["bus"] == want):
@@ -231,14 +213,14 @@ class SendCommands:
                 return r
             if db != db:
                 return b._result(action, False, "skipped", t0, note="db가 NaN. 예: -6.0, 0, \"-inf\"")
-            ch = self._begin(action, strip, number, send, t0)
+            ch = self.b._begin(action, strip, number, t0, send, MAX_SEND, f"send는 1-{MAX_SEND}")
             if not isinstance(ch, int):
                 return ch
             target = {**b._target(ch), "send": send}
             col = col_of(send, "level")
             try:
-                self._fresh()
-                self._channel(ch)
+                self.b._fresh()
+                self.b._channel(ch, "send_channel")
                 self._goto_page(send)
                 before = self._row(send)
                 if not before["present"]:
@@ -276,14 +258,14 @@ class SendCommands:
                 return r
             if pos not in POS_ORDER:
                 return b._result(action, False, "skipped", t0, note=f"pos는 {'|'.join(POS_ORDER)} 중 하나")
-            ch = self._begin(action, strip, number, send, t0)
+            ch = self.b._begin(action, strip, number, t0, send, MAX_SEND, f"send는 1-{MAX_SEND}")
             if not isinstance(ch, int):
                 return ch
             target = {**b._target(ch), "send": send}
             col = col_of(send, "pos")
             try:
-                self._fresh()
-                self._channel(ch)
+                self.b._fresh()
+                self.b._channel(ch, "send_channel")
                 self._goto_page(send)
                 before = self._row(send)
                 if not before["present"]:
@@ -316,14 +298,14 @@ class SendCommands:
         with b._lock:
             if (r := b._require_ready(action, t0)) is not None:
                 return r
-            ch = self._begin(action, strip, number, send, t0)
+            ch = self.b._begin(action, strip, number, t0, send, MAX_SEND, f"send는 1-{MAX_SEND}")
             if not isinstance(ch, int):
                 return ch
             target = {**b._target(ch), "send": send}
             col = col_of(send, "mute")
             try:
-                self._fresh()
-                self._channel(ch)
+                self.b._fresh()
+                self.b._channel(ch, "send_channel")
                 self._goto_page(send)
                 before = self._row(send)
                 if not before["present"]:
