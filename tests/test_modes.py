@@ -172,6 +172,25 @@ def test_page_to_retries_once_when_cursor_ignored():                 # 실측 20
     assert fake.sent.count(P.button_down(P.Note.CURSOR_RIGHT)) == 2
 
 
+def test_page_to_waits_for_late_cursor_response_without_repress():      # 실측 2026-10-20: 프로빙 직후 커서 응답 지연
+    d, surface, fake, logic = _open_compressor_edit()
+    logic.cursor_lag_s = 1.5
+    fake.sent.clear()
+    d.page_to(2)
+    assert surface.state.view.page == (2, 3)
+    assert fake.sent.count(P.button_down(P.Note.CURSOR_RIGHT)) == 1
+
+
+def test_page_to_repress_after_ignored_press_then_late_response():
+    d, surface, fake, logic = _open_compressor_edit()
+    logic.cursor_lag_s = 0.5        # 재누름 뒤 대기는 MODE_TIMEOUT(0.6)뿐이라 그 안에 도착하는 지연
+    logic.drop_next_cursor = 1
+    fake.sent.clear()
+    d.page_to(2)
+    assert surface.state.view.page == (2, 3)
+    assert fake.sent.count(P.button_down(P.Note.CURSOR_RIGHT)) == 2
+
+
 def test_page_to_raises_when_cursor_ignored_twice():
     d, surface, fake, logic = _open_compressor_edit()
     logic.drop_next_cursor = 2

@@ -10,6 +10,7 @@ flip_led_lag(리뷰 C1)는 처음 처리된 FLIP 누름의 LED 변화를 flip_la
 시간 초과한 뒤 다음 판정 거짓 wait_for에 들어갈 때 보낸다. Flip이 꺼진 상태의 페이더 이동은 해당 스트립 트랙 볼륨(Track.volume, raw)을 바꾼다.
 drop_all_flips는 FLIP 누름을 항상, drop_all_name_value는 NAME/VALUE 누름을 항상 무시한다.
 drop_next_cursor(실측 2026-10-20)는 커서 ◀▶ 누름을 그 횟수만큼 무시한다.
+cursor_lag_s(실측 2026-10-20)는 0보다 크면 커서 ◀▶의 페이지 이동과 LCD 재묘사를 그 초만큼 늦춘다(timers로 예약).
 open_header_without_page(실측 2026-10-20)는 편집 뷰가 열린 직후 헤더에 `Page n/N`이 없다가 페이지가 바뀌는 커서 누름 뒤에야 보이게 한다.
 name_value_lag(실기 10차)는 NAME/VALUE 누름의 1행 쓰기는 바로 보내고 2행 쓰기는 lagged에 쌓는다(lcd_lag와 같은 도착 규칙).
 value_row_partial(재수집 근사)은 VALUE 전환의 2행 중 열 0만 바로 쓰고 열 1~7은 lagged에 쌓는다: 토글의 2행 변화 판정은 참이 되지만
@@ -322,6 +323,7 @@ class FakeLogic:
         self.open_header_without_page = False          # True면 편집 뷰 헤더가 열린 직후 토큰 없음, 페이지가 바뀐 뒤 토큰 있음(실측 2026-10-20)
         self.header_no_page = False
         self.drop_next_cursor = 0                      # 0보다 크면 커서 ◀▶ 누름을 그 횟수만큼 무시(실측 2026-10-20)
+        self.cursor_lag_s = 0.0                        # 0보다 크면 커서 ◀▶의 페이지 이동·LCD 재묘사가 그 초만큼 늦게 처리(실측 2026-10-20)
         self.name_value_lag = False                    # True면 NAME/VALUE 누름의 2행 쓰기가 늦게 도착(lagged, 실기 10차)
         self.value_row_partial = False                 # True면 VALUE 전환의 2행 열 1~7이 늦게 도착(lagged, 재수집 근사)
         self.stale_value_cols: set[int] = set()        # VALUE 전환 뒤에도 2행에 축약명이 남는 열(다음 재묘사까지)
@@ -636,6 +638,9 @@ class FakeLogic:
             self.redraw()
         elif note in (N.CURSOR_RIGHT, N.CURSOR_LEFT) and self.drop_next_cursor > 0:
             self.drop_next_cursor -= 1
+        elif note in (N.CURSOR_RIGHT, N.CURSOR_LEFT) and self.cursor_lag_s > 0:
+            step = +1 if note == N.CURSOR_RIGHT else -1
+            self.timers.append((self.clock() + self.cursor_lag_s, lambda: self._page(step)))
         elif note == N.CURSOR_RIGHT:
             self._page(+1)
         elif note == N.CURSOR_LEFT:
@@ -941,6 +946,8 @@ def make_assign_logic(tracks: list[Track] | None = None) -> tuple[Surface, FakeT
             if logic.flip_waits >= 2:
                 while logic.flip_lagged:
                     logic.flip_lagged.pop(0)()
+        if logic.cursor_lag_s > 0 and logic.timers and not pred(surface.state):
+            logic.sleep(timeout)        # 가짜 시계로 기다린다: 지연된 커서 처리(timers)가 이 대기 안에 만기되면 도착
         return wait_for(pred, timeout)
     surface.wait_for = late_wait_for
     fake.now += 1.0                 # 조용 1초 → ready

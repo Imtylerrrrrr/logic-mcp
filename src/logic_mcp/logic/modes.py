@@ -12,6 +12,7 @@ from .values import Value, parse_value
 
 OVERLAY_S = 2.0          # 모드 전환·값 변경 오버레이 지속(실측)
 MODE_TIMEOUT = 0.6
+CURSOR_LATE_S = 3.0      # 커서 응답 지연 허용. 파라미터 값 변경 직후 간헐적으로 0.6초 안에 반응이 없었다(실측 2026-10-20 Space Designer, 추정: IR 재계산)
 ENTER_TIMEOUT = 3.0      # 모드 버튼 단계 대기. EQ 첫 진입(Channel EQ 자동 삽입)은 `E_`가 0.5~1.0초 지속(실측 P)
 TICK_QUIET_S = 0.4       # 틱 뒤 마지막 LCD 쓰기로부터 이만큼 조용해져야 오버레이를 읽는다(실측 S)
 LED_TIMEOUT = 0.5
@@ -173,7 +174,7 @@ class ModeDriver:
 
     def page_to(self, page: int) -> None:
         """Cursor ◀▶로 페이지 이동. 편집 뷰 NAME 모드는 헤더 `Page n/N`, 그 밖은 드라이버가 센 힌트로.
-        커서 무응답이면 1회 더 누른다: NAME 모드는 헤더로 현재 페이지를 다시 읽어 첫 누름이 처리됐어도 루프가 바로잡는다(실측 2026-10-20: 4→5 ▶ 1회 무응답, 재현 46회는 모두 35 ms 응답)."""
+        커서 무응답이면 늦은 응답을 CURSOR_LATE_S 더 기다린 뒤에만 1회 더 누른다(바로 재누르면 늦게 처리된 누름과 겹쳐 두 페이지가 넘어가고, 헤더 토큰은 2초 뒤 사라진다): NAME 모드는 헤더로 현재 페이지를 다시 읽어 첫 누름이 처리됐어도 루프가 바로잡는다(실측 2026-10-20: 4→5 ▶ 1회 무응답, 재현 46회는 모두 35 ms 응답)."""
         start = self.view.page[0] if self.view.page else self._page_hint
         steps = 0
         while True:
@@ -188,7 +189,8 @@ class ModeDriver:
             self._mark()
             self._press(P.Note.CURSOR_RIGHT if forward else P.Note.CURSOR_LEFT)
             steps += 1
-            if not self.surface.wait_for(lambda s: s.view.columns != cols_before, MODE_TIMEOUT):
+            if not (self.surface.wait_for(lambda s: s.view.columns != cols_before, MODE_TIMEOUT)
+                    or self.surface.wait_for(lambda s: s.view.columns != cols_before, CURSOR_LATE_S)):
                 self._mark()
                 self._press(P.Note.CURSOR_RIGHT if forward else P.Note.CURSOR_LEFT)
                 steps += 1
