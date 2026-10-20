@@ -61,6 +61,9 @@ def test_parse_pan_text():
     assert F.parse_pan_text("-") is None
     assert F.parse_pan_text("+0.0 dB") is None
     assert F.parse_pan_text("") is None
+    assert F.parse_pan_text("-64") == -64
+    assert F.parse_pan_text("   0   ") == 0
+    assert F.parse_pan_text("+63") == 63
 
 
 def test_parse_db_text_truncated_and_integer():

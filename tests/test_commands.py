@@ -323,6 +323,61 @@ def test_configure_already_when_row2_shows_values():
     assert P.button_down(P.Note.NAME_VALUE) not in fake.sent
 
 
+def _pan_param_setup(row2: bytes):
+    cmds, surface, fake = make_commands()        # 번호·Beats 켜짐
+    fake.feed(bytes([0xE0, 0x00, 0x60]))
+    fake.feed(lcd_row2(row2))
+    surface.tick()
+    return cmds, fake
+
+
+def test_configure_restores_pan_param_then_value_mode():
+    cmds, fake = _pan_param_setup(b"-      -      -      " + b"       " * 5)
+
+    def replies(data: bytes) -> list[bytes]:
+        if data == P.button_down(P.Note.VPOT_PUSH + 0) and P.button_down(P.Note.PAN) in fake.sent:
+            return [lcd_row2(b"       " * 8)]
+        if data == P.button_down(P.Note.NAME_VALUE):
+            return [lcd_row2(b"-64    0      0      " + b"       " * 5)]
+        return []
+    fake.replies = replies
+    r = cmds.configure()
+    assert r.ok and r.verified == "verified" and r.note == "changed: pan_param, value_mode"
+    pan_down = fake.sent.index(P.button_down(P.Note.PAN))
+    push_down = fake.sent.index(P.button_down(P.Note.VPOT_PUSH + 0))
+    pan_up = fake.sent.index(P.button_up(P.Note.PAN))
+    assert pan_down < push_down < pan_up
+    assert fake.sent.count(P.button_down(P.Note.NAME_VALUE)) == 1
+
+
+def test_configure_pan_param_alone_when_values_return():
+    cmds, fake = _pan_param_setup(b"-      -      -      " + b"       " * 5)
+
+    def replies(data: bytes) -> list[bytes]:
+        if data == P.button_down(P.Note.VPOT_PUSH + 0) and P.button_down(P.Note.PAN) in fake.sent:
+            return [lcd_row2(b"-64    0      0      " + b"       " * 5)]
+        return []
+    fake.replies = replies
+    r = cmds.configure()
+    assert r.ok and r.note == "changed: pan_param"
+    assert P.button_down(P.Note.NAME_VALUE) not in fake.sent
+
+
+def test_configure_unverified_when_pan_hold_gets_no_response():
+    cmds, fake = _pan_param_setup(b"-      -      -      " + b"       " * 5)
+    r = cmds.configure()
+    assert r.verified == "unverified" and "PAN 홀드 항목 0 뒤에도" in r.note
+    assert P.button_down(P.Note.NAME_VALUE) not in fake.sent
+
+
+def test_configure_already_when_any_named_strip_shows_pan():
+    cmds, fake = _pan_param_setup(b"-64    -      0      " + b"       " * 5)
+    r = cmds.configure()
+    assert r.ok and r.note == "already"
+    assert P.button_down(P.Note.PAN) not in fake.sent
+    assert P.button_down(P.Note.NAME_VALUE) not in fake.sent
+
+
 def test_configure_unverified_when_name_value_gets_no_response():
     cmds, surface, fake = make_commands()
     fake.feed(bytes([0xE0, 0x00, 0x60]))
