@@ -1,5 +1,5 @@
 """플러그인 명령. Commands(스펙 1)의 주소 해석·결과 형식·락을 빌려 쓰고 ModeDriver로 뷰를 오간다.
-모든 공개 메서드는 ToolResult를 돌려주고 finally에서 leave_safely()로 PAN·Flip off로 돌아간다."""
+모든 공개 메서드는 ToolResult를 돌려주고 Commands._guarded가 leave_safely()로 PAN·Flip off로 되돌린다."""
 from __future__ import annotations
 
 import re
