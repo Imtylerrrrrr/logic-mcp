@@ -12,8 +12,11 @@ from pydantic import BaseModel
 from ..mcu import protocol as P
 from ..mcu import state as S
 from ..mcu.surface import Surface
+from .assign import EqCommands, PluginCommands
 from .faders import FaderTable, parse_pan_text
 from .modes import FEEDBACK_TIMEOUT, ModeDriver
+from .sends import SendCommands
+from .strips import StripKinds
 
 if TYPE_CHECKING:
     from .plugins.cache import PluginCache
@@ -61,12 +64,9 @@ class Commands:
         self._lock = threading.Lock()
         self.configured = False
         self.modes = ModeDriver(surface, sleep)
-        from .strips import StripKinds
         self.strips = StripKinds()
-        from .assign import EqCommands, PluginCommands   # 지연 임포트(순환 방지)
         self.eq = EqCommands(self)
         self.plugin = PluginCommands(self, plugin_cache)
-        from .sends import SendCommands
         self.send = SendCommands(self)
 
     # ---------- 공통 ----------
