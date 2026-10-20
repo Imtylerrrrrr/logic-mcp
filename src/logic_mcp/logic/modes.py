@@ -213,17 +213,24 @@ class ModeDriver:
 
     def probe_pages(self) -> int:
         """편집 뷰 NAME 모드 1페이지에서 페이지 수. 헤더에 `Page n/N`이 보이면 N. 긴 헤더는 1페이지에서 잘리므로(실측 L)
-        Cursor ▶로 2페이지에 가서 `Page 2/N`을 읽고 ◀로 돌아온다. ▶에 LCD가 안 바뀌면 1페이지."""
+        Cursor ▶로 2페이지에 가서 `Page 2/N`을 읽고 ◀로 돌아온다. ▶로도 토큰이 안 보이면 ◀를 눌러 본다. ▶·◀ 모두 LCD가 안 바뀌면 1페이지."""
         if self.view.page:
             return self.view.page[1]
-        lcd_before = self.surface.state.lcd
-        self._mark()
-        self._press(P.Note.CURSOR_RIGHT)
-        if not self.surface.wait_for(lambda s: s.lcd != lcd_before, MODE_TIMEOUT):
-            self._settle()
-            return 1
-        self.settle_smart()
+        changed = False
+        for note in (P.Note.CURSOR_RIGHT, P.Note.CURSOR_LEFT):      # 마지막 페이지에서 열렸으면 ▶는 페이지를 안 바꾸고 토큰 없는 헤더만 다시 그린다(실측 2026-10-20)
+            lcd_before = self.surface.state.lcd
+            self._mark()
+            self._press(note)
+            if self.surface.wait_for(lambda s: s.lcd != lcd_before, MODE_TIMEOUT):
+                changed = True
+                self.settle_smart()
+            else:
+                self._settle()
+            if self.view.page:
+                break
         if not self.view.page:
+            if not changed:
+                return 1
             raise ModeError("pages", "2페이지 헤더 `Page 2/N`", self.surface.state.lcd[0].strip()[:40] or "빈 헤더")
         pages = self.view.page[1]
         self._page_hint = self.view.page[0]
