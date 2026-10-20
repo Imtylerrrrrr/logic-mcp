@@ -18,20 +18,44 @@ Claude Code가 Logic Pro를 조작하는 MCP 서버. Logic이 공식 지원하�
 ## 요구 사항
 
 - macOS, Logic Pro 11 또는 12 (12.0.1에서 실측)
-- Python 3.13 이상, [uv](https://docs.astral.sh/uv/)
-- MCP 클라이언트 (아래는 Claude Code 기준)
+- Python 3.12 (python-rtmidi가 macOS 휠을 3.12까지 제공한다. 3.13 이상은 Xcode Command Line Tools로 소스 빌드가 필요하다), [uv](https://docs.astral.sh/uv/)
+- MCP 클라이언트 (Claude Code, Claude Desktop 등)
 
 ## 설치 (macOS, Logic Pro 11/12)
 
+### A. Claude Code
+
+```
+claude mcp add logic -- uvx --python 3.12 --from git+https://github.com/Imtylerrrrrr/logic-mcp logic-mcp
+```
+
+선택(Claude Code 전용): EQ·플러그인·센드 명령의 순서와 함정을 담은 스킬을 복사한다.
+
+```
+git clone https://github.com/Imtylerrrrrr/logic-mcp.git && cp -R logic-mcp/skills/logic-plugins ~/.claude/skills/
+```
+
+### B. Claude Desktop
+
+`~/Library/Application Support/Claude/claude_desktop_config.json`에 추가한다. `command`는 `which uvx`로 얻은 절대 경로를 쓴다(Finder에서 뜬 앱은 PATH가 짧다).
+
+```json
+{"mcpServers": {"logic": {"command": "/Users/<사용자>/.local/bin/uvx",
+  "args": ["--python", "3.12", "--from", "git+https://github.com/Imtylerrrrrr/logic-mcp", "logic-mcp"]}}}
+```
+
+### C. 개발
+
 1. 클론하고 의존성을 설치한다: `git clone https://github.com/Imtylerrrrrr/logic-mcp.git && cd logic-mcp && uv sync`
 2. Claude Code 프로젝트에 `.mcp.json` 추가 (`.mcp.json.example`의 경로를 클론한 위치로 바꾼다)
-3. Claude Code를 켠 뒤 Logic에서 프로젝트를 연다. Logic이 "LogicMCP" 포트를 Mackie Control로 자동 설치한다.
-4. 처음 한 번 `logic_session configure`를 호출한다(트랙 번호 표시, 값 표시 모드, Beats 클락).
-5. 스킬을 복사한다: `cp -R skills/logic-plugins ~/.claude/skills/`
+
+### 공통
+
+Logic에서 프로젝트를 열면 "LogicMCP" 포트가 Mackie Control로 자동 설치된다. 처음 한 번 `logic_session configure`를 호출한다(트랙 번호 표시, 값 표시 모드, Beats 클락).
 
 ## 빠른 사용법
 
-Claude Code에 자연어로 말하면 된다. 설치 5번의 스킬을 넣어 두면 Claude가 EQ·플러그인·센드 명령의 순서와 함정을 먼저 읽는다.
+Claude Code에 자연어로 말하면 된다. 설치 A의 스킬을 넣어 두면 Claude가 EQ·플러그인·센드 명령의 순서와 함정을 먼저 읽는다.
 
 ```
 1번 트랙 뮤트해
@@ -63,7 +87,7 @@ logic_mixer {"action": "set_volume", "strip": 3, "db": -6.0}
 | `logic_bank` | 뱅크·채널 이동, 번호가 보이도록 뱅크 찾기 |
 | `logic_session` | 연결 상태, 서피스 설치 대기, configure |
 | `logic_eq` | Channel EQ 밴드 8개의 주파수·게인·Q·슬로프·온/오프 읽기·쓰기 |
-| `logic_plugin` | 인서트 슬롯 1~8의 목록·삽입·제거·바이패스, 파라미터 읽기·쓰기, 플러그인 스캔 |
+| `logic_plugin` | 인서트 슬롯 1~8의 목록·삽입·제거·바이패스, 파라미터 읽기·쓰기, 플러그인 스캔, 파라미터 표 수집(calibrate, force 필요) |
 | `logic_send` | 센드 1~8의 목적지(버스)·레벨·위치·뮤트 읽기·쓰기 |
 
 리소스: `logic://status`, `logic://transport`, `logic://strips`, `logic://lcd`, `logic://plugins`, `logic://inserts`, `logic://view`.
@@ -90,12 +114,17 @@ logic_mixer {"action": "set_volume", "strip": 3, "db": -6.0}
 - 변경은 Logic 프로젝트에 그대로 반영된다. 처음에는 버려도 되는 테스트 프로젝트에서 써 보라. 서버는 프로젝트를 저장하지 않는다.
 - Logic을 재시작한 뒤 EQ·플러그인 같은 할당 버튼이 반응하지 않으면 [문제 해결](docs/troubleshooting.md)의 1-4(Mackie Control 장치 삭제·재연결)를 따른다.
 - 버스 센드를 새로 만들면 Logic이 Aux 트랙을 만들어 뒤쪽 트랙 번호가 밀린다. 그 뒤에는 `logic_bank show`나 `plugin list`로 번호를 다시 확인하라.
-- `scripts/calibrate_plugin.py`는 열린 프로젝트에 플러그인을 넣고 값을 움직인 뒤 되돌리지 않는다. 테스트 프로젝트에서만 쓰고 저장하지 마라.
+- `logic_plugin calibrate`와 `scripts/calibrate_plugin.py`는 열린 프로젝트에 플러그인을 넣고 값을 움직인 뒤 되돌리지 않는다. 테스트 프로젝트에서만 쓰고 저장하지 마라.
 - 사용자가 이미 쓰는 다른 컨트롤 서피스는 건드리지 않는다. 이 서버는 자기 포트 "LogicMCP"만 연다.
+
+문제가 생기면 [docs/troubleshooting.md](docs/troubleshooting.md)를 위에서 아래 순서로 확인하라.
 
 ## 개발
 
-- 단위 테스트: `uv run pytest` (실제 Logic 불필요, 가짜 Logic 모델로 288개)
+- 단위 테스트: `uv run pytest` (실제 Logic 불필요, 가짜 Logic 모델로 295개)
+- Python 3.12 확인: `uv run --isolated -p 3.12 pytest -q`
+- stdio 스모크(서버를 띄워 initialize만 주고받음, Logic 불필요): `uv run python scripts/smoke_stdio.py`
+- 배포 파일 빌드: `uv build`
 - 실기 검증(Logic에서 테스트 프로젝트를 열어 둔 채): `uv run python scripts/live_check.py` (트랜스포트·트랙·믹서), `uv run python scripts/live_check2.py [strip] [--scan]` (EQ·플러그인·센드)
 - `scripts/calibrate_plugin.py "<플러그인>" [strip] [--write] [--yes]` 플러그인 파라미터 표 수집(`--write`면 번들 `known.json`에 병합)
 - `scripts/capture.py` MCU 트래픽 캡처, `scripts/calibrate_fader.py` 페이더 dB 표 생성
