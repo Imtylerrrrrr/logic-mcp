@@ -73,6 +73,9 @@ def infer_mapping(lo: Value, hi: Value) -> Mapping | None:
         return None
     if not (math.isfinite(lo.number) and math.isfinite(hi.number)) or lo.number == hi.number:
         return None
+    # 's'↔'ms'처럼 단위가 바뀌는 표시는 선형 표로 못 쓴다(실측 2026-10-20 Space Designer Length: 1→'91.4 s', 16383→'183 ms')
+    if lo.unit != hi.unit:
+        return None
     if lo.unit == "Hz" and lo.number > 0:
         return Mapping("log", lo.number, hi.number)
     return Mapping("linear", lo.number, hi.number)

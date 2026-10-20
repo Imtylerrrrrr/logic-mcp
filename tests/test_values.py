@@ -82,3 +82,9 @@ def test_parse_value_allows_at_most_one_space_before_unit():                    
     assert v.kind == "number" and v.number == 18.0 and v.unit == "dB/Oct"
     v = parse_value("0.0 dB        ")
     assert v.kind == "number" and v.number == 0.0 and v.unit == "dB"
+
+
+def test_infer_mapping_requires_same_unit():                                       # 실측 2026-10-20 Space Designer Length: 1→'91.4 s', 16383→'183 ms'
+    assert infer_mapping(parse_value("91.4 s"), parse_value("183 ms")) is None
+    assert infer_mapping(parse_value("0.0 s"), parse_value("1.0 s")) == Mapping("linear", 0.0, 1.0)
+    assert infer_mapping(parse_value("20.0Hz"), parse_value("20.0kHz")) == Mapping("log", 20.0, 20000.0)
