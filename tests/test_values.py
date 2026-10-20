@@ -72,3 +72,13 @@ def test_parse_number_with_unknown_or_truncated_unit():       # 실측 R: `24 dB
 def test_parse_value_ratio_unit():                                    # Compressor Ratio `2.1:1`(실측 M)
     v = parse_value("2.1:1")
     assert v.kind == "number" and v.number == 2.1 and v.unit == ":1"
+
+
+def test_parse_value_allows_at_most_one_space_before_unit():                       # 실측 2026-10-20: '1.00   High'(5열+6열)는 숫자가 아니다
+    assert parse_value("1.00   High").kind == "enum"
+    v = parse_value("-78.4 d")
+    assert v.kind == "number" and v.number == -78.4 and v.unit == "dB"
+    v = parse_value("18 dB/O")
+    assert v.kind == "number" and v.number == 18.0 and v.unit == "dB/Oct"
+    v = parse_value("0.0 dB        ")
+    assert v.kind == "number" and v.number == 0.0 and v.unit == "dB"

@@ -8,7 +8,8 @@ from dataclasses import dataclass
 from ..mcu.protocol import MAX_FADER
 from .faders import FaderTable
 
-_NUM_RE = re.compile(r"^\s*([+-]?\d+(?:\.\d+)?|-oo)\s*([A-Za-z/%:0-9]*)\s*$")
+# 숫자·단위 사이 공백 1칸까지: 21칸 창에 이웃 열이 섞인 '1.00   High'를 숫자로 읽지 않게(실측 2026-10-20)
+_NUM_RE = re.compile(r"^\s*([+-]?\d+(?:\.\d+)?|-oo) ?([A-Za-z/%:0-9]*)\s*$")
 _UNITS = {"": None, "hz": "Hz", "khz": "kHz", "db": "dB", "d": "dB", "db/oct": "dB/Oct",
           "db/o": "dB/Oct", "db/oc": "dB/Oct",        # 7자 열에서 잘린 `18 dB/O`(실측 R)
           "ms": "ms", "s": "s", "%": "%", "st": "st", "ct": "ct", "smp": "smp", ":1": ":1"}
