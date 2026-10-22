@@ -1,7 +1,7 @@
 [project]
 name = "logic-mcp"
 version = "0.1.0"
-description = "Logic Pro를 Mackie Control 에뮬레이션으로 조작하는 MCP 서버"
+description = "MCP server that operates Logic Pro through Mackie Control emulation"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
