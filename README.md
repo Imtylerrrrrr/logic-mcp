@@ -114,12 +114,12 @@ Side effects: EQ, plugin and send commands change Logic's track selection; if a 
 ## Cautions
 
 - Changes are applied directly to your Logic project. Try it first on a test project you can throw away. The server does not save the project.
-- If assignment buttons such as EQ and Plugin stop responding after you restart Logic, follow 1-4 of [Troubleshooting](docs/troubleshooting.md) (Korean) (delete and reconnect the Mackie Control device).
+- If assignment buttons such as EQ and Plugin stop responding after you restart Logic, follow 1-4 of [Troubleshooting](docs/troubleshooting.md) (delete and reconnect the Mackie Control device).
 - Creating a new bus send makes Logic create an Aux track and shifts the numbers of the tracks behind it. Afterwards, check the numbers again with `logic_bank show` or `plugin list`.
 - `logic_plugin calibrate` and `scripts/calibrate_plugin.py` insert a plugin into the open project, move its values, and do not put them back. Use them only in a test project and do not save.
 - It does not touch any other control surface you already use. This server opens only its own port, "LogicMCP".
 
-If something goes wrong, work through [docs/troubleshooting.md](docs/troubleshooting.md) (Korean) from top to bottom.
+If something goes wrong, work through [docs/troubleshooting.md](docs/troubleshooting.md) from top to bottom.
 
 ## Development
 
@@ -130,7 +130,9 @@ If something goes wrong, work through [docs/troubleshooting.md](docs/troubleshoo
 - Live verification (with a test project open in Logic): `uv run python scripts/live_check.py` (transport, tracks, mixer), `uv run python scripts/live_check2.py [strip] [--scan]` (EQ, plugins, sends)
 - `scripts/calibrate_plugin.py "<plugin>" [strip] [--write] [--yes]` collects plugin parameter tables (with `--write`, merges them into the bundled `known.json`)
 - `scripts/capture.py` captures MCU traffic, `scripts/calibrate_fader.py` generates the fader dB table
-- Docs (all Korean): design `docs/superpowers/specs/`, implementation plans `docs/superpowers/plans/`, measured protocol notes `docs/mcu-protocol.md`, progress log `docs/progress.md`, reviews `docs/reviews/`
+- Docs: design `docs/superpowers/specs/`, implementation plans `docs/superpowers/plans/`, measured protocol notes `docs/mcu-protocol.md`, progress log `docs/progress.md`, reviews `docs/reviews/`
+
+Internal engineering notes (protocol measurements, progress log, specs, plans, reviews) are kept in Korean.
 
 ## License
 

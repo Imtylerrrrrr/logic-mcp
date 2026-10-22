@@ -114,12 +114,12 @@ logic_mixer {"action": "set_volume", "strip": 3, "db": -6.0}
 ## 주의
 
 - 변경은 Logic 프로젝트에 그대로 반영된다. 처음에는 버려도 되는 테스트 프로젝트에서 써 보라. 서버는 프로젝트를 저장하지 않는다.
-- Logic을 재시작한 뒤 EQ·플러그인 같은 할당 버튼이 반응하지 않으면 [문제 해결](docs/troubleshooting.md)의 1-4(Mackie Control 장치 삭제·재연결)를 따른다.
+- Logic을 재시작한 뒤 EQ·플러그인 같은 할당 버튼이 반응하지 않으면 [문제 해결](docs/troubleshooting.ko.md)의 1-4(Mackie Control 장치 삭제·재연결)를 따른다.
 - 버스 센드를 새로 만들면 Logic이 Aux 트랙을 만들어 뒤쪽 트랙 번호가 밀린다. 그 뒤에는 `logic_bank show`나 `plugin list`로 번호를 다시 확인하라.
 - `logic_plugin calibrate`와 `scripts/calibrate_plugin.py`는 열린 프로젝트에 플러그인을 넣고 값을 움직인 뒤 되돌리지 않는다. 테스트 프로젝트에서만 쓰고 저장하지 마라.
 - 사용자가 이미 쓰는 다른 컨트롤 서피스는 건드리지 않는다. 이 서버는 자기 포트 "LogicMCP"만 연다.
 
-문제가 생기면 [docs/troubleshooting.md](docs/troubleshooting.md)를 위에서 아래 순서로 확인하라.
+문제가 생기면 [docs/troubleshooting.md](docs/troubleshooting.ko.md)를 위에서 아래 순서로 확인하라.
 
 ## 개발
 
