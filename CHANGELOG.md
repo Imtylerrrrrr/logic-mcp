@@ -2,7 +2,7 @@
 
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따른다.
 
-## [0.1.0] - 미정(태그 때 날짜)
+## [0.1.0] - 2026-10-22
 
 ### Added
 - 툴 8개: 트랜스포트·트랙·믹서·뱅크 (`logic_transport`, `logic_track`, `logic_mixer`, `logic_bank`, `logic_session`)

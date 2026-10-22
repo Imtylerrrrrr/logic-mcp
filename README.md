@@ -57,16 +57,16 @@ When you open a project in Logic, the "LogicMCP" port is installed automatically
 
 ## Quick start
 
-Just talk to Claude Code in natural language. If you installed the skill from installation A, Claude first reads the order of operations and the pitfalls of the EQ, plugin and send commands. (The example prompts below are in Korean, each with its English meaning.)
+Just talk to Claude Code in natural language. If you installed the skill from installation A, Claude first reads the order of operations and the pitfalls of the EQ, plugin and send commands.
 
 ```
-1번 트랙 뮤트해  — mute track 1
-3번 트랙 볼륨 -6 dB로 맞춰  — set track 3 volume to -6 dB
-2번 트랙 Channel EQ 밴드 3을 1 kHz, +3 dB로  — set track 2 Channel EQ band 3 to 1 kHz, +3 dB
-1번 트랙 인서트 슬롯 2에 Compressor 넣어줘  — insert a Compressor in track 1 insert slot 2
-그 Compressor의 Threshold를 -20 dB로  — set that Compressor's Threshold to -20 dB
-현재 뱅크 플러그인 목록 보여줘  — show the plugin list for the current bank
-1번 트랙 센드 1을 Bus 2로 보내고 레벨 -12 dB  — route track 1 send 1 to Bus 2 at -12 dB
+Mute track 1
+Set track 3 volume to -6 dB
+Set track 2 Channel EQ band 3 to 1 kHz, +3 dB
+Insert a Compressor in track 1 insert slot 2
+Set that Compressor's Threshold to -20 dB
+Show the plugin list for the current bank
+Route track 1 send 1 to Bus 2 at -12 dB
 ```
 
 A track is addressed by either `strip` (1-8 in the current bank) or `number` (the Logic track number shown on the LCD). Calling a tool directly looks like this.
