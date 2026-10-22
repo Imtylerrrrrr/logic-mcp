@@ -4,6 +4,11 @@
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.1] - 2026-10-22
+### Changed
+- English is now the base language: README, troubleshooting guide, changelog, the `logic-plugins` skill, MCP tool descriptions and server instructions are in English. Korean versions live in `*.ko.md` files, cross-linked at the top.
+- Quick start examples in the README are in English.
+
 ## [0.1.0] - 2026-10-22
 
 ### Added

@@ -4,6 +4,11 @@
 
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따른다.
 
+## [0.1.1] - 2026-10-22
+### Changed
+- 기본 언어를 영어로 전환: README·문제 해결 문서·CHANGELOG·`logic-plugins` 스킬·MCP 툴 설명·서버 instructions가 영어. 한국어판은 `*.ko.md` 파일로 분리하고 맨 위에서 상호 링크.
+- README의 Quick start 예시를 영어로.
+
 ## [0.1.0] - 2026-10-22
 
 ### Added
