@@ -12,12 +12,12 @@ from .tools import register_tools
 
 
 INSTRUCTIONS = (
-    "Logic Pro를 Mackie Control 에뮬레이션으로 조작한다. 시작 순서: logic_session wait_ready → "
-    "logic_session configure(처음 한 번. Logic이 서피스를 다시 설치한 뒤에도 한 번) → logic://plugins 리소스 확인"
-    "(scanned_at이 없거나 logic_version이 다르면 logic_plugin scan 권장).\n"
-    "트랙은 strip(현재 뱅크 1~8) 또는 number(LCD에 찍히는 Logic 트랙 번호) 중 하나로 지정한다.\n"
-    "모든 결과는 ok·verified(verified/unverified/skipped/timeout)·note를 가진다. ok가 false면 note가 이유다.\n"
-    "EQ·플러그인·센드의 순서와 함정은 레포의 skills/logic-plugins/SKILL.md에 있다. 서버는 프로젝트를 저장하지 않는다."
+    "Operates Logic Pro through Mackie Control emulation. Startup order: logic_session wait_ready → "
+    "logic_session configure (once at first; once more after Logic reinstalls the surface) → check the logic://plugins resource "
+    "(if scanned_at is missing or logic_version differs, logic_plugin scan is recommended).\n"
+    "Address a track with either strip (1-8 in the current bank) or number (the Logic track number shown on the LCD).\n"
+    "Every result has ok, verified (verified/unverified/skipped/timeout), and note. If ok is false, note gives the reason.\n"
+    "The order of operations and pitfalls for EQ, plug-ins, and sends are in the repo's skills/logic-plugins/SKILL.md. The server does not save the project."
 )
 
 

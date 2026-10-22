@@ -10,21 +10,21 @@ from pydantic import Field
 
 from ..logic.commands import Commands, ToolResult
 
-Strip = Annotated[int | None, Field(ge=1, le=8, description="현재 뱅크의 스트립 1-8. number와 둘 중 하나만")]
-Number = Annotated[int | None, Field(ge=1, description="LCD에 찍히는 Logic 채널 번호(절대 주소). strip과 둘 중 하나만")]
-Slot = Annotated[int | None, Field(ge=1, le=8, description="인서트 슬롯 1-8(Plug-in Channel 뷰에서 닿는 슬롯)")]
+Strip = Annotated[int | None, Field(ge=1, le=8, description="Strip 1-8 in the current bank. Give either this or number, not both")]
+Number = Annotated[int | None, Field(ge=1, description="Logic channel number shown on the LCD (absolute address). Give either this or strip, not both")]
+Slot = Annotated[int | None, Field(ge=1, le=8, description="Insert slot 1-8 (the slots reachable in the Plug-in Channel view)")]
 
 
 def register_tools(mcp: MCPServer, commands: Commands) -> None:
     @mcp.tool(name="logic_transport", annotations=ToolAnnotations(idempotent_hint=True),
-              description="재생/정지/녹음/사이클/되감기/빨리감기. LED와 타임 디스플레이로 검증한다.")
+              description="Play, stop, record, cycle, rewind, fast-forward. Verified via the LEDs and the time display.")
     def logic_transport(
         action: Literal["play", "stop", "record", "cycle_on", "cycle_off", "rewind", "fast_forward"],
     ) -> ToolResult:
         return commands.transport(action)
 
     @mcp.tool(name="logic_track", annotations=ToolAnnotations(idempotent_hint=True),
-              description="트랙 뮤트/솔로/녹음 활성/선택. 이미 그 상태면 보내지 않는다(skipped).")
+              description="Track mute, solo, record-arm, and select. If the track is already in that state, nothing is sent (skipped).")
     def logic_track(
         action: Literal["mute", "unmute", "solo", "unsolo", "arm", "disarm", "select"],
         strip: Strip = None,
@@ -33,12 +33,12 @@ def register_tools(mcp: MCPServer, commands: Commands) -> None:
         return commands.track(action, strip=strip, number=number)
 
     @mcp.tool(name="logic_mixer", annotations=ToolAnnotations(idempotent_hint=True),
-              description="볼륨(dB, -inf..+6.0)과 팬(-64..63). 팬은 V-Pot가 PAN 모드일 때만.")
+              description="Volume (dB, -inf..+6.0) and pan (-64..63). Pan works only while the V-Pot is in PAN mode.")
     def logic_mixer(
         action: Literal["set_volume", "set_pan"],
         strip: Strip = None,
         number: Number = None,
-        db: Annotated[float | Literal["-inf"] | None, Field(description="set_volume: dB. 문자열 \"-inf\" 허용")] = None,
+        db: Annotated[float | Literal["-inf"] | None, Field(description="set_volume: dB. The string \"-inf\" is allowed")] = None,
         pan: Annotated[int | None, Field(ge=-64, le=63, description="set_pan: -64(L)..63(R)")] = None,
     ) -> ToolResult:
         if action == "set_volume":
@@ -51,7 +51,7 @@ def register_tools(mcp: MCPServer, commands: Commands) -> None:
         return commands.mixer_pan(strip, number, pan)
 
     @mcp.tool(name="logic_bank",
-              description="8스트립 뱅크 이동. show는 number가 보이도록 뱅크를 찾아간다.")
+              description="Move the 8-strip bank. show navigates to the bank in which number is visible.")
     def logic_bank(
         action: Literal["left", "right", "channel_left", "channel_right", "first", "last", "show"],
         number: Number = None,
@@ -59,7 +59,7 @@ def register_tools(mcp: MCPServer, commands: Commands) -> None:
         return commands.bank(action, number=number)
 
     @mcp.tool(name="logic_session",
-              description="status: 연결 상태. wait_ready: Logic이 서피스를 설치할 때까지 대기. configure: 번호 표시·값 모드·Beats 클락 보정(처음 한 번).")
+              description="status: connection state. wait_ready: wait until Logic installs the surface. configure: set number display, value mode, and Beats clock correction (once at first).")
     def logic_session(
         action: Literal["status", "wait_ready", "configure"],
         timeout_s: Annotated[float, Field(gt=0, le=120)] = 10.0,
@@ -71,16 +71,16 @@ def register_tools(mcp: MCPServer, commands: Commands) -> None:
         return commands.configure()
 
     @mcp.tool(name="logic_eq", annotations=ToolAnnotations(idempotent_hint=True),
-              description="Channel EQ. get: 8밴드 전체(EQ가 없으면 has_eq=false, 삽입하지 않음). "
-                          "set: band 1-8, param freq|gain|slope|q|on, value. 밴드 1·8은 gain 대신 slope(6/12/18/24/36/48). "
-                          "EQ가 없으면 allow_insert=true일 때만 Channel EQ를 삽입한다. 끝나면 PAN 모드로 돌아간다.")
+              description="Channel EQ. get: all 8 bands (has_eq=false if there is no EQ; nothing is inserted). "
+                          "set: band 1-8, param freq|gain|slope|q|on, value. Bands 1 and 8 take slope (6/12/18/24/36/48) instead of gain. "
+                          "If there is no EQ, a Channel EQ is inserted only when allow_insert=true. Returns to PAN mode when done.")
     def logic_eq(
         action: Literal["get", "set"],
         strip: Strip = None,
         number: Number = None,
         band: Annotated[int | None, Field(ge=1, le=8)] = None,
         param: Literal["freq", "gain", "slope", "q", "on"] | None = None,
-        value: Annotated[float | bool | None, Field(description="freq Hz, gain dB, slope 6..48, q 수치, on 불")] = None,
+        value: Annotated[float | bool | None, Field(description="freq Hz, gain dB, slope 6..48, q number, on boolean")] = None,
         allow_insert: bool = True,
     ) -> ToolResult:
         if action == "get":
@@ -90,22 +90,22 @@ def register_tools(mcp: MCPServer, commands: Commands) -> None:
         return commands.eq.set(strip, number, band, param, value, allow_insert)
 
     @mcp.tool(name="logic_plugin",
-              description="인서트 플러그인. list: 인벤토리(strip/number 없으면 뱅크 전체). params: 플러그인 파라미터 전체(인덱스·축약명·값). "
-                          "get/set: param은 이름(부분 일치) 또는 인덱스, value는 숫자 또는 선택지 텍스트. insert: plugin 이름(부분 일치), "
-                          "차 있으면 replace=true 필요. remove. bypass(on). scan: 삽입 메뉴 전 범위 스캔(60~180초, 삽입 없음, 빈 슬롯 필요). "
-                          "편집 뷰 진입 시 Logic이 플러그인 창을 열고 닫는다. 끝나면 PAN 모드로 돌아간다. "
-                          "calibrate: 슬롯 플러그인의 파라미터 표를 전부 수집해 사용자 캐시에 저장(2~20분, 값을 되돌리지 않으므로 force=true 필요).")
+              description="Insert plug-ins. list: inventory (the whole bank if no strip/number). params: all plug-in parameters (index, short name, value). "
+                          "get/set: param is a name (partial match) or an index, value is a number or option text. insert: plugin name (partial match), "
+                          "replace=true is required if the slot is occupied. remove. bypass(on). scan: scan the whole insert menu (60-180 s, nothing is inserted, needs an empty slot). "
+                          "Logic opens and closes the plug-in window when the edit view is entered. Returns to PAN mode when done. "
+                          "calibrate: collect the full parameter table of the plug-in in the slot and save it to the user cache (2-20 min; values are not restored, so force=true is required).")
     def logic_plugin(
         action: Literal["list", "params", "get", "set", "insert", "remove", "bypass", "scan", "calibrate"],
         strip: Strip = None,
         number: Number = None,
         slot: Slot = None,
-        param: Annotated[str | int | None, Field(description="파라미터 이름(부분 일치) 또는 1부터 인덱스. index는 params 결과의 번호를 그대로 쓸 것(마지막 페이지에서 번호가 건너뛸 수 있음)")] = None,
-        value: Annotated[float | str | bool | None, Field(description="set: 숫자 또는 선택지 텍스트(예: \"On\")")] = None,
-        plugin: Annotated[str | None, Field(description="insert: 플러그인 이름(부분 일치)")] = None,
+        param: Annotated[str | int | None, Field(description="Parameter name (partial match) or 1-based index. Use the index exactly as given in the params result (numbers can skip on the last page)")] = None,
+        value: Annotated[float | str | bool | None, Field(description="set: a number or option text (e.g. \"On\")")] = None,
+        plugin: Annotated[str | None, Field(description="insert: plug-in name (partial match)")] = None,
         replace: bool = False,
-        on: Annotated[bool | None, Field(description="bypass: true=바이패스")] = None,
-        tolerance: Annotated[float | None, Field(gt=0, description="set: 허용 오차(기본 dB 0.1, 그 밖 1%)")] = None,
+        on: Annotated[bool | None, Field(description="bypass: true = bypassed")] = None,
+        tolerance: Annotated[float | None, Field(gt=0, description="set: tolerance (default 0.1 for dB, 1% otherwise)")] = None,
         force: bool = False,
     ) -> ToolResult:
         name = f"plugin_{action}"
@@ -141,19 +141,19 @@ def register_tools(mcp: MCPServer, commands: Commands) -> None:
         return commands.plugin.bypass(strip, number, slot, on)
 
     @mcp.tool(name="logic_send", annotations=ToolAnnotations(idempotent_hint=True),
-              description="센드 1-8. get: 8개 전체(목적지 버스·레벨 dB·위치·뮤트). set_dest: dest는 버스 번호(\"Bus 3\"·\"3\"·3) 또는 "
-                          "\"--\"(제거). set_level: db(-inf..+6.0). set_pos: pre|post|post_pan. mute: on. remove. 버스 센드를 새로 만들면 "
-                          "Logic이 Aux 트랙을 자동 생성해 뒤 트랙 번호가 바뀔 수 있다. 출력·Master 스트립은 지원하지 않는다(skipped). "
-                          "끝나면 PAN 모드로 돌아간다.")
+              description="Sends 1-8. get: all 8 (destination bus, level dB, position, mute). set_dest: dest is a bus number (\"Bus 3\", \"3\", 3) or "
+                          "\"--\" (remove). set_level: db (-inf..+6.0). set_pos: pre|post|post_pan. mute: on. remove. Creating a new bus send makes "
+                          "Logic auto-create an Aux track, so the numbers of later tracks may shift. Output and Master strips are not supported (skipped). "
+                          "Returns to PAN mode when done.")
     def logic_send(
         action: Literal["get", "set_dest", "set_level", "set_pos", "mute", "remove"],
         strip: Strip = None,
         number: Number = None,
-        send: Annotated[int | None, Field(ge=1, le=8, description="센드 1-8")] = None,
-        dest: Annotated[str | int | None, Field(description="set_dest: \"Bus 3\", \"3\", 3 또는 \"--\"")] = None,
-        db: Annotated[float | Literal["-inf"] | None, Field(description="set_level: dB. 문자열 \"-inf\" 허용")] = None,
+        send: Annotated[int | None, Field(ge=1, le=8, description="Send 1-8")] = None,
+        dest: Annotated[str | int | None, Field(description="set_dest: \"Bus 3\", \"3\", 3, or \"--\"")] = None,
+        db: Annotated[float | Literal["-inf"] | None, Field(description="set_level: dB. The string \"-inf\" is allowed")] = None,
         pos: Literal["pre", "post", "post_pan"] | None = None,
-        on: Annotated[bool | None, Field(description="mute: true=뮤트")] = None,
+        on: Annotated[bool | None, Field(description="mute: true = muted")] = None,
     ) -> ToolResult:
         name = f"send_{action}"
         if action == "get":
