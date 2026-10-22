@@ -4,8 +4,6 @@
 
 Claude Code가 Logic Pro를 조작하는 MCP 서버. Logic이 공식 지원하는 Mackie Control(MCU) 프로토콜을 CoreMIDI 가상 포트로 에뮬레이션하고, 모든 명령을 Logic이 서피스로 돌려보내는 LED·페이더·LCD 피드백으로 검증한다. 화면을 클릭하거나 접근성 API를 쓰지 않는다. 오가는 것은 MIDI만이다.
 
-> **English:** An MCP server that lets Claude Code (or any MCP client) operate Logic Pro by emulating a Mackie Control surface over a CoreMIDI virtual port. Every command is checked against the LED, fader and LCD feedback Logic sends back to the surface, so each result says whether it actually happened. No UI scripting, no accessibility hooks, MIDI only. Measured against Logic Pro 12.0.1. Documentation is in Korean.
-
 ## 할 수 있는 것
 
 - 트랜스포트: 재생·정지·녹음·사이클·되감기·빨리감기
