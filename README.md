@@ -40,11 +40,11 @@ git clone https://github.com/Imtylerrrrrr/logic-mcp.git && cp -R logic-mcp/skill
 Add this to `~/Library/Application Support/Claude/claude_desktop_config.json`. Use the absolute path from `which uvx` for `command` (apps launched from Finder have a short PATH).
 
 ```json
-{"mcpServers": {"logic": {"command": "/Users/<사용자>/.local/bin/uvx",
+{"mcpServers": {"logic": {"command": "/Users/<user>/.local/bin/uvx",
   "args": ["--python", "3.12", "--from", "git+https://github.com/Imtylerrrrrr/logic-mcp", "logic-mcp"]}}}
 ```
 
-(`<사용자>` is a placeholder for your macOS user name.)
+(`<user>` is your macOS user name.)
 
 ### C. Development
 
