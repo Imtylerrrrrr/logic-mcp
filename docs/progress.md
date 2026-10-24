@@ -90,3 +90,14 @@ bank first   ok=True skipped    1049ms already
 - 다음: 스펙 3(공개 릴리스 준비). 수정 후보: `configure`의 값 표시 판정(`-`·`Ch Out`, PAN 파라미터 복구, Z17), `플러그인 윈도우 열기/닫기` 해제 뒤 Z16 재측정.
 - 미검증 경로 자리.
 - 다음: 스펙 3(공개 준비: GitHub 원격, 설치 문서, 악기 슬롯 검토).
+
+## 실전 사용 교훈 (2026-10-24, guitartone 프로젝트에서 기타 톤 배치)
+배경: 사용자의 실제 프로젝트(저장 안 함)에 트랙 1·2 체인과 Bus 1·2 센드, Aux 두 개의 딜레이·리버브를 MCU로 배치. 명령은 서버가 아니라 `build()`로 직접 호출(스크래치 스크립트, 몇 시간 뒤 폴더 비워져 소실).
+- **삽입 위치 캐시 불일치(F1)**: 캐시 목록(126개, 10/24 03:01 재스캔)과 이 프로젝트의 메뉴 순서가 달라 `insert`가 위치 58에서 'Tremolo'를 봄(기대 Channel EQ). 모노·스테레오 트랙은 메뉴 항목 수 자체가 다름(10/19 163개 vs 10/24 126개). 해결: `--`로 되감은 뒤 1틱씩 오버레이를 읽어 이름이 맞을 때 확정하는 by-name 삽입(58~111틱 안에 찾음, 9종 모두 verified). → `insert`에 이름 탐색 폴백을 넣을 만함.
+- **Aux 스트립(F2)**: 트랙이 없는 Aux는 Plug-in Channel 뷰가 따라가지 않음 — `plugin list`가 Aux 스트립에 **선택된 트랙의 슬롯을 그대로 보고**(오인), `insert`가 선택 트랙 슬롯 1에 들어감(Tape Delay가 트랙 1에 삽입돼 제거). Plug-in Mixer 뷰(V-Pot n = 스트립 n의 슬롯 1)로는 삽입 성공(Tape Delay·ChromaVerb). 그러나 편집 뷰는 선택 트랙 슬롯을 열어(`empty_edit`) Aux 플러그인 파라미터는 못 만짐. `StripKinds.follows`는 Aux를 지원으로 판정(Output 열 있음) → Aux 전용 판정 필요.
+- **슬롯 1 편집 불일치(F3)**: 트랙 1 슬롯 1(Tape Delay, Overdrive)은 `press_vpot` 뒤 `empty_edit 1`로 두 번 실패했는데, 트랙 2 슬롯 1(Noise Gate)은 정상. 원인 미확인.
+- **enum·매핑 결함(F4)**: Compressor `Circuit Type` 번들 options가 중복('Vintage','VinOpt' 반복)이고 `set_enum`이 'Studio'만 반복 관측 → 실패. Compressor/Noise Gate `Release`는 번들 map이 linear(5~5000)인데 실제는 로그형 → 6회 안에 못 맞추고 프로빙도 실패(130 ms에서 복원). Channel EQ `Low Shelf Gain`은 기본 허용 오차 0.1 dB가 페이더 분해능보다 좁음(+3.2에서 실패, 0.3이면 성공). `page_to` 커서 무응답 1회(Z13 재현).
+- **센드 생성 뒤 스트립 이동(S5 재확인)**: Bus 1·2 센드로 Aux1·Aux2 자동 생성, 트랙 2를 만들자 Aux가 스트립 5·6으로 밀림. 스트립 번호를 하드코딩한 패치가 트랙 2를 Aux로 오인(`mixer: 기대 slot 1`).
+- **프로젝트 메인 윈도우 닫힘(Z18)**: 세션 중 메인 윈도우만 닫히고 프로젝트·플러그인 창은 남는 현상 2회(03시, 07시). MCU에는 창 닫기 명령이 없음. ⌘1로 복구. 원인 미확인(Z11과 같은 현상일 수 있음).
+- 사용 쪽 메모: NAM 플러그인 0.7.13은 2026년 TONE3000 캡처(version 0.7.0 SlimmableContainer)를 못 읽음 → TONE3000 공식 플러그인(AU `aumf T3K0 TFTF`)으로 해결. TONE3000은 프로젝트 재열기 뒤 캡처를 잃기도 함(클린+잡음).
+- 다음 후보: ① `insert` 이름 탐색 폴백 ② Aux 스트립 판정·안내 ③ Release 로그 매핑 재수집 ④ by-name 삽입·ops 러너를 `scripts/`로 승격.
