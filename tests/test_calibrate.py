@@ -84,7 +84,7 @@ def test_calibrate_reads_values_only_after_name_value_redraws_row2(tmp_path):   
     r = cmds.plugin.calibrate(strip=1, number=None, slot=2)
     assert r.verified == "verified"
     items = {it["index"]: it for it in r.after["items"]}
-    assert items[5]["short"] == "Rel" and items[5]["map"]["type"] == "linear"          # 남은 축약명 `Rel`을 값으로 읽으면 enum
+    assert items[5]["short"] == "Rel" and items[5]["map"]["type"] == "log"             # 남은 축약명 `Rel`을 값으로 읽으면 enum. 5~5000은 로그 추정(2026-10-27)
     kinds = {p.short: p.kind for p in compressor()}
     for it in items.values():
         assert it["map"] is None or (it["map"]["type"] == "enum") == (kinds[it["short"]] == "enum"), it

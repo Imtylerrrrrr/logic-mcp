@@ -95,3 +95,11 @@ def test_tolerance_defaults():                       # 실전 F4: dB 0.1·Hz 1 %
     assert tolerance_for(3500, "Hz") == 70.0
     assert tolerance_for(0.5, None) == 0.01
     assert tolerance_for(50.0, "ms") == 1.0 and tolerance_for(0.2, "%") == 0.02     # 단위 있는 값은 max(|목표|, 1) × 2 %
+
+
+def test_infer_mapping_accepts_lcd_truncated_unit_and_wide_positive_range_is_log():   # 실측 2026-10-27 Compressor Release: 1→'5.0 ms', 16383→'5000.0'(6자 칸에서 단위 잘림)
+    assert infer_mapping(parse_value("5.0 ms"), parse_value("5000.0")) == Mapping("log", 5.0, 5000.0)
+    assert infer_mapping(parse_value("5.0 ms"), parse_value("160.0 m")) == Mapping("linear", 5.0, 160.0)   # 비율 32 < 100, 'm'은 'ms' 접두·7자
+    assert infer_mapping(parse_value("91.4 s"), parse_value("183 ms")) is None                              # 's'는 'ms'의 접두가 아님
+    assert infer_mapping(parse_value("0.0 ms"), parse_value("5000.0")) == Mapping("linear", 0.0, 5000.0)    # lo=0은 log 불가
+    assert infer_mapping(parse_value("3 dB"), parse_value("5000.0")) is None                                # '3 dB'는 4자 → 잘림 아님
