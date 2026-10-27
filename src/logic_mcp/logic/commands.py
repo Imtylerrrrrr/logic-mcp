@@ -131,7 +131,7 @@ class Commands:
         """대상 트랙을 선택하고 kind 뷰(PL 또는 SE)로 간다. PL: 2행 = 선택 트랙의 슬롯 1~8, V-Pot n = 슬롯 n(실측 C·D).
         PL 안에서 SELECT 만 눌러 트랙을 바꾸면 2행이 그 트랙의 슬롯으로 바뀌지 않는다(실기 8차: 트랙 이름 조각이 읽힘, 실측 Z3)
         → 이미 PL/SE 이고 다른 스트립이면 PAN 으로 나가 다시 들어간다(SE도 같은 규칙). 출력·Master 스트립은 PL/SE가
-        따라가지 않으므로 먼저 막는다(실측 Z4·S10, 수정 8). Aux 스트립도 채널 뷰가 따라가지 않는다(실전 F2) → StripAux."""
+        따라가지 않으므로 먼저 막는다(실측 Z4·S10, 수정 8). Aux 스트립도 PL은 따라가지 않고(실전 F2) SE도 그렇다고 가정(미측정) → StripAux."""
         if self.strips.ensure(self.modes, self.surface.state, ch) == "aux" and kind in AUX_BLIND_VIEWS:
             s = self.surface.state.strips[ch]
             raise StripAux(ch, s.number, s.name)

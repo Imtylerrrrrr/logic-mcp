@@ -12,7 +12,8 @@ description: Order of operations and pitfalls when using Logic Pro MCP (logic-mc
 2. Read the `logic://plugins` resource. If `scanned_at` is missing or `logic_version` differs, suggest `logic_plugin scan` (60-180 s, needs one empty slot; the slot on screen flickers but nothing is inserted).
 
 ## Plug-ins
-- If `insert` says "not in the list", run `scan` and try again. A filled slot is replaced only with `replace=true`.
+- If the cached list position shows another plug-in, or the name is not in the list, `insert` scans the insert menu by name (prefix match for unknown names; `note` is `name_scan:<ticks>`, up to ~2-3 minutes). If even that does not find it (`unverified`, nothing confirmed), run `scan` and try again. A filled slot is replaced only with `replace=true`.
+- `move` (slot → empty `to_slot`) is remove + reinsert: the plug-in's settings are reset. If the result says the remove worked but the reinsert failed, insert the named plug-in again yourself.
 - Read `params` first, then `get`/`set` by `short` (abbreviated name) or `index`. The last page may skip indexes, so use the index that params gave you as is.
 - If a third-party plug-in gives only unnamed `Control #N` (0-1000), address it by index; values are integers 0-1000.
 - Insert slots are 1-8 only.
@@ -26,6 +27,7 @@ description: Order of operations and pitfalls when using Logic Pro MCP (logic-mc
 
 ## Not supported
 - Output (Stereo Out) and Master strips: EQ channel, plug-in, and send commands are `skipped` (Logic's channel view does not follow those strips, so the wrong track would be changed). `eq get` only reports whether an EQ exists.
+- Aux strips (no track, `aux` in `plugin list`): only plug-in slot 1 insert/remove works (through the Plug-in Mixer view); `list` reports slot 1 only. Other plug-in commands, sends, and EQ are `skipped`.
 - Insert slots 9-15, instrument and MIDI FX slots, surround, and send destinations that are not buses.
 
 ## Safety

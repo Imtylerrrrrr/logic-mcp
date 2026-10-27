@@ -92,7 +92,8 @@ def register_tools(mcp: MCPServer, commands: Commands) -> None:
     @mcp.tool(name="logic_plugin",
               description="Insert plug-ins. list: inventory (the whole bank if no strip/number). params: all plug-in parameters (index, short name, value). "
                           "get/set: param is a name (partial match) or an index, value is a number or option text. insert: plugin name (partial match), "
-                          "replace=true is required if the slot is occupied. remove. bypass(on). scan: scan the whole insert menu (60-180 s, nothing is inserted, needs an empty slot). "
+                          "replace=true is required if the slot is occupied; if the cached list position shows another plug-in (or the name is not in the list), "
+                          "the insert menu is scanned by name, which can take up to ~2-3 minutes. remove. bypass(on). scan: scan the whole insert menu (60-180 s, nothing is inserted, needs an empty slot). "
                           "Aux strips (no track): only slot 1 insert/remove, via the Plug-in Mixer view. "
                           "move: remove + reinsert into an empty slot (to_slot); plug-in settings are reset. "
                           "Logic opens and closes the plug-in window when the edit view is entered. Returns to PAN mode when done. "
@@ -102,7 +103,7 @@ def register_tools(mcp: MCPServer, commands: Commands) -> None:
         strip: Strip = None,
         number: Number = None,
         slot: Slot = None,
-        to_slot: Slot = None,
+        to_slot: Annotated[int | None, Field(ge=1, le=8, description="move: destination slot 1-8, must be empty")] = None,
         param: Annotated[str | int | None, Field(description="Parameter name (partial match) or 1-based index. Use the index exactly as given in the params result (numbers can skip on the last page)")] = None,
         value: Annotated[float | str | bool | None, Field(description="set: a number or option text (e.g. \"On\")")] = None,
         plugin: Annotated[str | None, Field(description="insert: plug-in name (partial match)")] = None,
@@ -150,7 +151,8 @@ def register_tools(mcp: MCPServer, commands: Commands) -> None:
     @mcp.tool(name="logic_send", annotations=ToolAnnotations(idempotent_hint=True),
               description="Sends 1-8. get: all 8 (destination bus, level dB, position, mute). set_dest: dest is a bus number (\"Bus 3\", \"3\", 3) or "
                           "\"--\" (remove). set_level: db (-inf..+6.0). set_pos: pre|post|post_pan. mute: on. remove. Creating a new bus send makes "
-                          "Logic auto-create an Aux track, so the numbers of later tracks may shift. Output and Master strips are not supported (skipped). "
+                          "Logic auto-create an Aux track, so the numbers of later tracks may shift. Output, Master, and Aux strips are not supported (skipped; for Aux strips this is a precaution, "
+                          "since the Send Channel view is assumed not to follow them). "
                           "Returns to PAN mode when done.")
     def logic_send(
         action: Literal["get", "set_dest", "set_level", "set_pos", "mute", "remove"],
