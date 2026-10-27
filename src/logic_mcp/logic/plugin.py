@@ -650,7 +650,7 @@ class PluginCommands:
                     put = self._insert_body(action, t0, target, ch, to_slot, full, replace=False)
                 except ModeError as e:                               # 제거는 끝났다: 이름을 잃지 않게 결과로 돌려준다
                     return b._result(action, False, "unverified", t0, target=target, before={"slot": slot, "plugin": full},
-                                     after=moved, note=f"제거는 됐으나 재삽입 실패: {e} — {full!r}를 수동으로 다시 넣을 것")
+                                     after=moved, note=f"제거는 됐으나 재삽입 실패: {e} — {full!r}가 to_slot에 들어갔는지 확인한 뒤 수동으로 다시 넣을 것")
                 if put.verified != "verified":
                     return b._result(action, False, "unverified", t0, target=target, before={"slot": slot, "plugin": full},
                                      after=moved, note=f"슬롯 {slot}의 {full!r} 제거는 됐으나 재삽입 실패(슬롯 {to_slot}): {put.note}. "

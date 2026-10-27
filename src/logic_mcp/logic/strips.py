@@ -21,7 +21,7 @@ class StripUnsupported(Exception):
 
 class StripAux(Exception):
     def __init__(self, ch: int, number: int | None, name: str) -> None:
-        self.note = (f"스트립 {ch + 1}(번호 {number}, {name!r})은 Aux 채널 스트립이라 채널 뷰(PL·SE·EQ)가 따라가지 않음(실측 Z19). "
+        self.note = (f"스트립 {ch + 1}(번호 {number}, {name!r})은 Aux 채널 스트립이라 채널 뷰가 따라가지 않음(PL은 실측 Z19, SE·EQ는 가정). "
                      "플러그인은 슬롯 1 삽입·제거만 Plug-in Mixer 뷰로 지원")
         super().__init__(self.note)
 
