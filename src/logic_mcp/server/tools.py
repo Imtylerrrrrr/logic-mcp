@@ -97,7 +97,7 @@ def register_tools(mcp: MCPServer, commands: Commands) -> None:
                           "Aux strips (no track): only slot 1 insert/remove, via the Plug-in Mixer view. "
                           "move: remove + reinsert into an empty slot (to_slot); plug-in settings are reset. "
                           "Logic opens and closes the plug-in window when the edit view is entered. Returns to PAN mode when done. "
-                          "calibrate: collect the full parameter table of the plug-in in the slot and save it to the user cache (2-20 min; values are not restored, so force=true is required).")
+                          "calibrate: collect the full parameter table of the plug-in in the slot and save it to the user cache (2-30 min; values are not restored, so force=true is required).")
     def logic_plugin(
         action: Literal["list", "params", "get", "set", "insert", "remove", "bypass", "scan", "calibrate", "move"],
         strip: Strip = None,

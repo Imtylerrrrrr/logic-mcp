@@ -178,3 +178,25 @@ def test_set_enum_index_out_of_range_and_without_options():
     assert bad.ok is False and "범위 밖" in bad.note and sent == [] and eq[0][3].value == 2
     out = set_enum_index(d, 3, 2, None)
     assert out.ok and out.note == "no_options" and out.value.text == "Studio" and eq[0][3].value == 1
+
+
+def test_set_enum_index_waits_for_the_overlay_only_before_reading():          # 읽지 않는 틱 사이 오버레이 대기(≈2 s)를 뺀다
+    d, logic, eq = eq_driver()
+    eq[0][3] = Param("CirTyp", "Circuit Type", "enum", options=CIRCUIT, value=2)
+    t0 = logic.fake.now
+    out = set_enum_index(d, 3, 6, list(CIRCUIT))
+    assert out.ok and out.value.text == "Vintag" and eq[0][3].value == 5
+    assert logic.fake.now - t0 < 15                                           # 틱마다 settle_overlay면 ≈43 s
+
+
+def test_set_enum_index_already_on_unique_option_sends_no_ticks():
+    d, logic, eq = eq_driver()
+    eq[0][3] = Param("CirTyp", "Circuit Type", "enum", options=CIRCUIT, value=3)
+    logic.redraw()
+    sent = recorded_ticks(d)
+    out = set_enum_index(d, 3, 4, list(CIRCUIT))                              # 'Classc'는 표에서 하나뿐 → already
+    assert out.ok and out.note == "already" and out.rounds == 0 and sent == []
+    eq[0][3].value = 2
+    logic.redraw()
+    out = set_enum_index(d, 3, 2, list(CIRCUIT))                              # 'Studio'는 둘 → 같은 텍스트여도 번호로 돌린다
+    assert out.ok and out.note == "" and eq[0][3].value == 1 and sent == [-1] * 16 + [1]

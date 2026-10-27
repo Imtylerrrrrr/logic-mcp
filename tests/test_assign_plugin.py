@@ -707,11 +707,11 @@ def circuit_type(tmp_path, table: bool):
     if table:
         cache.params["Compressor"] = {"pages": 3, "items": [
             {"index": 1, "short": "CirTyp", "name": "Circuit Type", "map": {"type": "enum", "options": list(CIRCUIT)}}]}
-    return cmds, surface, cirtyp
+    return cmds, surface, fake, cirtyp
 
 
 def test_set_enum_by_index_and_refuse_ambiguous_names(tmp_path):
-    cmds, surface, cirtyp = circuit_type(tmp_path, table=True)
+    cmds, surface, _fake, cirtyp = circuit_type(tmp_path, table=True)
     s = cmds.plugin.set(1, None, 2, "CirTyp", "#6")
     assert s.ok and s.verified == "verified" and cirtyp.value == 5 and s.after["text"] == "Vintag"
     s = cmds.plugin.set(1, None, 2, "CirTyp", "Studio")                    # 'Studio'가 #2·#3 둘 → 번호로 지정하라고 안내
@@ -722,7 +722,39 @@ def test_set_enum_by_index_and_refuse_ambiguous_names(tmp_path):
 
 
 def test_set_enum_by_index_without_table_reports_arrival_unverified(tmp_path):
-    cmds, surface, cirtyp = circuit_type(tmp_path, table=False)
+    cmds, surface, _fake, cirtyp = circuit_type(tmp_path, table=False)
     s = cmds.plugin.set(1, None, 2, "CirTyp", "#2")
     assert s.ok and s.verified == "unverified" and "선택지 표 없음" in s.note
     assert cirtyp.value == 1 and s.after["text"] == "Studio"
+
+
+def test_set_enum_keeps_text_path_when_options_are_unique(tmp_path):          # 번들 Channel EQ LoCutS: 겹침 없는 표는 옛 텍스트 경로(빠름, already)
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    cache.params.update(PluginCache.load(version="t", user_dir=tmp_path).params)
+    logic.tracks[0].insert(1, "Channel EQ")
+    n0 = len(fake.sent)
+    s = cmds.plugin.set(1, None, 1, "LoCutS", "24")
+    assert s.ok and s.verified == "verified" and len(turns(fake.sent[n0:])) == 2      # 12 → 18 → 24, 되감기 없음
+    n0 = len(fake.sent)
+    s = cmds.plugin.set(1, None, 1, "LoCutS", "24")
+    assert s.ok and s.verified == "skipped" and s.note == "already" and not turns(fake.sent[n0:])
+
+
+def test_set_enum_duplicate_table_uses_index_path_and_already(tmp_path):
+    cmds, surface, fake, cirtyp = circuit_type(tmp_path, table=True)
+    n0 = len(fake.sent)
+    s = cmds.plugin.set(1, None, 2, "CirTyp", "Classc")
+    assert s.ok and s.verified == "verified" and cirtyp.value == 3
+    assert len(turns(fake.sent[n0:])) == 16 + 3                                          # 되감기 16틱 뒤 +3
+    n0 = len(fake.sent)
+    s = cmds.plugin.set(1, None, 2, "CirTyp", "Classc")                                  # 표에서 하나뿐인 텍스트가 이미 선택됨
+    assert s.ok and s.verified == "skipped" and s.note == "already" and not turns(fake.sent[n0:])
+
+
+def test_set_index_on_numeric_param_is_refused(tmp_path):
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Compressor")
+    n0 = len(fake.sent)
+    s = cmds.plugin.set(1, None, 2, "Thrs", "#2")
+    assert not s.ok and s.verified == "skipped" and s.note == "#n은 enum 파라미터에만 쓸 수 있음"
+    assert not turns(fake.sent[n0:]) and logic.tracks[0].params[2][1].value == -20.0

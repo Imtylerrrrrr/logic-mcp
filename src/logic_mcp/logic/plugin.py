@@ -506,14 +506,18 @@ class PluginCommands:
                     emap = item.get("map") or {}
                     options = emap.get("options") if emap.get("type") == "enum" else None
                     if (m := re.fullmatch(r"#(\d+)", want)):                    # n번째 선택지(축약 텍스트가 겹칠 때)
+                        if emap.get("type") != "enum" and before_v.kind == "number":
+                            return b._result(action, False, "skipped", t0, target=target, before=before,
+                                             note="#n은 enum 파라미터에만 쓸 수 있음")
                         out = set_enum_index(d, col, int(m.group(1)), options)
-                    elif options and (hits := [i for i, o in enumerate(options, 1) if o == want]):
+                    elif (options and len(set(options)) != len(options)       # 겹치는 표만 번호 경로. 겹침 없으면 텍스트 경로(빠름, already)
+                          and (hits := [i for i, o in enumerate(options, 1) if o == want])):
                         if len(hits) > 1:
                             return b._result(action, False, "skipped", t0, target=target, before=before,
                                              note=f"{want!r}가 {len(hits)}개({', '.join(f'#{i}' for i in hits)}): 번호로 지정")
                         out = set_enum_index(d, col, hits[0], options)
                     else:
-                        out = set_enum(d, col, want)                            # 표에 없는 전체 이름('On'/'Off' 등)
+                        out = set_enum(d, col, want)                            # 겹침 없는 표·표 없음·표에 없는 이름: 옛 텍스트 경로
                 after = self._param_dict(full, slot, item, out.value)
                 if out.ok and out.note == "already":
                     return b._result(action, True, "skipped", t0, target=target, before=before, after=after, note="already")
@@ -760,10 +764,10 @@ class PluginCommands:
                     # 정착 1행 조각을 이름으로 읽게 된다(리뷰 I3).
                     if v.kind == "enum":
                         # 텍스트가 같아도 멈추지 않고 고정 횟수: 축약이 겹치는 선택지(실측 2026-10-27 Circuit Type 'Studio'×2)를 남긴다
-                        for _ in range(MAX_OPTIONS):                               # 처음(가장 앞 선택지)까지 -1(끝에선 무변화)
+                        for _ in range(MAX_OPTIONS):                               # 처음(가장 앞 선택지)까지 -1(끝에선 무변화). 읽지 않으니 오버레이 대기 없음
                             if d.tick(col, -1) and name is None:
                                 name = overlay_param_name(header, d.surface.state.lcd[0], col)
-                            d.settle_overlay()
+                        d.settle_overlay()                                         # 첫 읽기 전에만 오버레이가 걷히길 기다린다
                         texts = [d.read_column(col)[1].text]
                         for _ in range(MAX_OPTIONS - 1):                           # +1로 끝까지 모은다(처음에 있었으면 여기서 이름)
                             if d.tick(col, 1) and name is None:
