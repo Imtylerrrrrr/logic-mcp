@@ -395,6 +395,27 @@ def test_enter_track_reads_outputs_and_restores_volume():               # 실측
     assert [m[1] - P.Note.VPOT_PUSH for m in pushes] == [4, 0]           # Output 선택 → Volume 복원, 그 밖은 누르지 않음
 
 
+def test_read_strip_kinds_three_kinds():                                 # 실측 Z19: Input 열 `Bus n` = Aux
+    from tests.fake_assign import Track
+    tracks = [Track(1, "1"), Track(2, "Inst", input_blank=True), Track(5, "Aux1", kind="aux"), Track(3, "StOu", kind="output")]
+    surface, fake, logic = make_assign_logic(tracks)
+    d = ModeDriver(surface, sleep=logic.sleep)
+    assert d.read_strip_kinds() == ["track", "track", "aux", "output"] + ["output"] * 4   # 빈 스트립도 Output 빈칸
+    assert logic.cs_param == 0 and surface.state.view.kind == "pan" and logic.view == "pan"
+    pushes = [m for m in fake.sent if m[0] == 0x90 and P.Note.VPOT_PUSH <= m[1] < P.Note.VPOT_PUSH + 8 and m[2]]
+    assert [m[1] - P.Note.VPOT_PUSH for m in pushes] == [3, 4, 0]        # Input → Output → Volume 복원
+
+
+def test_read_strip_kinds_raises_when_input_push_is_dropped():           # Volume dB가 남으면 Input 판별 실패
+    from tests.fake_assign import Track
+    surface, fake, logic = make_assign_logic([Track(1, "1"), Track(5, "Aux1", kind="aux")])
+    logic.refuse = {P.Note.VPOT_PUSH + 3}
+    d = ModeDriver(surface, sleep=logic.sleep)
+    with pytest.raises(ModeError):
+        d.read_strip_kinds()
+    assert logic.cs_param == 0 and surface.state.view.kind == "pan" and not logic.track_held
+
+
 def test_read_strip_outputs_raises_when_output_push_is_dropped():         # 리뷰 C1: Volume `+0.0dB`가 남으면 판별 실패
     from tests.fake_assign import Track
     tracks = [Track(1, "1"), Track(2, "DeCl"), Track(3, "StOu", kind="output"), Track(6, "Mast", kind="master")]

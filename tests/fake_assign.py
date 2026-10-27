@@ -246,7 +246,8 @@ class Track:
     bypassed: set[int] = field(default_factory=set)
     volume: int | None = None                                     # 페이더 raw. Flip이 꺼진 상태의 페이더 이동이 바꾼다(None = 건드린 적 없음)
     eq_page: int = 1                                              # EQ 채널 뷰가 기억하는 마지막 페이지(실측 Q)
-    kind: str = "track"                                           # track | output | master (실측 Z4: 출력·Master는 채널 뷰가 안 따라감)
+    kind: str = "track"                                           # track | aux | output | master (실측 Z4: 출력·Master, 실전 F2: Aux는 채널 뷰가 안 따라감)
+    input_blank: bool = False                                     # TRACK Input 열이 빈칸인 트랙(소프트웨어 악기 흉내)
     sends: dict[int, Send | None] = field(default_factory=lambda: {i: None for i in range(1, 9)})
     se_page: int = 1                                              # SE 뷰가 기억하는 마지막 페이지(실측 S3)
 
@@ -436,8 +437,10 @@ class FakeLogic:
                     cells.append(col("+0.0dB"))
                 elif self.cs_param == 1:
                     cells.append(col("" if tr.kind == "master" else "0"))
+                elif self.cs_param == 3:
+                    cells.append(col(self._input_text(tr)))
                 elif self.cs_param == 4:
-                    cells.append(col("St Out" if tr.follows else ""))          # 출력·Master는 빈칸(실측 Z5)
+                    cells.append(col("St Out" if tr.kind in ("track", "aux") else ""))   # 출력·Master는 빈칸(실측 Z5·Z19)
                 else:
                     cells.append(col(""))
             return self._names_row(), "".join(cells).ljust(56), "CS"
@@ -486,6 +489,13 @@ class FakeLogic:
         if self.view in ("empty_edit", "midi_fx"):
             return "-      " * 8, " " * 56, "M1" if self.view == "midi_fx" else self._slot_digits()
         raise AssertionError(self.view)
+
+    def _input_text(self, tr: Track) -> str:
+        """TRACK Input 열(실측 Z19): 트랙 `1`, Aux `Bus n`(뱅크 안 Aux 순서로 n), 출력·Master·악기 빈칸."""
+        if tr.kind == "aux":
+            auxes = [t for t in self.tracks[:8] if t.kind == "aux"]
+            return f"Bus {next(i for i, t in enumerate(auxes) if t is tr) + 1}"
+        return "1" if tr.kind == "track" and not tr.input_blank else ""
 
     def _header(self, t: Track) -> str:
         """NAME 모드 1행(56칸). 짧으면 `Page n/N`이 오른쪽에 보인다. 길면 1페이지는 56칸에서 잘려 Page가 안 보이고,

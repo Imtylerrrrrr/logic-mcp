@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from ..mcu import protocol as P
 from ..mcu import state as S
 from ..mcu.surface import Surface
 from .values import Value, parse_value
+
+if TYPE_CHECKING:
+    from .strips import StripKind
 
 OVERLAY_S = 2.0          # 모드 전환·값 변경 오버레이 지속(실측)
 MODE_TIMEOUT = 0.6
@@ -34,6 +38,7 @@ for _fam in ("eq", "plugin", "send"):
 _STEPS.update({("plugin_edit", "plugin_mixer"): 1, ("empty_edit", "plugin_mixer"): 1,
                ("plugin_edit", "plugin_channel"): 2, ("empty_edit", "plugin_channel"): 2})
 TRACK_MENU_OUTPUT = (4, "Output")      # TRACK 홀드 메뉴 항목(실측 Z5). 6(DisplP)·7(Setup)은 뱅크 구성을 바꾸므로 금지
+TRACK_MENU_INPUT = (3, "Input")        # 오디오 트랙 `1`, Aux `Bus n`, 출력·Master·악기 빈칸(실측 Z19)
 TRACK_MENU_VOLUME = (0, "Volume")
 
 
@@ -358,9 +363,9 @@ class ModeDriver:
         if self.view.kind != "track":
             raise ModeError("track_param", f"{label} 선택 뒤 CS 뷰", self.view.kind)
         has_db = any(parse_value(t).unit == "dB" for t in texts)
-        if label == TRACK_MENU_OUTPUT[1] and has_db:
-            raise ModeError("track_param", "Output 열(dB 값 없음)",
-                            f"2행에 dB 값 {texts!r} — Output 누름이 무시된 듯(스트립 종류 판별 실패)")
+        if label != TRACK_MENU_VOLUME[1] and has_db:
+            raise ModeError("track_param", f"{label} 열(dB 값 없음)",
+                            f"2행에 dB 값 {texts!r} — {label} 누름이 무시된 듯(스트립 종류 판별 실패)")
         if label == TRACK_MENU_VOLUME[1]:
             if not has_db:
                 raise ModeError("track_param", "Volume 열(dB 값)", f"2행 {texts!r} — Volume 복원 확인 안 됨")
@@ -371,11 +376,27 @@ class ModeDriver:
         """스트립 8개의 Output 텍스트(`St Out` 등). 출력·Master 스트립은 빈칸(실측 Z5).
         PAN에서 홀드 → Output → 읽기 → PAN → 다시 PAN에서 홀드 → Volume → PAN. Output 판별·Volume 복원 중 하나라도
         확인되지 않으면 ModeError를 던진다(호출자는 unverified로 보고, 리뷰 C1)."""
+        return self._read_track_params(TRACK_MENU_OUTPUT)[0]
+
+    def read_strip_kinds(self) -> list[StripKind]:
+        """스트립 8개의 종류. Output 빈칸 → output(출력·Master, 실측 Z5), Input `Bus…` → aux(실측 Z19), 그 밖 → track
+        (Input이 빈 소프트웨어 악기 포함). 홀드 메뉴 Input → Output 두 번 + Volume 복원 한 번, 규칙은 read_strip_outputs와 같다.
+        Output 누름이 드롭되면 2행에 Input 열이 남는다: 두 열이 같으면(빈칸뿐인 뱅크 제외) 판별 실패로 ModeError."""
+        ins, outs = self._read_track_params(TRACK_MENU_INPUT, TRACK_MENU_OUTPUT)
+        if any(ins) and outs == ins:
+            raise ModeError("track_param", "Output 열(Input 열과 다름)",
+                            f"2행 {outs!r} — Output 누름이 무시된 듯(스트립 종류 판별 실패)")
+        return ["output" if not o else "aux" if i.startswith("Bus") else "track" for i, o in zip(ins, outs)]
+
+    def _read_track_params(self, *items: tuple[int, str]) -> list[list[str]]:
+        """PAN에서 홀드 메뉴 항목마다 track_param → PAN. 끝에(실패해도) Volume으로 되돌리고 PAN."""
         self._cs_dirty = False
         try:
-            outs = self.track_param(*TRACK_MENU_OUTPUT)
-            self.leave(keep_select=True)
-            return outs
+            rows = []
+            for index, label in items:
+                rows.append(self.track_param(index, label))
+                self.leave(keep_select=True)
+            return rows
         finally:
             try:
                 if self._cs_dirty:
