@@ -98,6 +98,7 @@ class Param:
     step: float = 1.0           # 틱당 변화: log면 비율, linear면 가산, enum이면 1
     ends: tuple[str, str] | None = None   # 양 끝 값의 표시 텍스트(예: Min/Max). 숫자가 아닌 끝을 가진 파라미터 흉내(리뷰 I4)
     digits: int = 1             # log 값 반올림 자릿수(Q는 실측 T처럼 3자리 유효숫자에 가깝게 3)
+    labels: tuple[str, ...] = ()   # enum 오버레이 전체 텍스트(정착 열은 options의 6자 축약). 실측 2026-10-28 Circuit Type 'Vintage Opto'/'VinOpt'
 
     def text(self) -> str:
         """7칸 열 텍스트. 실측 형식: 20.0Hz / 100 Hz / 1040Hz / 20000 / 0.0 dB / 0.71 / On."""
@@ -123,7 +124,7 @@ class Param:
     def full(self) -> str:
         """오버레이 전체 값(단위 포함)."""
         if self.kind == "enum":
-            return self.options[int(self.value)] + self.unit
+            return (self.labels or self.options)[int(self.value)] + self.unit
         if self.ends and self.value in (self.lo, self.hi):
             return self.ends[self.value == self.hi]
         if self.unit == "Hz":

@@ -119,7 +119,7 @@ def test_calibrate_probes_capped_all_numeric_options_as_numeric(tmp_path):     #
     assert r.after["enums"] == 1 and r.after["probed"] == 3
 
 
-def test_calibrate_keeps_duplicate_option_texts(tmp_path):                     # 실측 2026-10-27 Compressor Circuit Type: 6자 축약 'Studio'·'Vintag'가 둘씩
+def test_calibrate_keeps_duplicate_option_texts(tmp_path):                     # 축약이 겹치는 선택지(가정). 10/27 Circuit Type의 겹침은 오버레이를 읽은 것(10/28)
     cmds, surface, fake, logic, cache = make(tmp_path)
     circuit = ["PltDig", "Studio", "Studio", "Classc", "Vintag", "Vintag", "VinOpt"]
     logic.tracks[0].insert(2, "Chorus")

@@ -696,7 +696,7 @@ def test_list_does_not_learn_a_reveal_that_does_not_match_the_abbrev(tmp_path): 
     assert logic.tracks[0].inserts[3] == "Tuner" and not logic.pre
 
 
-CIRCUIT = ["PltDig", "Studio", "Studio", "Classc", "Vintag", "Vintag", "VinOpt"]   # 실측 2026-10-27 Compressor Circuit Type: 6자 축약이 겹친다
+CIRCUIT = ["PltDig", "Studio", "Studio", "Classc", "Vintag", "Vintag", "VinOpt"]   # 축약이 겹치는 표(가정). 10/27 Circuit Type의 겹침은 오버레이를 읽은 것(10/28)
 
 
 def circuit_type(tmp_path, table: bool):
@@ -728,7 +728,7 @@ def test_set_enum_by_index_without_table_reports_arrival_unverified(tmp_path):
     assert cirtyp.value == 1 and s.after["text"] == "Studio"
 
 
-def test_set_enum_keeps_text_path_when_options_are_unique(tmp_path):          # 번들 Channel EQ LoCutS: 겹침 없는 표는 옛 텍스트 경로(빠름, already)
+def test_set_enum_unique_option_ticks_only_the_difference(tmp_path):          # 번들 Channel EQ LoCutS: 지금 위치를 알면 차이만큼(되감기 없음), already 유지
     cmds, surface, fake, logic, cache = make(tmp_path)
     cache.params.update(PluginCache.load(version="t", user_dir=tmp_path).params)
     logic.tracks[0].insert(1, "Channel EQ")
@@ -745,7 +745,7 @@ def test_set_enum_duplicate_table_uses_index_path_and_already(tmp_path):
     n0 = len(fake.sent)
     s = cmds.plugin.set(1, None, 2, "CirTyp", "Classc")
     assert s.ok and s.verified == "verified" and cirtyp.value == 3
-    assert len(turns(fake.sent[n0:])) == 16 + 3                                          # 되감기 16틱 뒤 +3
+    assert len(turns(fake.sent[n0:])) == 3                                               # 시작 'PltDig'가 표에서 하나뿐 → 차이 3틱(되감기 없음)
     n0 = len(fake.sent)
     s = cmds.plugin.set(1, None, 2, "CirTyp", "Classc")                                  # 표에서 하나뿐인 텍스트가 이미 선택됨
     assert s.ok and s.verified == "skipped" and s.note == "already" and not turns(fake.sent[n0:])
@@ -758,3 +758,27 @@ def test_set_index_on_numeric_param_is_refused(tmp_path):
     s = cmds.plugin.set(1, None, 2, "Thrs", "#2")
     assert not s.ok and s.verified == "skipped" and s.note == "#n은 enum 파라미터에만 쓸 수 있음"
     assert not turns(fake.sent[n0:]) and logic.tracks[0].params[2][1].value == -20.0
+
+
+def test_set_enum_rewinds_when_the_start_text_is_not_unique(tmp_path):
+    cmds, surface, fake, cirtyp = circuit_type(tmp_path, table=True)
+    cirtyp.value = 1                                                                     # 'Studio'(#2·#3 중 어느 쪽인지 모름)
+    n0 = len(fake.sent)
+    s = cmds.plugin.set(1, None, 2, "CirTyp", "Classc")
+    assert s.ok and s.verified == "verified" and cirtyp.value == 3
+    assert len(turns(fake.sent[n0:])) == 16 + 3                                          # 되감기 16틱 뒤 +3
+
+
+def test_set_enum_unique_name_under_long_value_overlay(tmp_path):                       # 실측 2026-10-28: 'StudoT'를 옛 텍스트 경로가 오버레이 'Vintage'에 막혀 못 찾음
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Compressor")
+    short = ["PltDig", "StudoA", "StudoT", "ClsscA", "VintgA", "VintgT", "VinOpt"]
+    cirtyp = Param("CirTyp", "Circuit Type", "enum", options=tuple(short), value=5,
+                   labels=("Platinum Digital", "Studio VCA", "Studio FET", "Classic VCA", "Vintage VCA", "Vintage FET", "Vintage Opto"))
+    logic.tracks[0].params[2][0] = cirtyp
+    cache.params["Compressor"] = {"pages": 3, "items": [
+        {"index": 1, "short": "CirTyp", "name": "Circuit Type", "map": {"type": "enum", "options": short}}]}
+    n0 = len(fake.sent)
+    s = cmds.plugin.set(1, None, 2, "CirTyp", "StudoT")
+    assert s.ok and s.verified == "verified" and cirtyp.value == 2 and s.after["text"] == "StudoT"
+    assert len(turns(fake.sent[n0:])) == 3                                               # VintgT(#6) → StudoT(#3)

@@ -510,14 +510,14 @@ class PluginCommands:
                             return b._result(action, False, "skipped", t0, target=target, before=before,
                                              note="#n은 enum 파라미터에만 쓸 수 있음")
                         out = set_enum_index(d, col, int(m.group(1)), options)
-                    elif (options and len(set(options)) != len(options)       # 겹치는 표만 번호 경로. 겹침 없으면 텍스트 경로(빠름, already)
-                          and (hits := [i for i, o in enumerate(options, 1) if o == want])):
+                    elif options and (hits := [i for i, o in enumerate(options, 1) if o == want]):
                         if len(hits) > 1:
                             return b._result(action, False, "skipped", t0, target=target, before=before,
                                              note=f"{want!r}가 {len(hits)}개({', '.join(f'#{i}' for i in hits)}): 번호로 지정")
-                        out = set_enum_index(d, col, hits[0], options)
+                        start = options.index(before_v.text) + 1 if options.count(before_v.text) == 1 else None
+                        out = set_enum_index(d, col, hits[0], options, start=start)   # 지금 위치가 표에서 하나뿐이면 차이만큼, 아니면 되감기
                     else:
-                        out = set_enum(d, col, want)                            # 겹침 없는 표·표 없음·표에 없는 이름: 옛 텍스트 경로
+                        out = set_enum(d, col, want)                            # 표 없음·표에 없는 이름: 텍스트 경로
                 after = self._param_dict(full, slot, item, out.value)
                 if out.ok and out.note == "already":
                     return b._result(action, True, "skipped", t0, target=target, before=before, after=after, note="already")
@@ -763,7 +763,7 @@ class PluginCommands:
                     # 이름은 LCD가 바뀐 틱(tick() True)의 오버레이에서만 받는다. 끝값 무변화 틱은 오버레이가 없을 수 있어
                     # 정착 1행 조각을 이름으로 읽게 된다(리뷰 I3).
                     if v.kind == "enum":
-                        # 텍스트가 같아도 멈추지 않고 고정 횟수: 축약이 겹치는 선택지(실측 2026-10-27 Circuit Type 'Studio'×2)를 남긴다
+                        # 텍스트가 같아도 멈추지 않고 고정 횟수: 축약이 겹치는 선택지를 남긴다(10/27 Circuit Type 'Studio'×2는 오버레이를 읽은 것, 10/28)
                         for _ in range(MAX_OPTIONS):                               # 처음(가장 앞 선택지)까지 -1(끝에선 무변화). 읽지 않으니 오버레이 대기 없음
                             if d.tick(col, -1) and name is None:
                                 name = overlay_param_name(header, d.surface.state.lcd[0], col)

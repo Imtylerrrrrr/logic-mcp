@@ -1,6 +1,6 @@
 import pytest
 
-from logic_mcp.logic.modes import ModeDriver
+from logic_mcp.logic.modes import OVERLAY_S, ModeDriver
 from logic_mcp.logic.setter import enum_matches, probe_mapping, set_enum, set_enum_index, set_numeric
 from logic_mcp.logic.values import Mapping, parse_value
 from tests.fake_assign import Param, make_assign_logic
@@ -147,7 +147,7 @@ def test_set_numeric_skips_secant_when_fader_has_no_effect():            # 실�
     assert len(moves) == 2 and len(set(moves)) == 1                      # fader()의 같은 이동 재전송뿐, 시컨트 이동 없음
 
 
-CIRCUIT = ("PltDig", "Studio", "Studio", "Classc", "Vintag", "Vintag", "VinOpt")   # 실측 2026-10-27 Compressor Circuit Type: 6자 축약이 겹친다
+CIRCUIT = ("PltDig", "Studio", "Studio", "Classc", "Vintag", "Vintag", "VinOpt")   # 축약이 겹치는 표(가정). 10/27 Circuit Type의 겹침은 오버레이를 읽은 것(10/28)
 
 
 def recorded_ticks(d):
@@ -200,3 +200,29 @@ def test_set_enum_index_already_on_unique_option_sends_no_ticks():
     logic.redraw()
     out = set_enum_index(d, 3, 2, list(CIRCUIT))                              # 'Studio'는 둘 → 같은 텍스트여도 번호로 돌린다
     assert out.ok and out.note == "" and eq[0][3].value == 1 and sent == [-1] * 16 + [1]
+
+
+CIRCUIT_SHORT = ("PltDig", "StudoA", "StudoT", "ClsscA", "VintgA", "VintgT", "VinOpt")    # 실측 2026-10-28 재수집(정착 열)
+CIRCUIT_LONG = ("Platinum Digital", "Studio VCA", "Studio FET", "Classic VCA",             # 오버레이 전체 이름('Vintage Opto'만 실측, 나머지는 같은 꼴로 가정)
+                "Vintage VCA", "Vintage FET", "Vintage Opto")
+
+
+def test_set_enum_reads_settled_text_after_the_value_overlay():     # 실측 2026-10-28: 틱 뒤 2초간 21칸 오버레이가 열을 덮어 'Vintage'를 읽고 끝으로 오인
+    d, logic, eq = eq_driver()
+    eq[0][3] = Param("CirTyp", "Circuit Type", "enum", options=CIRCUIT_SHORT, labels=CIRCUIT_LONG, value=5)
+    logic.redraw()
+    t0 = logic.fake.now
+    out = set_enum(d, 3, "StudoT")                                  # VintgT → VinOpt → (끝) → 되돌아 StudoT
+    assert out.ok and out.value.text == "StudoT" and eq[0][3].value == 2
+    assert logic.fake.now - t0 >= out.rounds * OVERLAY_S              # 틱마다 오버레이가 걷힐 때까지 기다린 뒤 읽음
+
+
+def test_set_enum_index_ticks_the_difference_when_start_is_known():
+    d, logic, eq = eq_driver()
+    eq[0][3] = Param("CirTyp", "Circuit Type", "enum", options=CIRCUIT_SHORT, labels=CIRCUIT_LONG, value=5)
+    logic.redraw()
+    sent = recorded_ticks(d)
+    out = set_enum_index(d, 3, 3, list(CIRCUIT_SHORT), start=6)       # #6 VintgT → #3 StudoT: 되감기 없이 -1 세 번
+    assert out.ok and out.value.text == "StudoT" and eq[0][3].value == 2 and sent == [-1] * 3
+    out = set_enum_index(d, 3, 7, list(CIRCUIT_SHORT), start=3)
+    assert out.ok and out.value.text == "VinOpt" and eq[0][3].value == 6 and sent == [-1] * 3 + [1] * 4

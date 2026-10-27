@@ -109,6 +109,7 @@ def set_enum(d: ModeDriver, ch: int, target: str, max_steps: int = 16) -> SetOut
     direction = 1
     for n in range(1, max_steps + 1):
         d.tick(ch, direction)
+        d.settle_overlay()        # 틱마다(끝값 무변화 틱도) 2초간 21칸 값 오버레이('Vintage Opto')가 열을 덮는다: 걷힌 뒤 정착 텍스트를 읽는다(실측 2026-10-28)
         cur = d.read_value(ch)
         if enum_matches(cur, target):
             return SetOutcome(True, cur, n, "")
@@ -118,10 +119,11 @@ def set_enum(d: ModeDriver, ch: int, target: str, max_steps: int = 16) -> SetOut
     return SetOutcome(False, cur, max_steps, f"선택지에서 {target!r}를 못 찾음. 본 값: {seen}")
 
 
-def set_enum_index(d: ModeDriver, ch: int, n: int, options: list[str] | None, max_options: int = 16) -> SetOutcome:
-    """n번째 선택지(1부터). -1 틱 max_options회로 처음까지(끝에선 무변화) 간 뒤 +1 틱 n-1회. 축약 텍스트가 겹치는
-    선택지(실측 2026-10-27 Compressor Circuit Type 'Studio'×2)는 텍스트로 못 고르므로 번호로 간다. 틱 사이에는 읽지 않으므로
-    오버레이(≈2 s)를 기다리지 않고, 마지막 읽기 전에 한 번만 기다린다."""
+def set_enum_index(d: ModeDriver, ch: int, n: int, options: list[str] | None, max_options: int = 16,
+                   start: int | None = None) -> SetOutcome:
+    """n번째 선택지(1부터). 지금 위치(start)를 알면 차이만큼만 틱, 모르면 -1 틱 max_options회로 처음까지(끝에선 무변화)
+    간 뒤 +1 틱 n-1회. 축약 텍스트가 겹치는 선택지는 텍스트로 못 고르므로 번호로 간다(10/27 'Studio'×2는 오버레이를 읽은 것으로
+    밝혀짐, 10/28). 틱 사이에는 읽지 않으므로 오버레이(≈2 s)를 기다리지 않고, 마지막 읽기 전에 한 번만 기다린다."""
     if n < 1 or (options and n > len(options)):
         return SetOutcome(False, d.read_value(ch), 0, f"#{n}: 선택지 {len(options) if options else '?'}개 범위 밖")
     if options:
@@ -129,7 +131,8 @@ def set_enum_index(d: ModeDriver, ch: int, n: int, options: list[str] | None, ma
         if cur.text == options[n - 1] and options.count(options[n - 1]) == 1:   # 표에서 하나뿐인 텍스트가 이미 보이면 그 선택지
             return SetOutcome(True, cur, 0, "already")
     steps = 0
-    for direction, count in ((-1, max_options), (1, n - 1)):
+    moves = ((1 if n > start else -1, abs(n - start)),) if start is not None else ((-1, max_options), (1, n - 1))
+    for direction, count in moves:
         for _ in range(count):
             d.tick(ch, direction)
             steps += 1
