@@ -4,6 +4,15 @@
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+### Added
+- `logic_plugin` `move`: moves a plug-in to an empty slot (`to_slot`) by removing it and inserting it again. MCU has no move command, so the plug-in's settings are reset. If the reinsert fails after the remove, the result is unverified and names the plug-in so you can insert it again.
+- `logic_plugin` `insert` falls back to scanning the insert menu by name when the cached list position shows a different plug-in (the menu order differs between projects). A name that is not in the cached list is looked up by prefix (`note` is `name_scan:<ticks>`). Nothing is confirmed unless the overlay shows the requested name.
+- Aux strips (no track) are detected from the TRACK hold menu Input column (`Bus n`). Channel views (Plug-in Channel, Send Channel) do not follow Aux strips, so plug-in and send commands on them are skipped instead of changing the previously selected track. Plug-in slot 1 can still be inserted into and removed from an Aux strip through the Plug-in Mixer view, and `list` reports slot 1 only for Aux strips (`aux` in the result).
+
+### Changed
+- Default `set` tolerances are wider: 0.2 dB (was 0.1) and 2 % for other values with a unit (was 1 %). Numeric sets now try up to 10 correction rounds (was 6). An explicit `tolerance` still wins.
+
 ## [0.1.1] - 2026-10-22
 ### Changed
 - English is now the base language: README, troubleshooting guide, changelog, the `logic-plugins` skill, MCP tool descriptions and server instructions are in English. Korean versions live in `*.ko.md` files, cross-linked at the top.

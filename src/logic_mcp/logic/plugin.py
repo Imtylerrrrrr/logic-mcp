@@ -467,81 +467,110 @@ class PluginCommands:
                                  before=before, after=after, note=out.note)
             return b._guarded(action, t0, target, body)
 
+    def _insert_body(self, action: str, t0: int, target: dict, ch: int, slot: int, plugin: str,
+                     replace: bool) -> "ToolResult":
+        """insert·move 공통 본체(_guarded 안에서, _fresh 뒤). 캐시 위치로 가서 근처 보정 → 안 맞으면 이름 탐색(실전 F1),
+        캐시에 없는 이름은 접두 이름 탐색. 확정 뒤 편집 뷰 헤더로 검증."""
+        b, d = self.b, self.d
+        idx, cands = find(self.cache.items, plugin)
+        if idx is None and cands:
+            return b._result(action, False, "skipped", t0, target=target, note=f"{plugin!r}가 여럿에 맞음: {cands}")
+        want = self.cache.items[idx] if idx is not None else plugin
+        v = slot - 1
+        if slot == 1 and b.strips.kind(d, b.surface.state, ch) == "aux":   # Aux 슬롯 2~8은 _channel이 StripAux
+            return self._mixer_insert(action, t0, target, ch, want, prefix=idx is None)
+        self.b._channel(ch, "plugin_channel")
+        current = self._slot_text(slot)
+        occupied = current not in EMPTY_TEXTS
+        if occupied and not replace:
+            return b._result(action, False, "skipped", t0, target=target,
+                             note=f"슬롯 {slot}에 {current!r}가 있음. 교체하려면 replace=true")
+        path_note = ""
+        if idx is None:                                      # 캐시 목록에 없는 이름: 메뉴를 접두 일치로 훑는다(스펙 4 F1)
+            found, ticks, last = seek_by_name(d, v, plugin, prefix=True)
+            if not found:
+                return b._result(action, False, "unverified", t0, target=target,
+                                 note=f"{plugin!r}가 목록({self.cache.source}, {len(self.cache.items)}개)에 없어 "
+                                      f"이름 탐색 {ticks}틱 했으나 못 찾음(마지막 {last!r}). `logic_plugin scan` 권장")
+            want, path_note = last, f"name_scan:{ticks}"
+        else:
+            rewind_to_empty(d, v)
+            d.tick(v, 2 * idx)                               # `--`(0)에서 2·i틱 = i번째 항목(ceil 모델)
+            shown = first = self._shown(v, want)
+            for _ in range(3):                               # 목록이 캐시와 조금 어긋나면 근처에서 찾는다
+                if normalize(shown) == normalize(want):
+                    break
+                j, _c = find(self.cache.items, shown)
+                d.tick(v, ITEM_TICKS if j is None else 2 * (idx - j))   # 모르는 이름 = 캐시 목록에 빠진 항목 → 실제 위치는 뒤(재수집)
+                shown = self._shown(v, want)
+            if normalize(shown) != normalize(want):          # 순서가 크게 다르면 이름으로 처음부터 훑는다(실전 F1)
+                found, ticks, last = seek_by_name(d, v, want)
+                if not found:                                # 누르지 않는다: finally의 leave가 미리 선택을 취소
+                    return b._result(action, False, "unverified", t0, target=target,
+                                     note=f"목록 위치 {idx}에 {first!r}가 보임(기대 {want!r}). 이름 탐색 {ticks}틱 뒤에도 "
+                                          f"{want!r} 못 찾음(마지막 {last!r}). 설치 목록이 다른 듯. `logic_plugin scan` 권장")
+                path_note = f"name_scan:{ticks}"
+        if not d.press_vpot_until(v, lambda w: w.kind == "plugin_edit" and w.index == slot, CONFIRM_S):
+            return b._result(action, False, "unverified", t0, target=target,
+                             note=f"확정 뒤 {CONFIRM_S:.0f}초 안에 편집 뷰가 아니라 {d.view.kind}")
+        d.settle_smart()
+        d.toggle_name_value()
+        num, name, _complete = _header_name(b.surface.state.lcd[0])
+        d.toggle_name_value()
+        if num != slot or not name or not normalize(want).startswith(normalize(name)):
+            return b._result(action, False, "unverified", t0, target=target,
+                             note=f"확정 뒤 편집 뷰 헤더가 Ins.{num} {name!r}(기대 Ins.{slot} {want!r})")
+        d.enter("plugin_channel")
+        abbrev = self._slot_text(slot)
+        self.cache.learn_abbrev(abbrev.lstrip("*"), want)
+        self.cache.save()
+        return b._result(action, True, "verified", t0, target=target, before={"slot": slot, "text": current},
+                         after={"slot": slot, "plugin": want, "abbrev": abbrev,
+                                "replaced": current if occupied else None}, note=path_note)
+
+    def _remove_body(self, action: str, t0: int, target: dict, ch: int, slot: int) -> "ToolResult":
+        """remove·move 공통 본체(_guarded 안에서, _fresh 뒤). `--`로 되감아 확정 → 빈 편집 뷰 → PL 2행 `--` 확인."""
+        b, d = self.b, self.d
+        if slot == 1 and b.strips.kind(d, b.surface.state, ch) == "aux":
+            return self._mixer_remove(action, t0, target, ch)
+        self.b._channel(ch, "plugin_channel")
+        current = self._slot_text(slot)
+        if current in EMPTY_TEXTS:
+            return b._result(action, True, "skipped", t0, target=target, note="already")
+        rewind_to_empty(d, slot - 1)                         # 오버레이 `--` 확인까지
+        if not d.press_vpot_until(slot - 1, lambda w: w.kind == "empty_edit" and w.index == slot, CONFIRM_S):
+            return b._result(action, False, "unverified", t0, target=target, before={"slot": slot, "text": current},
+                             note=f"`--` 확정 뒤 {CONFIRM_S:.0f}초 안에 빈 편집 뷰가 아니라 {d.view.kind}")
+        d.enter("plugin_channel")
+        after = self._slot_text(slot)
+        ok = after in EMPTY_TEXTS
+        return b._result(action, ok, "verified" if ok else "unverified", t0, target=target,
+                         before={"slot": slot, "text": current}, after={"slot": slot, "text": after},
+                         note="" if ok else "제거 뒤에도 슬롯에 이름이 보임")
+
     def insert(self, strip: int | None, number: int | None, slot: int, plugin: str,
                replace: bool = False) -> "ToolResult":
-        b, d, action = self.b, self.d, "plugin_insert"
+        b, action = self.b, "plugin_insert"
         t0 = b._now_ms()
         with b._lock:
             if (r := b._require_ready(action, t0)) is not None:
                 return r
             idx, cands = find(self.cache.items, plugin)
-            if idx is None and cands:
+            if idx is None and cands:                        # 보내기 전에 거른다(본체도 같은 검사)
                 return b._result(action, False, "skipped", t0, note=f"{plugin!r}가 여럿에 맞음: {cands}")
             ch = self.b._begin(action, strip, number, t0, slot, MAX_SLOT,
                                f"slot은 1-{MAX_SLOT}(Plug-in Channel 뷰에서 닿는 슬롯만 지원)")
             if not isinstance(ch, int):
                 return ch
             target = {**b._target(ch), "slot": slot}
-            want = self.cache.items[idx] if idx is not None else plugin
-            v = slot - 1
 
             def body() -> "ToolResult":
-                nonlocal want
                 self.b._fresh()
-                if slot == 1 and b.strips.kind(d, b.surface.state, ch) == "aux":   # Aux 슬롯 2~8은 _channel이 StripAux
-                    return self._mixer_insert(action, t0, target, ch, want, prefix=idx is None)
-                self.b._channel(ch, "plugin_channel")
-                current = self._slot_text(slot)
-                occupied = current not in EMPTY_TEXTS
-                if occupied and not replace:
-                    return b._result(action, False, "skipped", t0, target=target,
-                                     note=f"슬롯 {slot}에 {current!r}가 있음. 교체하려면 replace=true")
-                path_note = ""
-                if idx is None:                                      # 캐시 목록에 없는 이름: 메뉴를 접두 일치로 훑는다(스펙 4 F1)
-                    found, ticks, last = seek_by_name(d, v, plugin, prefix=True)
-                    if not found:
-                        return b._result(action, False, "unverified", t0, target=target,
-                                         note=f"{plugin!r}가 목록({self.cache.source}, {len(self.cache.items)}개)에 없어 "
-                                              f"이름 탐색 {ticks}틱 했으나 못 찾음(마지막 {last!r}). `logic_plugin scan` 권장")
-                    want, path_note = last, f"name_scan:{ticks}"
-                else:
-                    rewind_to_empty(d, v)
-                    d.tick(v, 2 * idx)                               # `--`(0)에서 2·i틱 = i번째 항목(ceil 모델)
-                    shown = first = self._shown(v, want)
-                    for _ in range(3):                               # 목록이 캐시와 조금 어긋나면 근처에서 찾는다
-                        if normalize(shown) == normalize(want):
-                            break
-                        j, _c = find(self.cache.items, shown)
-                        d.tick(v, ITEM_TICKS if j is None else 2 * (idx - j))   # 모르는 이름 = 캐시 목록에 빠진 항목 → 실제 위치는 뒤(재수집)
-                        shown = self._shown(v, want)
-                    if normalize(shown) != normalize(want):          # 순서가 크게 다르면 이름으로 처음부터 훑는다(실전 F1)
-                        found, ticks, last = seek_by_name(d, v, want)
-                        if not found:                                # 누르지 않는다: finally의 leave가 미리 선택을 취소
-                            return b._result(action, False, "unverified", t0, target=target,
-                                             note=f"목록 위치 {idx}에 {first!r}가 보임(기대 {want!r}). 이름 탐색 {ticks}틱 뒤에도 "
-                                                  f"{want!r} 못 찾음(마지막 {last!r}). 설치 목록이 다른 듯. `logic_plugin scan` 권장")
-                        path_note = f"name_scan:{ticks}"
-                if not d.press_vpot_until(v, lambda w: w.kind == "plugin_edit" and w.index == slot, CONFIRM_S):
-                    return b._result(action, False, "unverified", t0, target=target,
-                                     note=f"확정 뒤 {CONFIRM_S:.0f}초 안에 편집 뷰가 아니라 {d.view.kind}")
-                d.settle_smart()
-                d.toggle_name_value()
-                num, name, _complete = _header_name(b.surface.state.lcd[0])
-                d.toggle_name_value()
-                if num != slot or not name or not normalize(want).startswith(normalize(name)):
-                    return b._result(action, False, "unverified", t0, target=target,
-                                     note=f"확정 뒤 편집 뷰 헤더가 Ins.{num} {name!r}(기대 Ins.{slot} {want!r})")
-                d.enter("plugin_channel")
-                abbrev = self._slot_text(slot)
-                self.cache.learn_abbrev(abbrev.lstrip("*"), want)
-                self.cache.save()
-                return b._result(action, True, "verified", t0, target=target, before={"slot": slot, "text": current},
-                                 after={"slot": slot, "plugin": want, "abbrev": abbrev,
-                                        "replaced": current if occupied else None}, note=path_note)
+                return self._insert_body(action, t0, target, ch, slot, plugin, replace)
             return b._guarded(action, t0, target, body)
 
     def remove(self, strip: int | None, number: int | None, slot: int) -> "ToolResult":
-        b, d, action = self.b, self.d, "plugin_remove"
+        b, action = self.b, "plugin_remove"
         t0 = b._now_ms()
         with b._lock:
             if (r := b._require_ready(action, t0)) is not None:
@@ -554,22 +583,48 @@ class PluginCommands:
 
             def body() -> "ToolResult":
                 self.b._fresh()
-                if slot == 1 and b.strips.kind(d, b.surface.state, ch) == "aux":
-                    return self._mixer_remove(action, t0, target, ch)
-                self.b._channel(ch, "plugin_channel")
-                current = self._slot_text(slot)
-                if current in EMPTY_TEXTS:
-                    return b._result(action, True, "skipped", t0, target=target, note="already")
-                rewind_to_empty(d, slot - 1)                         # 오버레이 `--` 확인까지
-                if not d.press_vpot_until(slot - 1, lambda w: w.kind == "empty_edit" and w.index == slot, CONFIRM_S):
-                    return b._result(action, False, "unverified", t0, target=target, before={"slot": slot, "text": current},
-                                     note=f"`--` 확정 뒤 {CONFIRM_S:.0f}초 안에 빈 편집 뷰가 아니라 {d.view.kind}")
+                return self._remove_body(action, t0, target, ch, slot)
+            return b._guarded(action, t0, target, body)
+
+    def move(self, strip: int | None, number: int | None, slot: int, to_slot: int) -> "ToolResult":
+        """슬롯 이동 = 제거 + 빈 목표 슬롯에 재삽입(MCU에 이동 명령이 없다, 스펙 4 F5). 설정값은 초기화된다.
+        이름은 편집 뷰 헤더에서 읽는다(축약 캐시를 믿지 않는다, F6). 재삽입이 실패해도 되돌리지 않는다(되돌리기도 삽입)."""
+        b, d, action = self.b, self.d, "plugin_move"
+        t0 = b._now_ms()
+        with b._lock:
+            if (r := b._require_ready(action, t0)) is not None:
+                return r
+            if not 1 <= to_slot <= MAX_SLOT or to_slot == slot:
+                return b._result(action, False, "skipped", t0,
+                                 note=f"to_slot은 1-{MAX_SLOT}이고 slot({slot})과 달라야 함")
+            ch = self.b._begin(action, strip, number, t0, slot, MAX_SLOT,
+                               f"slot은 1-{MAX_SLOT}(Plug-in Channel 뷰에서 닿는 슬롯만 지원)")
+            if not isinstance(ch, int):
+                return ch
+            target = {**b._target(ch), "slot": slot, "to_slot": to_slot}
+
+            def body() -> "ToolResult":
+                self.b._fresh()
+                full, _abbrev, _pages = self._open_edit(ch, slot)    # Aux면 StripAux, 빈 슬롯이면 SlotEmpty → skipped
+                d.toggle_name_value()                                # _open_edit가 켠 NAME 모드를 끈다(재삽입 헤더 확인이 토글로 쓴다)
                 d.enter("plugin_channel")
-                after = self._slot_text(slot)
-                ok = after in EMPTY_TEXTS
-                return b._result(action, ok, "verified" if ok else "unverified", t0, target=target,
-                                 before={"slot": slot, "text": current}, after={"slot": slot, "text": after},
-                                 note="" if ok else "제거 뒤에도 슬롯에 이름이 보임")
+                occupant = self._slot_text(to_slot)
+                if occupant not in EMPTY_TEXTS:
+                    return b._result(action, False, "skipped", t0, target=target,
+                                     note=f"슬롯 {to_slot}에 {occupant!r}가 있음. move는 빈 슬롯으로만 옮김")
+                removed = self._remove_body(action, t0, target, ch, slot)
+                if removed.verified != "verified":
+                    return b._result(action, False, removed.verified, t0, target=target, before=removed.before,
+                                     after=removed.after, note=f"제거 단계: {removed.note}")
+                put = self._insert_body(action, t0, target, ch, to_slot, full, replace=False)
+                if put.verified != "verified":
+                    return b._result(action, False, "unverified", t0, target=target, before={"slot": slot, "plugin": full},
+                                     after={"from": slot, "to": to_slot, "plugin": full, "note_path": "remove+insert"},
+                                     note=f"슬롯 {slot}의 {full!r} 제거는 됐으나 재삽입 실패(슬롯 {to_slot}): {put.note}. "
+                                          "직접 다시 넣어야 함")
+                return b._result(action, True, "verified", t0, target=target, before={"slot": slot, "plugin": full},
+                                 after={"from": slot, "to": to_slot, "plugin": full, "note_path": "remove+insert"},
+                                 note="설정값은 초기화됨(MCU에 이동 명령이 없어 제거+재삽입)")
             return b._guarded(action, t0, target, body)
 
     def bypass(self, strip: int | None, number: int | None, slot: int, on: bool) -> "ToolResult":

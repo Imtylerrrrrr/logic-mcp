@@ -557,3 +557,52 @@ def test_params_on_aux_is_skipped(tmp_path):
     r = cmds.plugin.params(2, None, 1)
     assert not r.ok and r.verified == "skipped" and "Z19" in r.note
     assert surface.state.view.kind == "pan"
+
+
+def test_move_removes_and_reinserts_into_empty_slot(tmp_path):        # 스펙 4 F5
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Compressor")
+    r = cmds.plugin.move(1, None, 2, 6)
+    assert r.ok and r.verified == "verified"
+    assert r.after == {"from": 2, "to": 6, "plugin": "Compressor", "note_path": "remove+insert"}
+    assert r.note == "설정값은 초기화됨(MCU에 이동 명령이 없어 제거+재삽입)"
+    assert logic.tracks[0].inserts[2] is None and logic.tracks[0].inserts[6] == "Compressor"
+    assert surface.state.view.kind == "pan" and logic.name_mode is False and not logic.pre
+
+
+def test_move_target_occupied_is_skipped(tmp_path):
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Compressor")
+    logic.tracks[0].insert(6, "Chorus")
+    r = cmds.plugin.move(1, None, 2, 6)
+    assert not r.ok and r.verified == "skipped" and "슬롯 6에" in r.note
+    assert {k: v for k, v in logic.tracks[0].inserts.items() if v} == {2: "Compressor", 6: "Chorus"}
+    assert surface.state.view.kind == "pan"
+
+
+def test_move_source_empty_is_skipped(tmp_path):
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    r = cmds.plugin.move(1, None, 2, 6)
+    assert not r.ok and r.verified == "skipped" and "슬롯 2이 비어 있음" in r.note
+    assert all(v is None for v in logic.tracks[0].inserts.values())
+
+
+def test_move_reports_when_reinsert_fails(tmp_path):                   # Review Focus 3
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Compressor")
+    i = PLUGIN_LIST.index("Compressor")
+    logic.drop_preselect_at = {2 * i - 1, 2 * i}                     # Compressor 두 위치의 오버레이가 안 온다 → 이름으로 못 찾음
+    r = cmds.plugin.move(1, None, 2, 6)
+    assert not r.ok and r.verified == "unverified"
+    assert "제거는 됐으나 재삽입 실패" in r.note and "Compressor" in r.note
+    assert all(v is None for v in logic.tracks[0].inserts.values())   # 되돌리지 않는다(되돌리기도 삽입이라 같은 실패 가능)
+    assert surface.state.view.kind == "pan" and not logic.pre
+
+
+def test_move_on_aux_is_skipped(tmp_path):
+    cmds, surface, fake, logic, cache = make_aux(tmp_path)
+    logic.tracks[1].insert(1, "Compressor")
+    r = cmds.plugin.move(2, None, 1, 2)
+    assert not r.ok and r.verified == "skipped" and "Z19" in r.note
+    assert {k: v for k, v in logic.tracks[1].inserts.items() if v} == {1: "Compressor"}
+    assert all(v is None for v in logic.tracks[0].inserts.values())

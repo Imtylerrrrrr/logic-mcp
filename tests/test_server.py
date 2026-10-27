@@ -154,6 +154,17 @@ async def test_send_tool_via_client(assign_setup):
 
 
 @pytest.mark.anyio
+async def test_plugin_move_requires_to_slot(setup):
+    mcp, fake = setup
+    async with Client(mcp, raise_exceptions=True) as client:
+        tools = {t.name: t for t in (await client.list_tools()).tools}
+        assert "to_slot" in tools["logic_plugin"].input_schema["properties"]
+        result = await client.call_tool("logic_plugin", {"action": "move", "strip": 1, "slot": 2})
+        sc = result.structured_content
+        assert sc["ok"] is False and sc["verified"] == "skipped" and sc["note"] == "move에는 to_slot(1-8)이 필요"
+
+
+@pytest.mark.anyio
 async def test_plugin_calibrate_requires_force(setup, monkeypatch):
     from logic_mcp.logic.commands import ToolResult
     from logic_mcp.logic.plugin import PluginCommands

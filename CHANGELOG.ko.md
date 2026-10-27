@@ -4,6 +4,15 @@
 
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따른다.
 
+## [Unreleased]
+### Added
+- `logic_plugin` `move`: 플러그인을 빈 슬롯(`to_slot`)으로 옮긴다(제거 뒤 재삽입). MCU에 이동 명령이 없어 플러그인 설정값은 초기화된다. 제거 뒤 재삽입이 실패하면 unverified로 플러그인 이름을 알려 직접 다시 넣을 수 있게 한다.
+- `logic_plugin` `insert`가 캐시 목록 위치에 다른 플러그인이 보이면(프로젝트마다 메뉴 순서가 다름) 삽입 메뉴를 이름으로 훑는다. 캐시 목록에 없는 이름은 접두 일치로 찾는다(`note`는 `name_scan:<틱 수>`). 오버레이에 요청한 이름이 보이지 않으면 확정하지 않는다.
+- 트랙이 없는 Aux 스트립을 TRACK 홀드 메뉴 Input 열(`Bus n`)로 가려낸다. 채널 뷰(Plug-in Channel·Send Channel)가 Aux 스트립을 따라가지 않으므로 그 스트립의 플러그인·센드 명령은 직전에 선택한 트랙을 바꾸는 대신 skipped로 끝난다. Aux 스트립의 플러그인 슬롯 1은 Plug-in Mixer 뷰로 삽입·제거할 수 있고, `list`는 Aux 스트립의 슬롯 1만 보고한다(결과의 `aux`).
+
+### Changed
+- `set` 기본 허용 오차를 넓혔다: 0.2 dB(이전 0.1), 단위가 있는 그 밖의 값 2 %(이전 1 %). 숫자 설정의 보정은 최대 10회(이전 6회). `tolerance`를 주면 그 값이 우선한다.
+
 ## [0.1.1] - 2026-10-22
 ### Changed
 - 기본 언어를 영어로 전환: README·문제 해결 문서·CHANGELOG·`logic-plugins` 스킬·MCP 툴 설명·서버 instructions가 영어. 한국어판은 `*.ko.md` 파일로 분리하고 맨 위에서 상호 링크.

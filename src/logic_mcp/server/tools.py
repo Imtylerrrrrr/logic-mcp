@@ -94,13 +94,15 @@ def register_tools(mcp: MCPServer, commands: Commands) -> None:
                           "get/set: param is a name (partial match) or an index, value is a number or option text. insert: plugin name (partial match), "
                           "replace=true is required if the slot is occupied. remove. bypass(on). scan: scan the whole insert menu (60-180 s, nothing is inserted, needs an empty slot). "
                           "Aux strips (no track): only slot 1 insert/remove, via the Plug-in Mixer view. "
+                          "move: remove + reinsert into an empty slot (to_slot); plug-in settings are reset. "
                           "Logic opens and closes the plug-in window when the edit view is entered. Returns to PAN mode when done. "
                           "calibrate: collect the full parameter table of the plug-in in the slot and save it to the user cache (2-20 min; values are not restored, so force=true is required).")
     def logic_plugin(
-        action: Literal["list", "params", "get", "set", "insert", "remove", "bypass", "scan", "calibrate"],
+        action: Literal["list", "params", "get", "set", "insert", "remove", "bypass", "scan", "calibrate", "move"],
         strip: Strip = None,
         number: Number = None,
         slot: Slot = None,
+        to_slot: Slot = None,
         param: Annotated[str | int | None, Field(description="Parameter name (partial match) or 1-based index. Use the index exactly as given in the params result (numbers can skip on the last page)")] = None,
         value: Annotated[float | str | bool | None, Field(description="set: a number or option text (e.g. \"On\")")] = None,
         plugin: Annotated[str | None, Field(description="insert: plug-in name (partial match)")] = None,
@@ -137,6 +139,10 @@ def register_tools(mcp: MCPServer, commands: Commands) -> None:
             return commands.plugin.insert(strip, number, slot, plugin, replace)
         if action == "remove":
             return commands.plugin.remove(strip, number, slot)
+        if action == "move":
+            if to_slot is None:
+                return ToolResult(ok=False, verified="skipped", action=name, note="move에는 to_slot(1-8)이 필요")
+            return commands.plugin.move(strip, number, slot, to_slot)
         if on is None:
             return ToolResult(ok=False, verified="skipped", action=name, note="bypass에는 on(true/false)이 필요")
         return commands.plugin.bypass(strip, number, slot, on)
