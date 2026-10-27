@@ -10,7 +10,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `logic_plugin` `insert` falls back to scanning the insert menu by name when the cached list position shows a different plug-in (the menu order differs between projects). A name that is not in the cached list is looked up by prefix (`note` is `name_scan:<ticks>`). Nothing is confirmed unless the overlay shows the requested name.
 - Aux strips (no track) are detected from the TRACK hold menu Input column (`Bus n`). The Plug-in Channel view does not follow Aux strips (observed); the Send Channel and EQ Channel views are assumed not to follow them either (assumed, not measured). Plug-in, send, and EQ commands on Aux strips are therefore skipped instead of changing the previously selected track. Plug-in slot 1 can still be inserted into and removed from an Aux strip through the Plug-in Mixer view, and `list` reports slot 1 only for Aux strips (`aux` in the result).
 - Plug-in commands check that the edit view header shows the target strip's track number (`Track <n>`), so a strip whose channel view shows another track is not changed silently, even if it was not detected as Aux.
-- `logic_plugin` `set` accepts `"#n"` for an option parameter to pick the n-th option (1-based): it turns to the first option, then n-1 steps forward. An option text that several options share in the 6-character LCD cell (Compressor Circuit Type `Studio`, `Vintag`) is skipped and the note lists their numbers. Without a calibrated option table, `#n` still moves but the result is unverified and only reports the text it landed on. `#n` on a numeric parameter is skipped. Option tables without duplicate texts keep the text-based path (no rewind, `already` still works).
+- `logic_plugin` `set` accepts `"#n"` for an option parameter to pick the n-th option (1-based): it turns to the first option, then n-1 steps forward. An option text that several options share in the 6-character LCD cell is skipped and the note lists their numbers. Without a calibrated option table, `#n` still moves but the result is unverified and only reports the text it landed on. `#n` on a numeric parameter is skipped. A unique option name moves only the difference from the current option when that option is unique in the table (no rewind; `already` still works).
 
 ### Changed
 - Default `set` tolerances are wider: 0.2 dB (was 0.1) and 2 % for other values with a unit (was 1 %). Numeric sets now try up to 10 correction rounds (was 6). An explicit `tolerance` still wins.
@@ -18,8 +18,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 - Range probing accepts a unit cut off by the 6-character LCD cell (Compressor Release `5.0 ms` … `5000.0`) and infers a log mapping when both ends are positive and more than 100× apart, so Compressor Release can be set.
-- `calibrate` collects option lists with fixed tick counts instead of stopping when the text repeats, so options that share an abbreviated text (Compressor Circuit Type) are all kept in order. Identical texts at the very end of a list are still merged into one. Each option parameter now takes about 30 s longer to calibrate.
-- The bundled maps for Compressor and Noise Gate Release and Stereo Delay Left/Right Delay Time were calibrated wrongly and are removed, so these parameters are probed on the first `set`.
+- `calibrate` collects option lists with fixed tick counts instead of stopping when the text repeats, so options that share an abbreviated text are all kept in order. Identical texts at the very end of a list are still merged into one. Each option parameter now takes about 30 s longer to calibrate.
+- Selecting an option by name waits out Logic's value overlay (about 2 s after each step) before reading. Previously it could read the overlay text (`Vintage` over `VinOpt`), take it for the end of the list, and miss the option.
+- The bundled tables for Compressor, Noise Gate and Stereo Delay were recollected: Release and the Stereo Delay times have correct maps again (the old ones were calibrated wrongly), and Compressor Circuit Type lists all 7 options.
 
 ## [0.1.1] - 2026-10-22
 ### Changed
