@@ -30,13 +30,17 @@ try:
     inv = slots(run(f"plugin list (strip {strip})", lambda: commands.plugin.list(strip, None)))
     print("  inserts:", {k: v for k, v in inv.items() if v} or "(빈 인서트)")
     empty = next((k for k in sorted(inv) if inv[k] is None), None)
+    kept = None
 
     # ① 이름 탐색 폴백이 들어갈 수 있는 삽입 → 제거(note: "" = 캐시 위치, name_scan:<틱> = 이름 탐색)
     if empty is None:
         print("① 빈 슬롯 없음: 삽입·제거 건너뜀")
     else:
         r = run(f"① insert Channel EQ s{empty}", lambda: commands.plugin.insert(strip, None, empty, "Channel EQ"))
-        if r.verified == "verified":
+        if r.verified == "verified" and not any(inv.values()):     # 빈 트랙: ③④용으로 남겨 두고 끝에 제거
+            inv[empty] = "Channel EQ"
+            kept = empty
+        elif r.verified == "verified":
             run(f"① remove s{empty}", lambda: commands.plugin.remove(strip, None, empty))
 
     # ② 뱅크 전체 list: Aux 행은 슬롯 1만, 나머지는 null
@@ -68,6 +72,8 @@ try:
         r = run(f"④ move s{last} -> s{empty}", lambda: commands.plugin.move(strip, None, last, empty))
         if r.verified == "verified":
             run(f"④ move s{empty} -> s{last} (되돌림)", lambda: commands.plugin.move(strip, None, empty, last))
+    if kept is not None:
+        run(f"① remove s{kept} (정리)", lambda: commands.plugin.remove(strip, None, kept))
     st = commands.status()
     print("status:", {k: st[k] for k in ("state", "assignment_mode", "flip", "view_kind")})
 finally:
