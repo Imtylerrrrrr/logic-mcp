@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from .strips import StripKind
 
 OVERLAY_S = 2.0          # 모드 전환·값 변경 오버레이 지속(실측)
+OVERLAY_MARGIN_S = 0.5   # 오버레이 끝(틱 뒤 ≈2.0~2.1 s)에 걸린 읽기가 오버레이·정착 텍스트를 번갈아 잡아 0.05로는 부족(실측 2026-10-28 Circuit Type)
 MODE_TIMEOUT = 0.6
 CURSOR_LATE_S = 3.0      # 커서 응답 지연 허용. 파라미터 값 변경 직후 간헐적으로 0.6초 안에 반응이 없었다(실측 2026-10-20 Space Designer, 추정: IR 재계산)
 ENTER_TIMEOUT = 3.0      # 모드 버튼 단계 대기. EQ 첫 진입(Channel EQ 자동 삽입)은 `E_`가 0.5~1.0초 지속(실측 P)
@@ -95,7 +96,7 @@ class ModeDriver:
 
     def settle_overlay(self) -> None:
         """내 마지막 동작(_mark) 뒤 2.0초 오버레이가 지나 재묘사될 때까지."""
-        due = self._since + OVERLAY_S + 0.05
+        due = self._since + OVERLAY_S + OVERLAY_MARGIN_S
         now = self.surface.clock()
         if due > now:
             self._sleep(due - now)
