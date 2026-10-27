@@ -658,13 +658,29 @@ def test_aux_misclassified_as_track_is_caught_by_the_header_track_number(tmp_pat
     assert logic.tracks[1].inserts[2] is None and surface.state.view.kind == "pan"
 
 
-def test_list_keeps_track_rows_when_aux_slot1_cannot_be_read(tmp_path):   # Mixer 뷰가 P3이면 Aux 행만 null
+def test_list_keeps_track_rows_when_aux_slot1_cannot_be_read(tmp_path):   # Mixer 뷰가 P3이고 슬롯 1로 돌릴 수 없으면 Aux 행만 null
     cmds, surface, fake, logic, cache = make_aux(tmp_path)
-    logic.tracks[0].insert(1, "Channel EQ")
+    logic.tracks[0].insert(2, "Channel EQ")                          # 트랙 슬롯 1이 비어 있어 슬롯 1 누름으로 돌릴 수 없다(실측 F: 빈 슬롯 누름 무반응)
     logic.tracks[1].insert(1, "Compressor")
     logic.slot = 3                                                   # Mixer 뷰는 마지막 편집 슬롯을 따른다(실측 O)
     r = cmds.plugin.list(None, None)
     assert not r.ok and r.verified == "unverified" and r.note.startswith("Aux 슬롯 1을 못 읽음:") and "슬롯이 3" in r.note
     t = r.after["tracks"]
-    assert t["1"]["1"] == {"text": "Cha EQ", "name": "Channel EQ"} and t["5"] is None and t["3"] is None
+    assert t["1"]["2"] == {"text": "Cha EQ", "name": "Channel EQ"} and t["5"] is None and t["3"] is None
     assert r.after["aux"] == [5] and r.after["unsupported"] == [3] and surface.state.view.kind == "pan"
+
+
+def test_list_steers_the_mixer_view_back_to_slot_1(tmp_path):        # 실기 10/27: 슬롯 5 편집 뒤 Mixer 뷰가 P5(실측 O)
+    cmds, surface, fake, logic, cache = make_aux(tmp_path)
+    logic.tracks[0].insert(1, "Channel EQ")
+    logic.tracks[0].insert(5, "Compressor")
+    logic.tracks[1].insert(1, "Tape Delay")
+    assert cmds.plugin.params(1, None, 5).verified == "verified" and logic.slot == 5
+    cache.learn_abbrev("Cha EQ", "Channel EQ")                       # 드러내기 틱이 섞이지 않게
+    n0 = len(fake.sent)
+    r = cmds.plugin.list(None, None)
+    assert r.ok and r.verified == "verified" and r.after["aux"] == [5]
+    assert r.after["tracks"]["5"] == {"1": {"text": "TapeDe", "name": None}, **{str(i): None for i in range(2, 9)}}
+    assert not turns(fake.sent[n0:])                                 # 슬롯 1로 돌리는 누름에 틱 없음(미리 선택·교체 없음)
+    assert logic.slot == 1 and logic.tracks[0].inserts[1] == "Channel EQ" and logic.tracks[0].inserts[5] == "Compressor"
+    assert surface.state.view.kind == "pan" and logic.selected == 0 and not logic.pre

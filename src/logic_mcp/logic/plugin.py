@@ -239,13 +239,37 @@ class PluginCommands:
 
     # ---------- Aux: Plug-in Mixer 뷰 슬롯 1(실전 F2) ----------
     def _mixer_slot1(self) -> list[str]:
-        """Plug-in Mixer 뷰 2행 8열(V-Pot n = 스트립 n의 슬롯 1). 뷰가 다른 슬롯(P<n>)이면 ModeError
-        (Mixer 뷰는 마지막 편집 슬롯을 따른다, 실측 O)."""
+        """Plug-in Mixer 뷰 2행 8열(V-Pot n = 스트립 n의 슬롯 1). 뷰가 다른 슬롯(P<n>)이면 슬롯 1로 돌린 뒤 읽는다
+        (Mixer 뷰는 마지막 편집 슬롯을 따른다, 실측 O·실기 10/27). 돌리지 못하면 ModeError."""
         d = self.d
         d.enter("plugin_mixer")
         if d.view.index not in (None, 1):
-            raise ModeError("mixer", "Plug-in Mixer 슬롯 1", f"Mixer 뷰 슬롯이 {d.view.index}")
+            self._steer_mixer_to_slot1(d.view.index)
         return [d.view.columns[i][1].strip() for i in range(MAX_SLOT)]
+
+    def _steer_mixer_to_slot1(self, shown: int) -> None:
+        """트랙 스트립(선택된 것 먼저)의 PL에서 슬롯 1이 차 있으면 V-Pot 1을 틱 없이 눌러 편집 뷰를 슬롯 1로 열고(실측 F(2):
+        값 보존, 미리 선택 없음 → 교체 없음), PLUGIN으로 P1 Mixer 뷰에 간다. 빈 슬롯 누름은 무반응이라(실측 F) 차 있는 트랙만 쓴다.
+        틱은 절대 보내지 않는다(틱 = 미리 선택 → 누르면 교체)."""
+        b, d = self.b, self.d
+        d.leave(keep_select=True)                            # 남은 미리 선택을 모드 전환으로 취소한 뒤 누른다
+        state = b.surface.state
+        numbered = [ch for ch, s in enumerate(state.strips) if s.number is not None]
+        numbered.sort(key=lambda ch: not state.strips[ch].select)
+        for ch in numbered:
+            if b.strips.kind(d, b.surface.state, ch) != "track":
+                continue
+            b._channel(ch, "plugin_channel")
+            if self._slot_text(1) in EMPTY_TEXTS:
+                continue
+            if not d.press_vpot_until(0, lambda v: v.kind in ("plugin_edit", "empty_edit") and v.index == 1, EDIT_OPEN_S):
+                raise ModeError("mixer", "슬롯 1 편집 뷰(Mixer 뷰를 슬롯 1로)", f"{d.view.kind} {d.view.index or ''}".strip())
+            d.settle_smart()
+            d.enter("plugin_mixer")
+            if d.view.index not in (None, 1):
+                raise ModeError("mixer", "Plug-in Mixer 슬롯 1", f"슬롯 1 편집 뒤에도 Mixer 뷰 슬롯이 {d.view.index}")
+            return
+        raise ModeError("mixer", "Plug-in Mixer 슬롯 1", f"Mixer 뷰 슬롯이 {shown}, 슬롯 1이 찬 트랙 스트립이 없어 슬롯 1로 돌리지 못함")
 
     def _mixer_confirm(self, ch: int, before: list[str]) -> tuple[list[str], list[int]]:
         """미리 선택한 V-Pot ch를 눌러 확정하고 Mixer 뷰를 다시 읽는다. 확정 뒤 편집 뷰는 선택 트랙 기준이라(실전 F2)
