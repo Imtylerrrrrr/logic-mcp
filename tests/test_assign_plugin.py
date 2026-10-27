@@ -644,3 +644,15 @@ def test_move_reports_the_name_when_reinsert_raises(tmp_path, monkeypatch):   # 
     assert not r.ok and r.verified == "unverified"
     assert "제거는 됐으나 재삽입 실패" in r.note and "'Compressor'" in r.note and "수동으로" in r.note
     assert r.after["plugin"] == "Compressor" and logic.tracks[0].inserts[2] is None
+
+
+def test_aux_misclassified_as_track_is_caught_by_the_header_track_number(tmp_path):   # Input이 `Bus…`가 아닌 Aux
+    tracks = [Track(1, "1"), Track(5, "Aux1", kind="aux", input_text="1"), Track(3, "StOu", kind="output")]
+    cmds, surface, fake, logic, cache = make(tmp_path, tracks)
+    logic.tracks[0].insert(1, "Channel EQ")
+    assert cmds.strips.kind(cmds.modes, surface.state, 1) == "track"   # 분류는 속는다
+    r = cmds.plugin.params(2, None, 1)                               # PL·편집 뷰는 직전 트랙(번호 1)을 보여 준다
+    assert not r.ok and r.verified == "unverified" and "Track 5" in r.note and "Track 1" in r.note
+    r = cmds.plugin.insert(2, None, 2, "Chorus")
+    assert not r.ok and r.verified == "unverified" and "트랙 1에 들어갔을 수 있음" in r.note
+    assert logic.tracks[1].inserts[2] is None and surface.state.view.kind == "pan"

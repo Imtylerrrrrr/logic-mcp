@@ -250,6 +250,7 @@ class Track:
     eq_page: int = 1                                              # EQ 채널 뷰가 기억하는 마지막 페이지(실측 Q)
     kind: str = "track"                                           # track | aux | output | master (실측 Z4: 출력·Master, 실전 F2: Aux는 채널 뷰가 안 따라감)
     input_blank: bool = False                                     # TRACK Input 열이 빈칸인 트랙(소프트웨어 악기 흉내)
+    input_text: str | None = None                                 # TRACK Input 열 덮어쓰기(Input이 `Bus…`가 아닌 Aux 흉내)
     sends: dict[int, Send | None] = field(default_factory=lambda: {i: None for i in range(1, 9)})
     se_page: int = 1                                              # SE 뷰가 기억하는 마지막 페이지(실측 S3)
 
@@ -409,8 +410,12 @@ class FakeLogic:
         t = self.tracks[self.selected]
         return self.tracks[self.pl_track] if t.kind == "aux" else t
 
+    def _edit_track(self) -> Track:
+        """편집 뷰가 보여 주는 트랙 = PL이 따라가는 트랙(Aux·출력을 골라도 직전 트랙, 실전 F2). 헤더 `Track n`도 이 트랙."""
+        return self.tracks[self.pl_track]
+
     def _edit_params(self) -> list[Param]:
-        return self.tracks[self.selected].params.get(self.slot, [])
+        return self._edit_track().params.get(self.slot, [])
 
     def _edit_pages(self) -> int:
         return max(1, math.ceil(len(self._edit_params()) / 8))
@@ -491,7 +496,7 @@ class FakeLogic:
             ps = self._edit_page()
             names = "".join(col(p.short) for p in ps).ljust(56)
             if self.name_mode:
-                return self._header(t), names, self._slot_digits()
+                return self._header(self._edit_track()), names, self._slot_digits()
             return names, "".join(p.text() for p in ps).ljust(56), self._slot_digits()
         if self.view in ("empty_edit", "midi_fx"):
             return "-      " * 8, " " * 56, "M1" if self.view == "midi_fx" else self._slot_digits()
@@ -499,6 +504,8 @@ class FakeLogic:
 
     def _input_text(self, tr: Track) -> str:
         """TRACK Input 열(실측 Z19): 트랙 `1`, Aux `Bus n`(뱅크 안 Aux 순서로 n), 출력·Master·악기 빈칸."""
+        if tr.input_text is not None:
+            return tr.input_text
         if tr.kind == "aux":
             auxes = [t for t in self.tracks[:8] if t.kind == "aux"]
             return f"Bus {next(i for i, t in enumerate(auxes) if t is tr) + 1}"
@@ -749,7 +756,7 @@ class FakeLogic:
             else:
                 self.slot = min(15, new)
                 if self.view in ("plugin_edit", "empty_edit"):
-                    self.view = "plugin_edit" if self.tracks[self.selected].inserts[self.slot] else "empty_edit"
+                    self.view = "plugin_edit" if self._edit_track().inserts[self.slot] else "empty_edit"
                     self.page = 1
         else:
             return
@@ -873,6 +880,8 @@ class FakeLogic:
             name = self.plugin_list[self._pre_index(ch)]
             self.pre.clear()
             self.selected = ch
+            if t.follows:
+                self.pl_track = ch
             if name == "--":
                 t.remove(self.slot)
                 self.view = "empty_edit"
@@ -884,6 +893,8 @@ class FakeLogic:
             self.redraw()
         elif t.inserts[self.slot]:
             self.selected = ch
+            if t.follows:
+                self.pl_track = ch
             self.view, self.page = "plugin_edit", self.edit_open_page
             self.header_no_page = self.open_header_without_page
             self.redraw()

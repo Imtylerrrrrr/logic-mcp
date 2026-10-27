@@ -25,6 +25,7 @@ VALUE_ROW_S = 1.0       # VALUE 전환 뒤 대상 열 2행이 축약명에서 �
 EMPTY_TEXTS = ("", "--")  # PL·Mixer 2행에서 빈 슬롯(`--` 또는 갱신 전 공백, 실측 C·H)
 EMPTY_SHORTS = ("", "-")  # 편집 뷰 빈 파라미터 칸(공백 또는 1행 `-`, 실기 10차: Adaptive Limiter·Overdrive·Distortion)
 _HEADER_RE = re.compile(r'Ins\.(\d+) "([^"]*)("?)')
+_TRACK_RE = re.compile(r"\s*Track\s+(\d+)")
 _PAGE_TAIL_RE = re.compile(r"\s*Page\s*\d+/\d+.*$")
 
 
@@ -36,6 +37,12 @@ def _header_name(row1: str) -> tuple[int | None, str, bool]:
         return None, "", False
     text = _PAGE_TAIL_RE.sub("", m.group(2))
     return int(m.group(1)), strip_suffix(text).rstrip(" ("), m.group(3) == '"'
+
+
+def _header_track(row1: str) -> int | None:
+    """NAME 모드 1행 맨 앞 `Track <n>`의 n(실측 G). 편집 뷰는 채널 뷰가 따라가는 트랙을 보여 준다(실전 F2)."""
+    m = _TRACK_RE.match(row1)
+    return int(m.group(1)) if m else None
 
 
 def overlay_param_name(header: str, row: str, col: int) -> str:
@@ -116,6 +123,7 @@ class PluginCommands:
         """PL에서 틱 없이 슬롯 V-Pot을 눌러 값이 보존된 편집 뷰를 연다(실측 F(2)). NAME 모드로 두고
         (전체 이름, 축약, 페이지 수)를 돌려준다. 틱을 보내지 않으므로 미리 선택·교체가 생기지 않는다."""
         d = self.d
+        expect = self.b.surface.state.strips[ch].number
         self.b._channel(ch, "plugin_channel")
         abbrev = self._slot_text(slot)
         if abbrev in EMPTY_TEXTS:
@@ -128,6 +136,8 @@ class PluginCommands:
         num, name, complete = _header_name(row1)
         if num != slot or not name:
             raise ModeError("header", f'Ins.{slot} "이름"', row1.strip()[:48] or "빈 헤더")
+        if (tn := _header_track(row1)) != expect:          # 분류와 무관한 가드: Input이 `Bus…`가 아닌 Aux 등(채널 뷰가 다른 트랙)
+            raise ModeError("header", f"Track {expect}", f"Track {tn}")
         key = abbrev.lstrip("*")
         cached = self.cache.abbrev.get(key)                 # 잘린 헤더: 축약 캐시는 헤더 이름과 접두가 맞을 때만 믿는다(실전 F6 오학습)
         full = name if complete else (cached if cached and normalize(cached).startswith(normalize(name)) else self._complete(name))
@@ -473,6 +483,7 @@ class PluginCommands:
         """insert·move 공통 본체(_guarded 안에서, _fresh 뒤). 캐시 위치로 가서 근처 보정 → 안 맞으면 이름 탐색(실전 F1),
         캐시에 없는 이름은 접두 이름 탐색. 확정 뒤 편집 뷰 헤더로 검증."""
         b, d = self.b, self.d
+        expect = b.surface.state.strips[ch].number
         idx, cands = find(self.cache.items, plugin)
         if idx is None and cands:
             return b._result(action, False, "skipped", t0, target=target, note=f"{plugin!r}가 여럿에 맞음: {cands}")
@@ -516,8 +527,13 @@ class PluginCommands:
                              note=f"확정 뒤 {CONFIRM_S:.0f}초 안에 편집 뷰가 아니라 {d.view.kind}")
         d.settle_smart()
         d.toggle_name_value()
-        num, name, _complete = _header_name(b.surface.state.lcd[0])
+        row1 = b.surface.state.lcd[0]
+        num, name, _complete = _header_name(row1)
         d.toggle_name_value()
+        if (tn := _header_track(row1)) != expect:
+            return b._result(action, False, "unverified", t0, target=target,
+                             note=f"확정 뒤 편집 뷰 헤더가 Track {tn}(기대 Track {expect}): 플러그인이 트랙 {tn}에 들어갔을 수 있음. "
+                                  "Logic에서 직접 확인할 것")
         if num != slot or not name or not normalize(want).startswith(normalize(name)):
             return b._result(action, False, "unverified", t0, target=target,
                              note=f"확정 뒤 편집 뷰 헤더가 Ins.{num} {name!r}(기대 Ins.{slot} {want!r})")
