@@ -101,3 +101,9 @@ bank first   ok=True skipped    1049ms already
 - **프로젝트 메인 윈도우 닫힘(Z18)**: 세션 중 메인 윈도우만 닫히고 프로젝트·플러그인 창은 남는 현상 2회(03시, 07시). MCU에는 창 닫기 명령이 없음. ⌘1로 복구. 원인 미확인(Z11과 같은 현상일 수 있음).
 - 사용 쪽 메모: NAM 플러그인 0.7.13은 2026년 TONE3000 캡처(version 0.7.0 SlimmableContainer)를 못 읽음 → TONE3000 공식 플러그인(AU `aumf T3K0 TFTF`)으로 해결. TONE3000은 프로젝트 재열기 뒤 캡처를 잃기도 함(클린+잡음).
 - 다음 후보: ① `insert` 이름 탐색 폴백 ② Aux 스트립 판정·안내 ③ Release 로그 매핑 재수집 ④ by-name 삽입·ops 러너를 `scripts/`로 승격.
+
+## 스펙 4: 실전 수정 (2026-10-27)
+- 설계 `docs/superpowers/specs/2026-10-27-field-fixes-design.md`, 계획 `docs/superpowers/plans/2026-10-27-field-fixes.md`. Opus 구현 6커밋 → Opus 최종 리뷰 1회(7건) → 수정 6커밋 → 실기에서 2건 추가(Mixer 뷰 슬롯 유도, 축약명 부분수열 검사) → 327 테스트.
+- 내용: F1 `insert` 이름 탐색 폴백(note `name_scan:<틱>`, 캐시에 없는 이름은 접두 일치) / F2 Z19 Input 열로 track·aux·output 판정, Aux는 PL·SE·EQ 명령 skipped(`StripAux`), 슬롯 1 삽입·제거만 Plug-in Mixer 뷰(`after.path="mixer"`), `list`는 Aux 행 슬롯 1만 + `after.aux` / F4 허용 오차 dB 0.2·2 %·보정 10회 / F5 `plugin move`(제거+재삽입, 설정 초기화, 헤더 이름 기준·캐시 목록에 있어야 함) / 리뷰 추가: 편집 뷰 헤더 `Track n`과 스트립 번호 대조(분류 실패 시 fail-closed), `move` 재삽입 예외 시 이름 보존, `list`가 Aux 읽기 실패에도 트랙 행 유지, 축약명은 이름의 부분수열일 때만 학습(load 때 불량 항목 제거).
+- 실기(2026-10-27, guitartone 프로젝트, 저장 안 함): ① 트랙 1 슬롯 5 `insert "Channel EQ"` → `name_scan:75` verified, remove verified(2회). ② 슬롯 5 편집 직후 뱅크 `list` → 1차는 "Mixer 뷰 슬롯이 5"로 unverified(트랙 행은 유지) → 슬롯 1 유도 수정 뒤 verified, Aux1 `TapDel`·Aux2 `ChrVer`, `aux: [5, 6]`. Aux 슬롯 2 insert·`eq get` skipped(Z19 note). 이 프로젝트의 축약명 오학습(`Tuner`→Channel EQ 등 7개)은 부분수열 규칙으로 더 이상 학습되지 않고 `name: null`로 보고(reveal 오버레이가 이웃 항목을 보이는 원인은 미해결).
+- 미검증: ③ Low Shelf Gain 3 dB set(허용 0.2) ④ `move` 실기 — 설정값을 바꾸므로 테스트 프로젝트에서 `scripts/live_check4.py`로. Aux 센드·EQ 추종 여부는 가정(미측정). Input이 `Bus`가 아닌 Aux는 헤더 대조로만 막힘.
