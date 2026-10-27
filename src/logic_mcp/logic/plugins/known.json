@@ -561,11 +561,7 @@
           "index": 5,
           "short": "Rel",
           "name": "Release",
-          "map": {
-            "type": "linear",
-            "lo": 5.0,
-            "hi": 5000.0
-          }
+          "map": null
         },
         {
           "index": 6,
@@ -859,11 +855,7 @@
           "index": 7,
           "short": "Rel",
           "name": "Release",
-          "map": {
-            "type": "linear",
-            "lo": 0.0,
-            "hi": 10000.0
-          }
+          "map": null
         },
         {
           "index": 8,
@@ -1168,21 +1160,13 @@
           "index": 9,
           "short": "LeDeTi",
           "name": "Left Delay Time",
-          "map": {
-            "type": "linear",
-            "lo": 1500.0,
-            "hi": 2000.0
-          }
+          "map": null
         },
         {
           "index": 10,
           "short": "RiDeTi",
           "name": "Right Delay Time",
-          "map": {
-            "type": "linear",
-            "lo": 1960.0,
-            "hi": 2000.0
-          }
+          "map": null
         },
         {
           "index": 11,

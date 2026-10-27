@@ -156,3 +156,12 @@ def test_load_drops_user_abbrevs_that_do_not_match(tmp_path):
     c = PluginCache.load(version="12.0.1", user_dir=tmp_path)
     assert "Tuner" not in c.abbrev and "TO3000" not in c.abbrev and c.abbrev["Comprs"] == "Compressor"
     assert c.abbrev["Cha EQ"] == "Channel EQ"                        # 번들 축약은 그대로
+
+
+def test_bundled_drops_wrongly_calibrated_time_maps():                # 실측 2026-10-27: 번들 맵이 실제 범위와 달라 set 실패 → 첫 set에서 프로빙
+    params = json.loads(BUNDLED.read_text())["params"]
+    items = {(name, it["index"]): it for name in ("Compressor", "Noise Gate", "Stereo Delay") for it in params[name]["items"]}
+    assert items[("Compressor", 5)]["name"] == "Release" and items[("Compressor", 5)]["map"] is None
+    assert items[("Noise Gate", 7)]["name"] == "Release" and items[("Noise Gate", 7)]["map"] is None
+    assert items[("Stereo Delay", 9)]["name"] == "Left Delay Time" and items[("Stereo Delay", 9)]["map"] is None
+    assert items[("Stereo Delay", 10)]["name"] == "Right Delay Time" and items[("Stereo Delay", 10)]["map"] is None
