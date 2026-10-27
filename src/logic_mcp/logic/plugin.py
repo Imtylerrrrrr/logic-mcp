@@ -353,20 +353,27 @@ class PluginCommands:
                     tracks[str(num)] = row
                     if revealed:
                         d.leave(keep_select=True)               # 드러낸 미리 선택은 누르지 않고 모드 전환으로 취소
+                aux_error = ""
                 if aux:
-                    slot1 = self._mixer_slot1()
-                    for ch, num in aux:                         # 축약 → 이름은 캐시로만(Aux에서는 미리 선택으로 드러내지 않는다)
-                        text = slot1[ch]
-                        row = {str(i): None for i in range(1, MAX_SLOT + 1)}
-                        if text not in EMPTY_TEXTS:
-                            row["1"] = {"text": text, "name": self.cache.abbrev.get(text.lstrip("*"))}
-                        tracks[str(num)] = row
+                    try:
+                        slot1 = self._mixer_slot1()
+                    except ModeError as e:                      # 이미 읽은 트랙 행은 버리지 않는다: Aux 행만 null로 두고 unverified
+                        aux_error = f"Aux 슬롯 1을 못 읽음: {e}"
+                    else:
+                        for ch, num in aux:                     # 축약 → 이름은 캐시로만(Aux에서는 미리 선택으로 드러내지 않는다)
+                            text = slot1[ch]
+                            row = {str(i): None for i in range(1, MAX_SLOT + 1)}
+                            if text not in EMPTY_TEXTS:
+                                row["1"] = {"text": text, "name": self.cache.abbrev.get(text.lstrip("*"))}
+                            tracks[str(num)] = row
                 if learned:
                     self.cache.save()
                 self.inventory.update(tracks)
                 after = {"tracks": tracks} if only is not None else {"tracks": tracks, "unsupported": unsupported}
                 if only is None or aux:
                     after["aux"] = [num for _ch, num in aux]
+                if aux_error:
+                    return b._result(action, False, "unverified", t0, after=after, note=aux_error)
                 return b._result(action, True, "verified", t0, after=after)
             return b._guarded(action, t0, None, body)
 

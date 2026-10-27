@@ -656,3 +656,15 @@ def test_aux_misclassified_as_track_is_caught_by_the_header_track_number(tmp_pat
     r = cmds.plugin.insert(2, None, 2, "Chorus")
     assert not r.ok and r.verified == "unverified" and "트랙 1에 들어갔을 수 있음" in r.note
     assert logic.tracks[1].inserts[2] is None and surface.state.view.kind == "pan"
+
+
+def test_list_keeps_track_rows_when_aux_slot1_cannot_be_read(tmp_path):   # Mixer 뷰가 P3이면 Aux 행만 null
+    cmds, surface, fake, logic, cache = make_aux(tmp_path)
+    logic.tracks[0].insert(1, "Channel EQ")
+    logic.tracks[1].insert(1, "Compressor")
+    logic.slot = 3                                                   # Mixer 뷰는 마지막 편집 슬롯을 따른다(실측 O)
+    r = cmds.plugin.list(None, None)
+    assert not r.ok and r.verified == "unverified" and r.note.startswith("Aux 슬롯 1을 못 읽음:") and "슬롯이 3" in r.note
+    t = r.after["tracks"]
+    assert t["1"]["1"] == {"text": "Cha EQ", "name": "Channel EQ"} and t["5"] is None and t["3"] is None
+    assert r.after["aux"] == [5] and r.after["unsupported"] == [3] and surface.state.view.kind == "pan"
