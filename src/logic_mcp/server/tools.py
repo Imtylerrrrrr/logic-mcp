@@ -105,7 +105,7 @@ def register_tools(mcp: MCPServer, commands: Commands) -> None:
         slot: Slot = None,
         to_slot: Annotated[int | None, Field(ge=1, le=8, description="move: destination slot 1-8, must be empty")] = None,
         param: Annotated[str | int | None, Field(description="Parameter name (partial match) or 1-based index. Use the index exactly as given in the params result (numbers can skip on the last page)")] = None,
-        value: Annotated[float | str | bool | None, Field(description="set: a number or option text (e.g. \"On\")")] = None,
+        value: Annotated[float | str | bool | None, Field(description="set: a number or option text (e.g. \"On\"). For an option parameter, \"#n\" picks the n-th option (1-based); an option text shared by several options (LCD abbreviations can collide) is skipped and the note lists their numbers to use instead")] = None,
         plugin: Annotated[str | None, Field(description="insert: plug-in name (partial match)")] = None,
         replace: bool = False,
         on: Annotated[bool | None, Field(description="bypass: true = bypassed")] = None,
