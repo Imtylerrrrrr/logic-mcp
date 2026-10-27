@@ -118,6 +118,21 @@ def test_calibrate_probes_capped_all_numeric_options_as_numeric(tmp_path):     #
     assert items[3]["map"]["type"] == "linear" and abs(items[3]["map"]["lo"] - -60.0) < 0.5 and abs(items[3]["map"]["hi"]) < 0.5
     assert r.after["enums"] == 1 and r.after["probed"] == 3
 
+
+def test_calibrate_keeps_duplicate_option_texts(tmp_path):                     # 실측 2026-10-27 Compressor Circuit Type: 6자 축약 'Studio'·'Vintag'가 둘씩
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    circuit = ["PltDig", "Studio", "Studio", "Classc", "Vintag", "Vintag", "VinOpt"]
+    logic.tracks[0].insert(2, "Chorus")
+    logic.tracks[0].params[2] = [
+        Param("CirTyp", "Circuit Type", "enum", options=tuple(circuit), value=2),                # 겹치는 텍스트 한가운데에서 시작
+        Param("Thrs", "Threshold", "linear", -60.0, 0.0, -20.0, unit="n1", step=0.5),
+        Param("Mix", "Mix", "linear", 0.0, 100.0, 50.0, unit="%", step=1.0)]
+    r = cmds.plugin.calibrate(strip=1, number=None, slot=2)
+    assert r.verified == "verified"
+    items = {it["index"]: it for it in r.after["items"]}
+    assert items[1]["name"] == "Circuit Type" and items[1]["map"] == {"type": "enum", "options": circuit}
+    assert r.after["enums"] == 1 and r.after["probed"] == 2
+
 def test_calibrate_waits_out_fader_overlay_before_next_column(tmp_path):        # 실측 2026-10-20 G1~G3: 페이더 오버레이 14칸이 다음 열 값을 공백으로 만든다
     cmds, surface, fake, logic, cache = make(tmp_path)
     logic.overlay_survives_toggle = True

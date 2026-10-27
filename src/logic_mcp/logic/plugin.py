@@ -759,25 +759,22 @@ class PluginCommands:
                     # 이름은 LCD가 바뀐 틱(tick() True)의 오버레이에서만 받는다. 끝값 무변화 틱은 오버레이가 없을 수 있어
                     # 정착 1행 조각을 이름으로 읽게 된다(리뷰 I3).
                     if v.kind == "enum":
-                        last = v.text
-                        for _ in range(MAX_OPTIONS):                               # 처음(가장 앞 선택지)까지 -1
+                        # 텍스트가 같아도 멈추지 않고 고정 횟수: 축약이 겹치는 선택지(실측 2026-10-27 Circuit Type 'Studio'×2)를 남긴다
+                        for _ in range(MAX_OPTIONS):                               # 처음(가장 앞 선택지)까지 -1(끝에선 무변화)
                             if d.tick(col, -1) and name is None:
                                 name = overlay_param_name(header, d.surface.state.lcd[0], col)
                             d.settle_overlay()
-                            t = d.read_column(col)[1].text
-                            if t == last:
-                                break
-                            last = t
-                        options = [last]
+                        texts = [d.read_column(col)[1].text]
                         for _ in range(MAX_OPTIONS - 1):                           # +1로 끝까지 모은다(처음에 있었으면 여기서 이름)
                             if d.tick(col, 1) and name is None:
                                 name = overlay_param_name(header, d.surface.state.lcd[0], col)
                             d.settle_overlay()
-                            t = d.read_column(col)[1].text
-                            if t == options[-1]:
-                                break
-                            options.append(t)
-                        if len(options) >= MAX_OPTIONS and all(parse_value(o).kind == "number" for o in options):
+                            texts.append(d.read_column(col)[1].text)
+                        options = list(texts)
+                        while len(options) > 1 and options[-1] == options[-2]:     # 끝에 닿은 뒤 무변화 틱의 반복은 하나로. 한계: 진짜로 끝에 연속된 같은 텍스트도 합쳐진다
+                            options.pop()
+                        capped = all(a != b for a, b in zip(texts, texts[1:]))     # 상한까지 한 번도 안 멈춤(잘라내기 전 기준 = 옛 루프가 MAX_OPTIONS개 모은 경우)
+                        if capped and all(parse_value(o).kind == "number" for o in options):
                             # 상한까지 모인 숫자 선택지 = 첫 읽기가 남은 축약명을 받은 연속 숫자 파라미터(재수집 Rel·Q·Gain)
                             d.flip(True)
                             mapping, _lo, _hi = probe_mapping(d, col)
