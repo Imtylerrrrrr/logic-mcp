@@ -17,7 +17,7 @@ from .faders import FaderTable, parse_pan_text
 from .modes import FEEDBACK_TIMEOUT, ModeDriver, ModeError
 from .plugin import ParamNotFound, PluginCommands, SlotEmpty
 from .sends import SendCommands
-from .strips import StripKinds, StripUnsupported
+from .strips import StripAux, StripKinds, StripUnsupported
 
 if TYPE_CHECKING:
     from .plugins.cache import PluginCache
@@ -27,6 +27,7 @@ FADER_TIMEOUT = 0.8
 PAN_TIMEOUT = 0.5
 BANK_TIMEOUT = 1.0
 PRESS_HOLD_S = 0.03
+AUX_BLIND_VIEWS = ("plugin_channel", "send_channel", "eq_channel")   # Aux 스트립을 따라가지 않는 채널 뷰(실전 F2, 실측 Z19)
 Verified = Literal["verified", "unverified", "timeout", "skipped"]
 
 
@@ -130,8 +131,10 @@ class Commands:
         """대상 트랙을 선택하고 kind 뷰(PL 또는 SE)로 간다. PL: 2행 = 선택 트랙의 슬롯 1~8, V-Pot n = 슬롯 n(실측 C·D).
         PL 안에서 SELECT 만 눌러 트랙을 바꾸면 2행이 그 트랙의 슬롯으로 바뀌지 않는다(실기 8차: 트랙 이름 조각이 읽힘, 실측 Z3)
         → 이미 PL/SE 이고 다른 스트립이면 PAN 으로 나가 다시 들어간다(SE도 같은 규칙). 출력·Master 스트립은 PL/SE가
-        따라가지 않으므로 먼저 막는다(실측 Z4·S10, 수정 8)."""
-        self.strips.ensure(self.modes, self.surface.state, ch)
+        따라가지 않으므로 먼저 막는다(실측 Z4·S10, 수정 8). Aux 스트립도 채널 뷰가 따라가지 않는다(실전 F2) → StripAux."""
+        if self.strips.ensure(self.modes, self.surface.state, ch) == "aux" and kind in AUX_BLIND_VIEWS:
+            s = self.surface.state.strips[ch]
+            raise StripAux(ch, s.number, s.name)
         if self.modes.view.kind != "pan" and not self.surface.state.strips[ch].select:
             self.modes.leave(keep_select=True)
         self.modes.focus(ch)
@@ -150,7 +153,7 @@ class Commands:
             return body()
         except SlotEmpty as e:
             return self._result(action, False, "skipped", t0, target=target, note=f"슬롯 {e.slot}이 비어 있음")
-        except (ParamNotFound, StripUnsupported) as e:
+        except (ParamNotFound, StripUnsupported, StripAux) as e:
             return self._result(action, False, "skipped", t0, target=target, note=e.note)
         except ModeError as e:
             return self._result(action, False, "unverified", t0, target=target, note=str(e))

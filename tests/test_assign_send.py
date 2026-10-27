@@ -122,6 +122,13 @@ def test_set_dest_on_output_strip_is_skipped():                                 
     assert cmds.send.get(strip=2, number=None).verified == "skipped"
 
 
+def test_set_dest_on_aux_strip_is_skipped():                                        # 실전 F2·실측 Z19: SE가 Aux를 따라가지 않음
+    cmds, surface, fake, logic = make([Track(1, "1"), Track(5, "Aux1", kind="aux")])
+    r = cmds.send.set_dest(strip=2, number=None, send=1, dest=1)
+    assert r.verified == "skipped" and "Z19" in r.note
+    assert all(s is None for t in logic.tracks for s in t.sends.values()) and surface.state.view.kind == "pan"
+
+
 def test_set_level_uses_flip_fader_with_volume_table_and_leaves_flip_off():       # 실측 S6
     cmds, surface, fake, logic = make()
     logic.tracks[0].sends[1] = Send("Bus 1")

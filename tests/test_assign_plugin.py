@@ -471,3 +471,89 @@ def test_strip_kinds_cache_invalidates_when_name_changes(tmp_path):
     r = cmds.plugin.list(None, None)
     assert r.after["unsupported"] == [6] and r.after["tracks"]["3"] == {str(i): None for i in range(1, 9)}
     assert track_presses(fake.sent) > n
+
+
+def aux_tracks():
+    return [Track(1, "1"), Track(5, "Aux1", kind="aux"), Track(3, "StOu", kind="output")]
+
+
+def make_aux(tmp_path):
+    cmds, surface, fake, logic, cache = make(tmp_path, aux_tracks())
+    logic.plugin_list = PLUGIN_LIST + ["Tape Delay"]                 # 캐시 목록에 없는 이름도 Mixer 경로에서 이름 탐색으로
+    return cmds, surface, fake, logic, cache
+
+
+def test_aux_insert_slot1_uses_mixer_view(tmp_path):                  # 실전 F2: PL은 Aux를 따라가지 않는다
+    cmds, surface, fake, logic, cache = make_aux(tmp_path)
+    logic.tracks[0].insert(2, "Channel EQ")
+    r = cmds.plugin.insert(2, None, 1, "Tape Delay")
+    assert r.ok and r.verified == "verified" and r.after["path"] == "mixer" and r.after["plugin"] == "Tape Delay"
+    assert logic.tracks[1].inserts[1] == "Tape Delay"
+    assert {k: v for k, v in logic.tracks[0].inserts.items() if v} == {2: "Channel EQ"}   # 선택 트랙은 그대로
+    assert surface.state.view.kind == "pan" and not logic.pre
+
+
+def test_aux_insert_slot1_occupied_is_skipped(tmp_path):              # Review Focus 2
+    cmds, surface, fake, logic, cache = make_aux(tmp_path)
+    logic.tracks[1].insert(1, "Compressor")
+    cmds.strips.follows(cmds.modes, surface.state, 1)
+    n0 = len(fake.sent)
+    for replace in (False, True):
+        r = cmds.plugin.insert(2, None, 1, "Tape Delay", replace=replace)
+        assert not r.ok and r.verified == "skipped" and "슬롯 1에" in r.note
+    assert not turns(fake.sent[n0:]) and not pushes(fake.sent[n0:])
+    assert {k: v for k, v in logic.tracks[1].inserts.items() if v} == {1: "Compressor"}
+    assert all(v is None for v in logic.tracks[0].inserts.values()) and surface.state.view.kind == "pan"
+
+
+def test_aux_insert_slot2_is_skipped_with_z19_note(tmp_path):
+    cmds, surface, fake, logic, cache = make_aux(tmp_path)
+    r = cmds.plugin.insert(2, None, 2, "Chorus")
+    assert not r.ok and r.verified == "skipped" and "Z19" in r.note and "번호 5" in r.note
+    assert all(v is None for t in logic.tracks for v in t.inserts.values())
+    assert surface.state.view.kind == "pan" and logic.cs_param == 0
+
+
+def test_aux_insert_refuses_when_mixer_shows_another_slot(tmp_path):  # 실측 O: Mixer 뷰는 마지막 편집 슬롯(P<n>)을 따른다
+    cmds, surface, fake, logic, cache = make_aux(tmp_path)
+    logic.slot = 3
+    r = cmds.plugin.insert(2, None, 1, "Tape Delay")
+    assert not r.ok and r.verified == "unverified" and "슬롯이 3" in r.note
+    assert all(v is None for t in logic.tracks for v in t.inserts.values())
+
+
+def test_aux_remove_slot1_uses_mixer_view(tmp_path):
+    cmds, surface, fake, logic, cache = make_aux(tmp_path)
+    logic.tracks[0].insert(1, "Channel EQ")
+    logic.tracks[1].insert(1, "Compressor")
+    r = cmds.plugin.remove(2, None, 1)
+    assert r.ok and r.verified == "verified" and r.after["path"] == "mixer"
+    assert r.before == {"slot": 1, "text": "Comprs"} and r.after["text"] == "--"
+    assert logic.tracks[1].inserts[1] is None and logic.tracks[0].inserts[1] == "Channel EQ"
+    assert cmds.plugin.remove(2, None, 1).verified == "skipped"     # 이미 비어 있음(already)
+    assert surface.state.view.kind == "pan" and not logic.pre
+
+
+def test_list_reports_aux_slot1_only(tmp_path):
+    cmds, surface, fake, logic, cache = make_aux(tmp_path)
+    logic.tracks[0].insert(1, "Channel EQ")
+    logic.tracks[0].insert(2, "Compressor")
+    logic.tracks[1].insert(1, "Compressor")
+    cache.learn_abbrev("Comprs", "Compressor")
+    r = cmds.plugin.list(None, None)
+    assert r.verified == "verified"
+    t = r.after["tracks"]
+    assert t["5"] == {"1": {"text": "Comprs", "name": "Compressor"}, **{str(i): None for i in range(2, 9)}}
+    assert t["5"] != t["1"] and t["1"]["1"] == {"text": "Cha EQ", "name": "Channel EQ"}
+    assert r.after["aux"] == [5] and r.after["unsupported"] == [3] and t["3"] is None
+    single = cmds.plugin.list(None, 5)
+    assert single.after == {"tracks": {"5": t["5"]}, "aux": [5]}
+    assert surface.state.view.kind == "pan" and not logic.pre
+
+
+def test_params_on_aux_is_skipped(tmp_path):
+    cmds, surface, fake, logic, cache = make_aux(tmp_path)
+    logic.tracks[1].insert(1, "Compressor")
+    r = cmds.plugin.params(2, None, 1)
+    assert not r.ok and r.verified == "skipped" and "Z19" in r.note
+    assert surface.state.view.kind == "pan"

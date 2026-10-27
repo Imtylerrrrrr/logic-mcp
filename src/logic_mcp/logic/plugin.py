@@ -12,7 +12,7 @@ from .modes import CONFIRM_S, EDIT_OPEN_S, OVERLAY_WIDTH, ModeError
 from .plugins.cache import PluginCache
 from .plugins.scan import ITEM_TICKS, rewind_to_empty, scan_list, seek_by_name
 from .plugins.match import find, normalize, strip_suffix
-from .strips import StripUnsupported
+from .strips import StripAux, StripUnsupported
 from .setter import probe_mapping, set_enum, set_numeric
 from .values import Mapping, Value, parse_value, tolerance_for
 
@@ -226,6 +226,65 @@ class PluginCommands:
         return {"plugin": full, "slot": slot, "index": item["index"], "short": item["short"],
                 "name": item.get("name"), "value": v.number, "text": v.text}
 
+    # ---------- Aux: Plug-in Mixer 뷰 슬롯 1(실전 F2) ----------
+    def _mixer_slot1(self) -> list[str]:
+        """Plug-in Mixer 뷰 2행 8열(V-Pot n = 스트립 n의 슬롯 1). 뷰가 다른 슬롯(P<n>)이면 ModeError
+        (Mixer 뷰는 마지막 편집 슬롯을 따른다, 실측 O)."""
+        d = self.d
+        d.enter("plugin_mixer")
+        if d.view.index not in (None, 1):
+            raise ModeError("mixer", "Plug-in Mixer 슬롯 1", f"Mixer 뷰 슬롯이 {d.view.index}")
+        return [d.view.columns[i][1].strip() for i in range(MAX_SLOT)]
+
+    def _mixer_confirm(self, ch: int, before: list[str]) -> tuple[list[str], list[int]]:
+        """미리 선택한 V-Pot ch를 눌러 확정하고 Mixer 뷰를 다시 읽는다. 확정 뒤 편집 뷰는 선택 트랙 기준이라(실전 F2)
+        헤더로 검증하지 않는다. (다시 읽은 8열, 바뀐 다른 열 번호)."""
+        d = self.d
+        d.press_vpot_until(ch, lambda w: w.kind in ("plugin_edit", "empty_edit"), CONFIRM_S)
+        d.settle_smart()
+        if d.view.kind == "plugin_mixer":
+            d.leave(keep_select=True)       # 확정이 안 먹었으면 남은 미리 선택의 깜박임을 열 텍스트로 읽지 않도록 모드 전환으로 취소
+        after = self._mixer_slot1()
+        return after, [i + 1 for i in range(MAX_SLOT) if i != ch and after[i] != before[i]]
+
+    def _mixer_insert(self, action: str, t0: int, target: dict, ch: int, want: str, prefix: bool) -> "ToolResult":
+        """Aux 스트립 슬롯 1 삽입: Mixer 뷰 V-Pot ch로 이름 탐색 → 확정 → 열 ch만 바뀌었는지 확인."""
+        b, d = self.b, self.d
+        before = self._mixer_slot1()
+        current = before[ch]
+        if current not in EMPTY_TEXTS:                       # replace도 막는다: 교체 확정은 Mixer 뷰에서 검증 경로가 없다
+            return b._result(action, False, "skipped", t0, target=target,
+                             note=f"슬롯 1에 {current!r}가 있음. Aux 스트립은 교체를 지원하지 않음: remove 뒤 insert")
+        found, ticks, name = seek_by_name(d, ch, want, prefix)
+        if not found:                                        # 누르지 않는다: finally의 leave가 미리 선택을 취소
+            return b._result(action, False, "unverified", t0, target=target,
+                             note=f"이름 탐색 {ticks}틱 뒤에도 {want!r} 못 찾음(마지막 {name!r}). 설치 목록이 다른 듯. `logic_plugin scan` 권장")
+        after, moved = self._mixer_confirm(ch, before)
+        ok = after[ch] not in EMPTY_TEXTS and not moved
+        if ok:
+            self.cache.learn_abbrev(after[ch].lstrip("*"), name)
+            self.cache.save()
+        return b._result(action, ok, "verified" if ok else "unverified", t0, target=target,
+                         before={"slot": 1, "text": current},
+                         after={"slot": 1, "plugin": name, "abbrev": after[ch], "replaced": None, "path": "mixer"},
+                         note=f"name_scan:{ticks}" if ok else
+                         f"Mixer 뷰 확인 실패: 열 {ch + 1} {after[ch]!r}, 바뀐 다른 스트립 {moved}")
+
+    def _mixer_remove(self, action: str, t0: int, target: dict, ch: int) -> "ToolResult":
+        """Aux 스트립 슬롯 1 제거: Mixer 뷰 V-Pot ch를 `--`로 되감아 확정 → 열 ch만 비었는지 확인."""
+        b, d = self.b, self.d
+        before = self._mixer_slot1()
+        current = before[ch]
+        if current in EMPTY_TEXTS:
+            return b._result(action, True, "skipped", t0, target=target, after={"slot": 1, "text": current, "path": "mixer"},
+                             note="already")
+        rewind_to_empty(d, ch)                               # 오버레이 `--` 확인까지
+        after, moved = self._mixer_confirm(ch, before)
+        ok = after[ch] in EMPTY_TEXTS and not moved
+        return b._result(action, ok, "verified" if ok else "unverified", t0, target=target,
+                         before={"slot": 1, "text": current}, after={"slot": 1, "text": after[ch], "path": "mixer"},
+                         note="" if ok else f"Mixer 뷰 확인 실패: 열 {ch + 1} {after[ch]!r}, 바뀐 다른 스트립 {moved}")
+
     # ---------- 명령 ----------
     def list(self, strip: int | None, number: int | None) -> "ToolResult":
         b, d, action = self.b, self.d, "plugin_list"
@@ -246,6 +305,7 @@ class PluginCommands:
                     ch for ch, s in enumerate(b.surface.state.strips) if s.number is not None]
                 tracks: dict[str, dict[str, dict | None] | None] = {}
                 unsupported: list[int] = []
+                aux: list[tuple[int, int | None]] = []
                 learned = False
                 for ch in targets:
                     num = b.surface.state.strips[ch].number     # PL은 1행이 채널명이 아니라 PAN에서 읽은 번호를 쓴다
@@ -256,6 +316,10 @@ class PluginCommands:
                             return b._result(action, False, "skipped", t0, note=e.note)
                         tracks[str(num)] = None                 # 출력·Master: PL이 따라가지 않아 읽지 않는다(실측 Z4)
                         unsupported.append(num)
+                        continue
+                    except StripAux:
+                        tracks[str(num)] = None                 # Aux: PL이 직전 트랙 슬롯을 보여 준다(실전 F2) → 아래 Mixer 뷰 슬롯 1만
+                        aux.append((ch, num))
                         continue
                     d.settle_overlay()
                     texts = [d.view.columns[i][1].strip() for i in range(MAX_SLOT)]
@@ -278,10 +342,20 @@ class PluginCommands:
                     tracks[str(num)] = row
                     if revealed:
                         d.leave(keep_select=True)               # 드러낸 미리 선택은 누르지 않고 모드 전환으로 취소
+                if aux:
+                    slot1 = self._mixer_slot1()
+                    for ch, num in aux:                         # 축약 → 이름은 캐시로만(Aux에서는 미리 선택으로 드러내지 않는다)
+                        text = slot1[ch]
+                        row = {str(i): None for i in range(1, MAX_SLOT + 1)}
+                        if text not in EMPTY_TEXTS:
+                            row["1"] = {"text": text, "name": self.cache.abbrev.get(text.lstrip("*"))}
+                        tracks[str(num)] = row
                 if learned:
                     self.cache.save()
                 self.inventory.update(tracks)
                 after = {"tracks": tracks} if only is not None else {"tracks": tracks, "unsupported": unsupported}
+                if only is None or aux:
+                    after["aux"] = [num for _ch, num in aux]
                 return b._result(action, True, "verified", t0, after=after)
             return b._guarded(action, t0, None, body)
 
@@ -414,6 +488,8 @@ class PluginCommands:
             def body() -> "ToolResult":
                 nonlocal want
                 self.b._fresh()
+                if slot == 1 and b.strips.kind(d, b.surface.state, ch) == "aux":   # Aux 슬롯 2~8은 _channel이 StripAux
+                    return self._mixer_insert(action, t0, target, ch, want, prefix=idx is None)
                 self.b._channel(ch, "plugin_channel")
                 current = self._slot_text(slot)
                 occupied = current not in EMPTY_TEXTS
@@ -478,6 +554,8 @@ class PluginCommands:
 
             def body() -> "ToolResult":
                 self.b._fresh()
+                if slot == 1 and b.strips.kind(d, b.surface.state, ch) == "aux":
+                    return self._mixer_remove(action, t0, target, ch)
                 self.b._channel(ch, "plugin_channel")
                 current = self._slot_text(slot)
                 if current in EMPTY_TEXTS:

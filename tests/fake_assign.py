@@ -22,7 +22,9 @@ refuse에 V-Pot 누름 노트를 넣으면 누름이 드롭되어 미리 선택�
 late_preselect_items의 목록 항목은 처음 닿은 틱에 이전 항목 오버레이를 다시 그리고, LATE_PRESELECT_S 뒤 sleep에서야 제 이름을 그린다
 (재수집: 스캔에서 빠진 Rotor Cabinet·Fuzz Machine). 한 번 그린 항목은 집합에서 빠진다.
 미리 선택이 목록 끝에 클램프되어 위치가 그대로면 LCD를 그리지 않는다(실측 scan_diag). drop_preselect_at의 위치(`--`에서 센 틱 위치)에
-닿은 틱은 오버레이 쓰기를 빠뜨린다(늦는 게 아니라 안 옴, 실측 scan_diag 27번 위치)."""
+닿은 틱은 오버레이 쓰기를 빠뜨린다(늦는 게 아니라 안 옴, 실측 scan_diag 27번 위치).
+kind="aux" 트랙(실전 F2·실측 Z19)은 TRACK Input 열이 `Bus n`, Output 열이 `St Out`이고 PL·SE가 따라가지 않는다(2행·누름은 직전 트랙).
+Plug-in Mixer 뷰 확정은 Aux 슬롯에 들어가지만 편집 뷰는 PL이 보여 주는 트랙의 슬롯으로 열린다."""
 from __future__ import annotations
 
 import math
@@ -805,8 +807,8 @@ class FakeLogic:
                 return
             self._preselect(ch, t.inserts[self.slot], self.slot, ticks)
             return
-        if self.view == "plugin_channel":                               # V-Pot n = 슬롯 n(실측 D)
-            self._preselect(ch, self.tracks[self.selected].inserts[ch + 1], ch + 1, ticks)
+        if self.view == "plugin_channel":                               # V-Pot n = 2행이 보여 주는 트랙의 슬롯 n(실측 D, 실전 F2)
+            self._preselect(ch, self.tracks[self.pl_track].inserts[ch + 1], ch + 1, ticks)
             return
         if self.view == "eq_mixer":
             t = self._track(ch)
@@ -852,7 +854,17 @@ class FakeLogic:
             t.bypassed ^= {self.slot}
             self.redraw()
             return
-        if ch in self.pre:
+        if ch in self.pre and t.kind == "aux":                         # 실전 F2: Aux 슬롯에 확정되지만 편집 뷰는 선택(따라가는) 트랙 기준
+            name = self.plugin_list[self._pre_index(ch)]
+            self.pre.clear()
+            if name == "--":
+                t.remove(self.slot)
+            elif name != t.inserts[self.slot]:
+                t.insert(self.slot, name)
+            shown = self.tracks[self.pl_track]
+            self.view, self.page = ("plugin_edit", self.edit_open_page) if shown.inserts[self.slot] else ("empty_edit", 1)
+            self.redraw()
+        elif ch in self.pre:
             name = self.plugin_list[self._pre_index(ch)]
             self.pre.clear()
             self.selected = ch
@@ -874,7 +886,7 @@ class FakeLogic:
     def _push_channel(self, ch: int) -> None:
         """PL에서 V-Pot n 누름. SHIFT면 바이패스 토글(실측 N). 미리 선택이 있으면 확정 → ≈2초 뒤 편집 뷰(실측 K),
         없으면 차 있는 슬롯은 곧바로 값 보존 편집 뷰, 빈 슬롯은 무반응(실측 F)."""
-        t, slot = self.tracks[self.selected], ch + 1
+        t, slot = self.tracks[self.pl_track], ch + 1                  # 2행이 보여 주는 트랙(Aux를 골라도 직전 트랙, 실전 F2)
         if self.shift:
             t.bypassed ^= {slot}
             self.redraw()

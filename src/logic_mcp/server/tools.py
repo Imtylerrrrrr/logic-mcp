@@ -93,6 +93,7 @@ def register_tools(mcp: MCPServer, commands: Commands) -> None:
               description="Insert plug-ins. list: inventory (the whole bank if no strip/number). params: all plug-in parameters (index, short name, value). "
                           "get/set: param is a name (partial match) or an index, value is a number or option text. insert: plugin name (partial match), "
                           "replace=true is required if the slot is occupied. remove. bypass(on). scan: scan the whole insert menu (60-180 s, nothing is inserted, needs an empty slot). "
+                          "Aux strips (no track): only slot 1 insert/remove, via the Plug-in Mixer view. "
                           "Logic opens and closes the plug-in window when the edit view is entered. Returns to PAN mode when done. "
                           "calibrate: collect the full parameter table of the plug-in in the slot and save it to the user cache (2-20 min; values are not restored, so force=true is required).")
     def logic_plugin(
