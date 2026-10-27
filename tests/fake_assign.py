@@ -404,6 +404,11 @@ class FakeLogic:
             return fallback
         return col(self.dest_list[self.pre[ch]]) if self.blink_on else col("")
 
+    def _eq_track(self) -> Track:
+        """EQ 채널 뷰가 보여 주는 트랙. Aux를 골라도 PL처럼 직전 트랙이라고 가정(미측정)."""
+        t = self.tracks[self.selected]
+        return self.tracks[self.pl_track] if t.kind == "aux" else t
+
     def _edit_params(self) -> list[Param]:
         return self.tracks[self.selected].params.get(self.slot, [])
 
@@ -418,7 +423,7 @@ class FakeLogic:
         return ps[(self.page - 1) * 8:self.page * 8]
 
     def _column_param(self, ch: int) -> Param | None:
-        t = self.tracks[self.selected]
+        t = self._eq_track()
         if self.view == "eq_channel" and t.eq is not None:
             ps = [p for band in t.eq[2 * self.page - 2:2 * self.page] for p in band]
             return ps[ch] if ch < len(ps) else None
@@ -470,7 +475,7 @@ class FakeLogic:
             r2 = "".join(tr.eq[0][0].text() if tr.eq else col("") for tr in self.tracks[:8]).ljust(56)
             return self._names_row(), r2, "E1"
         if self.view == "eq_channel":
-            ps = [p for band in t.eq[2 * self.page - 2:2 * self.page] for p in band]
+            ps = [p for band in self._eq_track().eq[2 * self.page - 2:2 * self.page] for p in band]
             names = "".join(col(p.short) for p in ps).ljust(56)
             return names, names if self.name_mode else "".join(p.text() for p in ps).ljust(56), "EQ"   # NAME/VALUE: 2행 이름/값 토글
         if self.view == "plugin_mixer":
@@ -612,7 +617,7 @@ class FakeLogic:
             self.redraw(mode_overlay="    Pan/Surround parameter:")
         elif note == N.EQ:
             if self.view == "eq_mixer":
-                t = self.tracks[self.selected]
+                t = self._eq_track()
                 if t.eq is None and t.first_empty():
                     t.insert(t.first_empty(), "Channel EQ")      # 실측: 채널 뷰 진입이 Channel EQ 삽입
                 self.view, self.page = "eq_channel", t.eq_page
@@ -719,7 +724,7 @@ class FakeLogic:
             self.page = max(1, min(4, self.page + delta))      # 양 끝에서는 무반응(LCD 변화 없음, 실측 Q)
             if self.page == old:
                 return
-            self.tracks[self.selected].eq_page = self.page
+            self._eq_track().eq_page = self.page
         elif self.view == "plugin_edit":
             self.page = max(1, min(self._edit_pages(), self.page + delta))
             self.header_no_page = self.header_no_page and self.page == old     # 마지막 페이지 ▶는 토큰 없는 헤더를 다시 그림

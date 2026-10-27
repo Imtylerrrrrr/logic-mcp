@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from .modes import ModeError
 from .setter import set_enum, set_numeric
+from .strips import StripAux
 from .values import Mapping, Value, parse_value, tolerance_for
 
 if TYPE_CHECKING:
@@ -99,7 +100,11 @@ class EqCommands:
             target = b._target(ch)
 
             def body() -> "ToolResult":
-                if not b.strips.follows(d, b.surface.state, ch):           # 출력·Master: E1 뷰의 유무만(실측 Z4)
+                kind = b.strips.kind(d, b.surface.state, ch)
+                if kind == "aux":                                         # EQ 채널 뷰 진입이 직전 트랙에 Channel EQ를 넣을 수 있다(가정, 미측정)
+                    s = b.surface.state.strips[ch]
+                    raise StripAux(ch, s.number, s.name)
+                if kind == "output":                                      # 출력·Master: E1 뷰의 유무만(실측 Z4)
                     d.focus(ch)
                     return b._result(action, True, "verified", t0, target=target,
                                      after={"has_eq": self._has_eq(ch), "bands": {}},
@@ -140,7 +145,9 @@ class EqCommands:
 
             def body() -> "ToolResult":
                 nonlocal inserted
-                b.strips.ensure(d, b.surface.state, ch)
+                if b.strips.ensure(d, b.surface.state, ch) == "aux":     # EQ 채널 뷰가 Aux를 따라가지 않는다고 가정(미측정): 직전 트랙을 바꾸지 않게
+                    s = b.surface.state.strips[ch]
+                    raise StripAux(ch, s.number, s.name)
                 d.focus(ch)
                 if not self._has_eq(ch):
                     if not allow_insert:

@@ -27,7 +27,7 @@ FADER_TIMEOUT = 0.8
 PAN_TIMEOUT = 0.5
 BANK_TIMEOUT = 1.0
 PRESS_HOLD_S = 0.03
-AUX_BLIND_VIEWS = ("plugin_channel", "send_channel", "eq_channel")   # Aux 스트립을 따라가지 않는 채널 뷰(실전 F2, 실측 Z19)
+AUX_BLIND_VIEWS = ("plugin_channel", "send_channel")   # Aux 스트립을 따라가지 않는 채널 뷰(PL 실전 F2, SE는 가정·미측정). EQ는 eq.py가 직접 막는다
 Verified = Literal["verified", "unverified", "timeout", "skipped"]
 
 

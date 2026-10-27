@@ -207,6 +207,18 @@ def test_eq_get_on_output_strip_reports_has_eq_only_and_set_is_skipped():     # 
     assert logic.tracks[0].eq is None and logic.tracks[1].eq is None and surface.state.view.kind == "pan"
 
 
+def test_eq_on_aux_strip_is_skipped_and_touches_no_track():                   # 실측 Z19, EQ 채널 뷰가 Aux를 따라가지 않는다고 가정(미측정)
+    from tests.fake_assign import Track
+    surface, fake, logic = make_assign_logic([Track(1, "1"), Track(5, "Aux1", kind="aux")])
+    cmds = Commands(surface, FaderTable.load(), sleep=logic.sleep, logic_running=lambda: True)
+    r = cmds.eq.set(strip=2, number=None, band=3, param="gain", value=-3.0)
+    assert not r.ok and r.verified == "skipped" and "Z19" in r.note
+    r = cmds.eq.get(strip=2, number=None)
+    assert not r.ok and r.verified == "skipped" and "Z19" in r.note
+    assert logic.tracks[0].eq is None and logic.tracks[1].eq is None          # 직전 트랙에 Channel EQ가 자동 삽입되지 않음
+    assert surface.state.view.kind == "pan"
+
+
 def test_eq_get_turns_strip_unsupported_into_skipped_result(monkeypatch):
     # 출력 스트립은 follows 검사에서 먼저 걸러져 eq.get 안에서 StripUnsupported 가 실제로 나올 길이 없다 → 예외를 주입해 변환만 고정
     from logic_mcp.logic.strips import StripUnsupported
