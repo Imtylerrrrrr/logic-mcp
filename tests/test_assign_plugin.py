@@ -214,11 +214,47 @@ def test_insert_steps_past_a_name_missing_from_the_cache_list(tmp_path):   # 재
 def test_insert_unknown_or_ambiguous_name_sends_nothing(tmp_path):
     cmds, surface, fake, logic, cache = make(tmp_path)
     n = len(fake.sent)
-    r = cmds.plugin.insert(2, None, 1, "Zebra")
-    assert r.verified == "skipped" and "scan" in r.note
     r = cmds.plugin.insert(2, None, 1, "EQ")
     assert r.verified == "skipped" and "Parametric EQ" in r.note and "Channel EQ" in r.note
-    assert len(fake.sent) == n
+    assert len(fake.sent) == n                                       # 모르는 이름은 접두 이름 탐색으로 감(아래 prefix_scan 테스트)
+
+
+def test_insert_falls_back_to_name_scan_when_cache_order_differs(tmp_path):   # 실전 F1: 캐시 위치 58에 'Tremolo'
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    i, j = PLUGIN_LIST.index("Channel EQ"), PLUGIN_LIST.index("Tuner")
+    swapped = list(PLUGIN_LIST)
+    swapped[i], swapped[j] = swapped[j], swapped[i]                  # 캐시의 Channel EQ 위치에 실제로는 다른 이름
+    cache.bundled_list = swapped
+    r = cmds.plugin.insert(1, None, 4, "Channel EQ")
+    assert r.ok and r.verified == "verified" and r.note.startswith("name_scan:")
+    assert logic.tracks[0].inserts[4] == "Channel EQ" and r.after["plugin"] == "Channel EQ"
+    assert [k for k, v in logic.tracks[0].inserts.items() if v] == [4] and surface.state.view.kind == "pan"
+
+
+def test_insert_name_scan_gives_up_without_pressing(tmp_path):        # Review Focus 1
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.plugin_list = [n for n in PLUGIN_LIST if n != "Channel EQ"]   # 캐시에는 있고 설치 목록에는 없음
+    cmds.strips.follows(cmds.modes, surface.state, 0)           # 스트립 종류 판별(TRACK 메뉴 누름)은 미리 끝내 둔다
+    n0 = len(fake.sent)
+    r = cmds.plugin.insert(1, None, 4, "Channel EQ")
+    assert not r.ok and r.verified == "unverified" and "이름 탐색" in r.note and "scan" in r.note
+    assert not pushes(fake.sent[n0:])                                # 되감기·탐색 뒤에도 확정 누름 없음
+    assert all(v is None for v in logic.tracks[0].inserts.values())
+    assert not logic.pre and surface.state.view.kind == "pan"
+
+
+def test_insert_unknown_name_uses_prefix_scan(tmp_path):
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.plugin_list = PLUGIN_LIST + ["Tape Delay"]                 # 캐시 목록에 없는 플러그인
+    r = cmds.plugin.insert(1, None, 4, "Tape De")
+    assert r.ok and r.verified == "verified" and r.note.startswith("name_scan:")
+    assert r.after["plugin"] == "Tape Delay" and logic.tracks[0].inserts[4] == "Tape Delay"
+    cmds.strips.follows(cmds.modes, surface.state, 1)
+    n0 = len(fake.sent)
+    r = cmds.plugin.insert(2, None, 1, "Zebra")                      # 어디에도 없는 이름: 탐색은 하되 누르지 않는다
+    assert r.verified == "unverified" and "scan" in r.note and "Zebra" in r.note
+    assert not pushes(fake.sent[n0:]) and all(v is None for v in logic.tracks[1].inserts.values())
+    assert surface.state.view.kind == "pan"
 
 
 def test_remove_and_bypass(tmp_path):

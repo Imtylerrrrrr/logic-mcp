@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from ..modes import ModeDriver, ModeError
-from .match import strip_suffix
+from .match import normalize, strip_suffix
 
 ITEM_TICKS = 2          # 1항목 = 2틱. 위치 모델은 ceil: 표시 항목 = (틱 위치 + 1) // 2, `--`=0(실측 E)
 REWIND_CHUNK = -63
@@ -45,3 +45,44 @@ def scan_list(d: ModeDriver, ch: int) -> list[str]:
             break                                     # 한 바퀴 돌아 처음으로
         names.append(text)
     return names
+
+
+RECHECK_S = 0.4         # 이름이 맞으면 이만큼 뒤 다시 읽어 같을 때만 멈춘다(실측 S: 오버레이 지연)
+WRAP_GRACE = 4          # 되감기의 늦은 `--` 쓰기(실측 S)를 한 바퀴로 오인하지 않도록 처음 몇 틱은 `--`를 무시
+
+
+def seek_by_name(d: ModeDriver, ch: int, want: str, prefix: bool = False) -> tuple[bool, int, str]:
+    """`--`로 되감은 뒤 1틱씩 전진하며 오버레이 이름이 want와 맞는 항목을 찾는다(실전 F1: 캐시 위치가 프로젝트 메뉴와 다름).
+    맞음 = 정규화 일치(prefix면 접두 일치), RECHECK_S 뒤 재확인. scan_list와 같은 상한(STALE_LIMIT·MAX_ITEMS)에
+    WRAP_GRACE틱 뒤의 `--`(한 바퀴)에서도 멈춘다. 찾으면 그 항목을 미리 선택한 채 돌려준다(누르기는 호출자).
+    (찾음, 보낸 틱 수, 마지막으로 읽은 이름)."""
+    q = normalize(want)
+
+    def hit(text: str) -> bool:
+        n = normalize(text)
+        return bool(q) and (n == q or (prefix and n.startswith(q)))
+    rewind_to_empty(d, ch)
+    ticks = stale = 0
+    last = "--"
+    for _ in range(MAX_ITEMS * ITEM_TICKS):
+        changed = d.tick(ch, SCAN_STEP)
+        ticks += SCAN_STEP
+        text = strip_suffix(d.read_overlay_text(ch))
+        if not changed or not text or "Plug-in" not in d.read_overlay_name(ch):   # scan_list와 같은 무변화 판정
+            stale += 1
+            if stale >= STALE_LIMIT:
+                break
+            continue
+        if text == "--":
+            if ticks > WRAP_GRACE:
+                break                                 # 한 바퀴 돌아 처음으로
+            continue
+        if text != last:
+            stale = 0
+            last = text
+        if hit(text):
+            d.pause(RECHECK_S)
+            again = strip_suffix(d.read_overlay_text(ch))
+            if hit(again):
+                return True, ticks, again
+    return False, ticks, last

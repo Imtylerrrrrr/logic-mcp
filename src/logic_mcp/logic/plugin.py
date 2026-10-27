@@ -10,7 +10,7 @@ from ..mcu import protocol as P
 from ..mcu import state as S
 from .modes import CONFIRM_S, EDIT_OPEN_S, OVERLAY_WIDTH, ModeError
 from .plugins.cache import PluginCache
-from .plugins.scan import ITEM_TICKS, rewind_to_empty, scan_list
+from .plugins.scan import ITEM_TICKS, rewind_to_empty, scan_list, seek_by_name
 from .plugins.match import find, normalize, strip_suffix
 from .strips import StripUnsupported
 from .setter import probe_mapping, set_enum, set_numeric
@@ -401,19 +401,18 @@ class PluginCommands:
             if (r := b._require_ready(action, t0)) is not None:
                 return r
             idx, cands = find(self.cache.items, plugin)
-            if idx is None:
-                note = (f"{plugin!r}가 여럿에 맞음: {cands}" if cands
-                        else f"{plugin!r}가 목록({self.cache.source}, {len(self.cache.items)}개)에 없음. `logic_plugin scan` 뒤 다시 시도")
-                return b._result(action, False, "skipped", t0, note=note)
+            if idx is None and cands:
+                return b._result(action, False, "skipped", t0, note=f"{plugin!r}가 여럿에 맞음: {cands}")
             ch = self.b._begin(action, strip, number, t0, slot, MAX_SLOT,
                                f"slot은 1-{MAX_SLOT}(Plug-in Channel 뷰에서 닿는 슬롯만 지원)")
             if not isinstance(ch, int):
                 return ch
             target = {**b._target(ch), "slot": slot}
-            want = self.cache.items[idx]
+            want = self.cache.items[idx] if idx is not None else plugin
             v = slot - 1
 
             def body() -> "ToolResult":
+                nonlocal want
                 self.b._fresh()
                 self.b._channel(ch, "plugin_channel")
                 current = self._slot_text(slot)
@@ -421,18 +420,31 @@ class PluginCommands:
                 if occupied and not replace:
                     return b._result(action, False, "skipped", t0, target=target,
                                      note=f"슬롯 {slot}에 {current!r}가 있음. 교체하려면 replace=true")
-                rewind_to_empty(d, v)
-                d.tick(v, 2 * idx)                                   # `--`(0)에서 2·i틱 = i번째 항목(ceil 모델)
-                shown = first = self._shown(v, want)
-                for _ in range(3):                                   # 목록이 캐시와 조금 어긋나면 근처에서 찾는다
-                    if normalize(shown) == normalize(want):
-                        break
-                    j, _c = find(self.cache.items, shown)
-                    d.tick(v, ITEM_TICKS if j is None else 2 * (idx - j))   # 모르는 이름 = 캐시 목록에 빠진 항목 → 실제 위치는 뒤(재수집)
-                    shown = self._shown(v, want)
-                if normalize(shown) != normalize(want):              # 누르지 않는다: finally의 leave가 미리 선택을 취소
-                    return b._result(action, False, "unverified", t0, target=target,
-                                     note=f"목록 위치 {idx}에 {first!r}가 보임(기대 {want!r}). 설치된 플러그인이 달라진 듯. `logic_plugin scan` 권장")
+                path_note = ""
+                if idx is None:                                      # 캐시 목록에 없는 이름: 메뉴를 접두 일치로 훑는다(스펙 4 F1)
+                    found, ticks, last = seek_by_name(d, v, plugin, prefix=True)
+                    if not found:
+                        return b._result(action, False, "unverified", t0, target=target,
+                                         note=f"{plugin!r}가 목록({self.cache.source}, {len(self.cache.items)}개)에 없어 "
+                                              f"이름 탐색 {ticks}틱 했으나 못 찾음(마지막 {last!r}). `logic_plugin scan` 권장")
+                    want, path_note = last, f"name_scan:{ticks}"
+                else:
+                    rewind_to_empty(d, v)
+                    d.tick(v, 2 * idx)                               # `--`(0)에서 2·i틱 = i번째 항목(ceil 모델)
+                    shown = first = self._shown(v, want)
+                    for _ in range(3):                               # 목록이 캐시와 조금 어긋나면 근처에서 찾는다
+                        if normalize(shown) == normalize(want):
+                            break
+                        j, _c = find(self.cache.items, shown)
+                        d.tick(v, ITEM_TICKS if j is None else 2 * (idx - j))   # 모르는 이름 = 캐시 목록에 빠진 항목 → 실제 위치는 뒤(재수집)
+                        shown = self._shown(v, want)
+                    if normalize(shown) != normalize(want):          # 순서가 크게 다르면 이름으로 처음부터 훑는다(실전 F1)
+                        found, ticks, last = seek_by_name(d, v, want)
+                        if not found:                                # 누르지 않는다: finally의 leave가 미리 선택을 취소
+                            return b._result(action, False, "unverified", t0, target=target,
+                                             note=f"목록 위치 {idx}에 {first!r}가 보임(기대 {want!r}). 이름 탐색 {ticks}틱 뒤에도 "
+                                                  f"{want!r} 못 찾음(마지막 {last!r}). 설치 목록이 다른 듯. `logic_plugin scan` 권장")
+                        path_note = f"name_scan:{ticks}"
                 if not d.press_vpot_until(v, lambda w: w.kind == "plugin_edit" and w.index == slot, CONFIRM_S):
                     return b._result(action, False, "unverified", t0, target=target,
                                      note=f"확정 뒤 {CONFIRM_S:.0f}초 안에 편집 뷰가 아니라 {d.view.kind}")
@@ -449,7 +461,7 @@ class PluginCommands:
                 self.cache.save()
                 return b._result(action, True, "verified", t0, target=target, before={"slot": slot, "text": current},
                                  after={"slot": slot, "plugin": want, "abbrev": abbrev,
-                                        "replaced": current if occupied else None})
+                                        "replaced": current if occupied else None}, note=path_note)
             return b._guarded(action, t0, target, body)
 
     def remove(self, strip: int | None, number: int | None, slot: int) -> "ToolResult":
