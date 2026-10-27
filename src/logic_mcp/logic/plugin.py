@@ -129,7 +129,8 @@ class PluginCommands:
         if num != slot or not name:
             raise ModeError("header", f'Ins.{slot} "이름"', row1.strip()[:48] or "빈 헤더")
         key = abbrev.lstrip("*")
-        full = name if complete else (self.cache.abbrev.get(key) or self._complete(name))
+        cached = self.cache.abbrev.get(key)                 # 잘린 헤더: 축약 캐시는 헤더 이름과 접두가 맞을 때만 믿는다(실전 F6 오학습)
+        full = name if complete else (cached if cached and normalize(cached).startswith(normalize(name)) else self._complete(name))
         self.cache.learn_abbrev(key, full)
         pages = d.probe_pages()
         return full, abbrev, pages
@@ -605,8 +606,13 @@ class PluginCommands:
 
             def body() -> "ToolResult":
                 self.b._fresh()
-                full, _abbrev, _pages = self._open_edit(ch, slot)    # Aux면 StripAux, 빈 슬롯이면 SlotEmpty → skipped
+                header, _abbrev, _pages = self._open_edit(ch, slot)  # Aux면 StripAux, 빈 슬롯이면 SlotEmpty → skipped
                 d.toggle_name_value()                                # _open_edit가 켠 NAME 모드를 끈다(재삽입 헤더 확인이 토글로 쓴다)
+                idx, cands = find(self.cache.items, header)          # 재삽입 이름은 목록 항목 하나로 확정될 때만(제거 전에)
+                if idx is None:
+                    return b._result(action, False, "skipped", t0, target=target,
+                                     note=f"이름을 확정하지 못해 이동하지 않음: {header!r} (후보 {cands})")
+                full = self.cache.items[idx]
                 d.enter("plugin_channel")
                 occupant = self._slot_text(to_slot)
                 if occupant not in EMPTY_TEXTS:

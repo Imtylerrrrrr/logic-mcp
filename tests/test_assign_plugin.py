@@ -606,3 +606,24 @@ def test_move_on_aux_is_skipped(tmp_path):
     assert not r.ok and r.verified == "skipped" and "Z19" in r.note
     assert {k: v for k, v in logic.tracks[1].inserts.items() if v} == {1: "Compressor"}
     assert all(v is None for v in logic.tracks[0].inserts.values())
+
+
+def test_move_does_not_trust_a_wrong_abbrev_for_a_truncated_header(tmp_path):   # 실전 F6: `TO3000`→`Splice Sounds Listene` 오학습
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].name = "Deluxe Classic"                          # 헤더가 56칸에서 잘려 닫는 따옴표가 안 보인다(실측 G)
+    logic.tracks[0].insert(2, "Space Designer")
+    cache.learn_abbrev("SpaceD", "Limiter")                         # 틀린 축약 학습(그것도 설치된 다른 플러그인)
+    r = cmds.plugin.move(1, None, 2, 6)
+    assert r.verified == "verified" and r.after["plugin"] == "Space Designer"
+    assert logic.tracks[0].inserts[6] == "Space Designer" and "Limiter" not in logic.tracks[0].inserts.values()
+    assert cache.abbrev["SpaceD"] == "Space Designer"               # 헤더와 맞는 이름으로 고쳐 배운다
+
+
+def test_move_skips_when_the_name_is_not_in_the_list(tmp_path):
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.plugin_list = PLUGIN_LIST + ["Tape Delay"]
+    logic.tracks[0].insert(2, "Tape Delay")                          # 캐시 목록에 없는 이름: 재삽입 이름을 확정할 수 없다
+    r = cmds.plugin.move(1, None, 2, 6)
+    assert not r.ok and r.verified == "skipped" and "이름을 확정하지 못해" in r.note
+    assert logic.tracks[0].inserts[2] == "Tape Delay" and logic.tracks[0].inserts[6] is None
+    assert surface.state.view.kind == "pan"
