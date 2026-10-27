@@ -106,7 +106,7 @@ def register_tools(mcp: MCPServer, commands: Commands) -> None:
         plugin: Annotated[str | None, Field(description="insert: plug-in name (partial match)")] = None,
         replace: bool = False,
         on: Annotated[bool | None, Field(description="bypass: true = bypassed")] = None,
-        tolerance: Annotated[float | None, Field(gt=0, description="set: tolerance (default 0.1 for dB, 1% otherwise)")] = None,
+        tolerance: Annotated[float | None, Field(gt=0, description="set: tolerance (default 0.2 for dB, 2% otherwise)")] = None,
         force: bool = False,
     ) -> ToolResult:
         name = f"plugin_{action}"

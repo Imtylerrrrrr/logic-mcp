@@ -54,8 +54,8 @@ def test_infer_mapping():
 
 
 def test_tolerance_and_within():
-    assert tolerance_for(1000.0, "Hz") == 10.0
-    assert tolerance_for(-3.0, "dB") == 0.1
+    assert tolerance_for(1000.0, "Hz") == 20.0
+    assert tolerance_for(-3.0, "dB") == 0.2
     assert tolerance_for(0.5, None) == 0.01
     assert tolerance_for(2.0, None) == 0.04 and tolerance_for(50.0, None) == 1.0   # 단위 없는 숫자(Q)는 2 %
     assert within(1004.0, 1000.0, 10.0) and not within(1011.0, 1000.0, 10.0)
@@ -88,3 +88,10 @@ def test_infer_mapping_requires_same_unit():                                    
     assert infer_mapping(parse_value("91.4 s"), parse_value("183 ms")) is None
     assert infer_mapping(parse_value("0.0 s"), parse_value("1.0 s")) == Mapping("linear", 0.0, 1.0)
     assert infer_mapping(parse_value("20.0Hz"), parse_value("20.0kHz")) == Mapping("log", 20.0, 20000.0)
+
+
+def test_tolerance_defaults():                       # 실전 F4: dB 0.1·Hz 1 %는 페이더 분해능·표시 정밀도보다 좁았다
+    assert tolerance_for(3.0, "dB") == 0.2
+    assert tolerance_for(3500, "Hz") == 70.0
+    assert tolerance_for(0.5, None) == 0.01
+    assert tolerance_for(50.0, "ms") == 1.0 and tolerance_for(0.2, "%") == 0.02     # 단위 있는 값은 max(|목표|, 1) × 2 %

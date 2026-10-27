@@ -42,11 +42,32 @@ def test_set_numeric_without_mapping_ticks_linear():
     assert out.ok and out.rounds == 2 and eq[1][1].value == -3.0
 
 
-def test_set_numeric_gives_up_after_six_rounds():
+def test_set_numeric_gives_up_after_ten_rounds():
     d, logic, eq = eq_driver()
     eq[1][1].step = 7.0                              # 틱이 너무 거칠어 0.1 안에 못 들어감
     out = set_numeric(d, 5, -3.0, None, tolerance=0.1)
-    assert out.ok is False and out.rounds == 6 and "못 맞춤" in out.note
+    assert out.ok is False and out.rounds == 10 and "못 맞춤" in out.note and "10회" in out.note
+
+
+def test_tolerance_argument_overrides_default(tmp_path):                 # Review Focus 5: 사용자 tolerance가 새 기본값보다 우선
+    from logic_mcp.logic.commands import Commands
+    from logic_mcp.logic.faders import FaderTable
+    from logic_mcp.logic.plugins.cache import PluginCache
+    from tests.fake_assign import PLUGIN_LIST
+
+    def run(tolerance):
+        surface, fake, logic = make_assign_logic()
+        cache = PluginCache("fake", list(PLUGIN_LIST), [], {}, {}, None, tmp_path / "plugins-fake.json")
+        cache.params["Compressor"] = {"pages": 3, "items": [
+            {"index": 7, "short": "MakeUp", "name": "Make Up", "map": {"type": "linear", "lo": -12.0, "hi": 40.0}}]}
+        cmds = Commands(surface, FaderTable.load(), sleep=logic.sleep, logic_running=lambda: True, plugin_cache=cache)
+        logic.tracks[0].insert(2, "Compressor")
+        logic.drop_all_faders = True                   # 틱(0.5 dB)으로만 맞춘다: 3.1에는 3.0이 가장 가깝다
+        return cmds.plugin.set(1, None, 2, "MakeUp", 3.1, tolerance), logic.tracks[0].params[2][6]
+    r, p = run(None)
+    assert r.ok and r.verified == "verified" and p.value == 3.0     # 기본 0.2 dB 안
+    r, p = run(0.05)
+    assert not r.ok and r.verified == "unverified" and "허용 오차 0.05" in r.note
 
 
 def test_set_enum_forward_and_reverse():

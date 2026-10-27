@@ -82,11 +82,12 @@ def infer_mapping(lo: Value, hi: Value) -> Mapping | None:
 
 
 def tolerance_for(target: float, unit: str | None) -> float:
+    """기본 허용 오차. 실전 F4(10/24): dB 0.1은 페이더 보정이 ±0.2 안에서 흔들려(+3.2) 실패, Hz 1 %는 3500→3380·5000→5200에서 실패."""
     if unit == "dB":
-        return 0.1
+        return 0.2
     if unit is None:                                   # Q 등 단위 없는 숫자: 표시가 유효숫자 3자리라 2 %(실측 T)
         return round(max(abs(target) * 0.02, 0.01), 6)
-    return round(max(abs(target), 1.0) * 0.01, 6)
+    return round(max(abs(target), 1.0) * 0.02, 6)
 
 
 def within(actual: float, target: float, tolerance: float) -> bool:

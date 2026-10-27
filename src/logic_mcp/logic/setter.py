@@ -9,7 +9,7 @@ from .faders import FaderTable
 from .modes import ModeDriver
 from .values import Mapping, Value, infer_mapping, raw_for, within
 
-MAX_ROUNDS = 6
+MAX_ROUNDS = 10        # 실전 F4: fader+보정 경로에서 6회가 소진되는 일이 잦았다
 
 
 @dataclass
