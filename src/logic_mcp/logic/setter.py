@@ -116,3 +116,21 @@ def set_enum(d: ModeDriver, ch: int, target: str, max_steps: int = 16) -> SetOut
             direction = -direction
         seen.append(cur.text)
     return SetOutcome(False, cur, max_steps, f"선택지에서 {target!r}를 못 찾음. 본 값: {seen}")
+
+
+def set_enum_index(d: ModeDriver, ch: int, n: int, options: list[str] | None, max_options: int = 16) -> SetOutcome:
+    """n번째 선택지(1부터). -1 틱 max_options회로 처음까지(끝에선 무변화) 간 뒤 +1 틱 n-1회. 축약 텍스트가 겹치는
+    선택지(실측 2026-10-27 Compressor Circuit Type 'Studio'×2)는 텍스트로 못 고르므로 번호로 간다. 틱마다 calibrate처럼 오버레이를 기다린다."""
+    if n < 1 or (options and n > len(options)):
+        return SetOutcome(False, d.read_value(ch), 0, f"#{n}: 선택지 {len(options) if options else '?'}개 범위 밖")
+    steps = 0
+    for direction, count in ((-1, max_options), (1, n - 1)):
+        for _ in range(count):
+            d.tick(ch, direction)
+            d.settle_overlay()
+            steps += 1
+    cur = d.read_value(ch)
+    if options is None:
+        return SetOutcome(True, cur, steps, "no_options")
+    ok = cur.text == options[n - 1]
+    return SetOutcome(ok, cur, steps, "" if ok else f"#{n} 도착 텍스트 {cur.text!r} ≠ 표 {options[n - 1]!r}")

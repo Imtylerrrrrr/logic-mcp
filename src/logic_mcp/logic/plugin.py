@@ -13,7 +13,7 @@ from .plugins.cache import PluginCache
 from .plugins.scan import ITEM_TICKS, rewind_to_empty, scan_list, seek_by_name
 from .plugins.match import find, normalize, strip_suffix
 from .strips import StripAux, StripUnsupported
-from .setter import probe_mapping, set_enum, set_numeric
+from .setter import probe_mapping, set_enum, set_enum_index, set_numeric
 from .values import Mapping, Value, parse_value, tolerance_for
 
 if TYPE_CHECKING:
@@ -503,10 +503,23 @@ class PluginCommands:
                         self.cache.save()
                 else:
                     want = ("On" if value else "Off") if isinstance(value, bool) else str(value)
-                    out = set_enum(d, col, want)
+                    emap = item.get("map") or {}
+                    options = emap.get("options") if emap.get("type") == "enum" else None
+                    if (m := re.fullmatch(r"#(\d+)", want)):                    # n번째 선택지(축약 텍스트가 겹칠 때)
+                        out = set_enum_index(d, col, int(m.group(1)), options)
+                    elif options and (hits := [i for i, o in enumerate(options, 1) if o == want]):
+                        if len(hits) > 1:
+                            return b._result(action, False, "skipped", t0, target=target, before=before,
+                                             note=f"{want!r}가 {len(hits)}개({', '.join(f'#{i}' for i in hits)}): 번호로 지정")
+                        out = set_enum_index(d, col, hits[0], options)
+                    else:
+                        out = set_enum(d, col, want)                            # 표에 없는 전체 이름('On'/'Off' 등)
                 after = self._param_dict(full, slot, item, out.value)
                 if out.ok and out.note == "already":
                     return b._result(action, True, "skipped", t0, target=target, before=before, after=after, note="already")
+                if out.ok and out.note == "no_options":
+                    return b._result(action, True, "unverified", t0, target=target, before=before, after=after,
+                                     note="선택지 표 없음(calibrate 전): 도착 텍스트만 보고")
                 return b._result(action, out.ok, "verified" if out.ok else "unverified", t0, target=target,
                                  before=before, after=after, note=out.note)
             return b._guarded(action, t0, target, body)

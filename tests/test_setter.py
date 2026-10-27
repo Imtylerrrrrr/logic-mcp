@@ -1,9 +1,9 @@
 import pytest
 
 from logic_mcp.logic.modes import ModeDriver
-from logic_mcp.logic.setter import enum_matches, probe_mapping, set_enum, set_numeric
+from logic_mcp.logic.setter import enum_matches, probe_mapping, set_enum, set_enum_index, set_numeric
 from logic_mcp.logic.values import Mapping, parse_value
-from tests.fake_assign import make_assign_logic
+from tests.fake_assign import Param, make_assign_logic
 
 
 def eq_driver():
@@ -145,3 +145,36 @@ def test_set_numeric_skips_secant_when_fader_has_no_effect():            # 실�
     assert out.ok and abs(eq[0][2].value - 2.0) <= 0.04
     moves = [m for m in fake.sent if m[0] & 0xF0 == 0xE0]
     assert len(moves) == 2 and len(set(moves)) == 1                      # fader()의 같은 이동 재전송뿐, 시컨트 이동 없음
+
+
+CIRCUIT = ("PltDig", "Studio", "Studio", "Classc", "Vintag", "Vintag", "VinOpt")   # 실측 2026-10-27 Compressor Circuit Type: 6자 축약이 겹친다
+
+
+def recorded_ticks(d):
+    sent = []
+    real = d.tick
+
+    def tick(ch, steps):
+        sent.append(steps)
+        return real(ch, steps)
+    d.tick = tick
+    return sent
+
+
+def test_set_enum_index_rewinds_then_counts_forward():
+    d, logic, eq = eq_driver()
+    eq[0][3] = Param("CirTyp", "Circuit Type", "enum", options=CIRCUIT, value=2)
+    sent = recorded_ticks(d)
+    out = set_enum_index(d, 3, 6, list(CIRCUIT))
+    assert out.ok and out.value.text == "Vintag" and eq[0][3].value == 5
+    assert sent == [-1] * 16 + [1] * 5                                  # 끝까지 되감은 뒤 n-1틱
+
+
+def test_set_enum_index_out_of_range_and_without_options():
+    d, logic, eq = eq_driver()
+    eq[0][3] = Param("CirTyp", "Circuit Type", "enum", options=CIRCUIT, value=2)
+    sent = recorded_ticks(d)
+    bad = set_enum_index(d, 3, 8, list(CIRCUIT))
+    assert bad.ok is False and "범위 밖" in bad.note and sent == [] and eq[0][3].value == 2
+    out = set_enum_index(d, 3, 2, None)
+    assert out.ok and out.note == "no_options" and out.value.text == "Studio" and eq[0][3].value == 1

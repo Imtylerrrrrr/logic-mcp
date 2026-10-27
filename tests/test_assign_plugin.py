@@ -694,3 +694,35 @@ def test_list_does_not_learn_a_reveal_that_does_not_match_the_abbrev(tmp_path): 
     assert r.verified == "verified" and r.after["tracks"]["15"]["3"] == {"text": "Tuner", "name": None}
     assert "Tuner" not in cache.abbrev and not cache.path.exists()   # 배우지도 저장하지도 않는다
     assert logic.tracks[0].inserts[3] == "Tuner" and not logic.pre
+
+
+CIRCUIT = ["PltDig", "Studio", "Studio", "Classc", "Vintag", "Vintag", "VinOpt"]   # 실측 2026-10-27 Compressor Circuit Type: 6자 축약이 겹친다
+
+
+def circuit_type(tmp_path, table: bool):
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Compressor")
+    cirtyp = Param("CirTyp", "Circuit Type", "enum", options=tuple(CIRCUIT), value=0)
+    logic.tracks[0].params[2][0] = cirtyp
+    if table:
+        cache.params["Compressor"] = {"pages": 3, "items": [
+            {"index": 1, "short": "CirTyp", "name": "Circuit Type", "map": {"type": "enum", "options": list(CIRCUIT)}}]}
+    return cmds, surface, cirtyp
+
+
+def test_set_enum_by_index_and_refuse_ambiguous_names(tmp_path):
+    cmds, surface, cirtyp = circuit_type(tmp_path, table=True)
+    s = cmds.plugin.set(1, None, 2, "CirTyp", "#6")
+    assert s.ok and s.verified == "verified" and cirtyp.value == 5 and s.after["text"] == "Vintag"
+    s = cmds.plugin.set(1, None, 2, "CirTyp", "Studio")                    # 'Studio'가 #2·#3 둘 → 번호로 지정하라고 안내
+    assert not s.ok and s.verified == "skipped" and "#2" in s.note and "#3" in s.note and cirtyp.value == 5
+    s = cmds.plugin.set(1, None, 2, "CirTyp", "Classc")                    # 표에서 하나뿐인 이름은 번호 경로
+    assert s.ok and s.verified == "verified" and cirtyp.value == 3 and s.after["text"] == "Classc"
+    assert surface.state.view.kind == "pan" and not surface.state.assignment.flip
+
+
+def test_set_enum_by_index_without_table_reports_arrival_unverified(tmp_path):
+    cmds, surface, cirtyp = circuit_type(tmp_path, table=False)
+    s = cmds.plugin.set(1, None, 2, "CirTyp", "#2")
+    assert s.ok and s.verified == "unverified" and "선택지 표 없음" in s.note
+    assert cirtyp.value == 1 and s.after["text"] == "Studio"
