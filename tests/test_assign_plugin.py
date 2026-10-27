@@ -612,7 +612,7 @@ def test_move_does_not_trust_a_wrong_abbrev_for_a_truncated_header(tmp_path):   
     cmds, surface, fake, logic, cache = make(tmp_path)
     logic.tracks[0].name = "Deluxe Classic"                          # 헤더가 56칸에서 잘려 닫는 따옴표가 안 보인다(실측 G)
     logic.tracks[0].insert(2, "Space Designer")
-    cache.learn_abbrev("SpaceD", "Limiter")                         # 틀린 축약 학습(그것도 설치된 다른 플러그인)
+    cache.abbrev["SpaceD"] = "Limiter"                              # 예전에 남은 틀린 축약(그것도 설치된 다른 플러그인)
     r = cmds.plugin.move(1, None, 2, 6)
     assert r.verified == "verified" and r.after["plugin"] == "Space Designer"
     assert logic.tracks[0].inserts[6] == "Space Designer" and "Limiter" not in logic.tracks[0].inserts.values()
@@ -684,3 +684,13 @@ def test_list_steers_the_mixer_view_back_to_slot_1(tmp_path):        # 실기 10
     assert not turns(fake.sent[n0:])                                 # 슬롯 1로 돌리는 누름에 틱 없음(미리 선택·교체 없음)
     assert logic.slot == 1 and logic.tracks[0].inserts[1] == "Channel EQ" and logic.tracks[0].inserts[5] == "Compressor"
     assert surface.state.view.kind == "pan" and logic.selected == 0 and not logic.pre
+
+
+def test_list_does_not_learn_a_reveal_that_does_not_match_the_abbrev(tmp_path):   # 실기 10/27: `Tuner`→'Channel EQ'
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(3, "Tuner")
+    logic.preselect_start_shift = -2                                 # 드러내기 오버레이가 앞 항목(Channel EQ)을 보인다
+    r = cmds.plugin.list(1, None)
+    assert r.verified == "verified" and r.after["tracks"]["15"]["3"] == {"text": "Tuner", "name": None}
+    assert "Tuner" not in cache.abbrev and not cache.path.exists()   # 배우지도 저장하지도 않는다
+    assert logic.tracks[0].inserts[3] == "Tuner" and not logic.pre

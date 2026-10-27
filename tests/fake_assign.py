@@ -334,6 +334,7 @@ class FakeLogic:
         self.refuse: set[int] = set()                  # 반응하지 않을 노트(고장 흉내)
         self.late_preselect_items: set[int] = set()    # 미리 선택 오버레이가 늦게 오는 목록 항목(처음 닿을 때 한 번)
         self.drop_preselect_at: set[int] = set()       # 오버레이 쓰기가 오지 않는 미리 선택 틱 위치
+        self.preselect_start_shift = 0                 # 차 있는 슬롯의 미리 선택 시작 위치를 이만큼 옮김(드러내기가 이웃 항목을 보인 실기 10/27 흉내)
         self.no_overlay_on_nochange = False            # True면 값이 안 바뀐 V-Pot 틱(끝값)에 오버레이를 그리지 않음(리뷰 I3)
         self.narrow_name_overlay = False               # True면 틱 이름 오버레이가 1행 2~3열만 덮음(실기 10차)
         self.overlay_survives_toggle = False           # True면 만기 전 NAME/VALUE 전환이 마지막 오버레이 21칸을 남김(실측 2026-10-20 G2)
@@ -766,7 +767,7 @@ class FakeLogic:
         """미리 선택 틱. 차 있는 슬롯의 시작 위치는 2·항목(-1 → 현재 항목, +1 → 다음 항목, 실측 E)."""
         started = ch in self.pre
         if not started:                                                 # 실측: 다른 V-Pot의 미리 선택은 취소됨
-            self.pre = {ch: 2 * self.plugin_list.index(current or "--")}
+            self.pre = {ch: 2 * self.plugin_list.index(current or "--") + (self.preselect_start_shift if current else 0)}
         before = self.pre[ch]
         self.pre[ch] = max(0, min(2 * (len(self.plugin_list) - 1), self.pre[ch] + ticks))
         if (started and self.pre[ch] == before) or self.pre[ch] in self.drop_preselect_at:

@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 from logic_mcp.logic.plugins.cache import BUNDLED, PluginCache, logic_version
-from logic_mcp.logic.plugins.match import find, normalize
+from logic_mcp.logic.plugins.match import abbrev_matches, find, normalize
 
 
 def test_bundled_known_json_shape():
@@ -136,3 +136,23 @@ def test_load_old_format_user_file_without_bundled_generated_yields_to_bundle(tm
 def test_load_keeps_user_tables_when_bundle_unchanged(tmp_path):                           # 리뷰 M2
     c, _, U, _ = _m2_setup(tmp_path, {"bundled_generated": "2026-10-19"})
     assert c.params["Compressor"] == U
+
+
+def test_abbrev_must_be_a_subsequence_of_the_name():                 # 실기 10/24·10/27 오학습: 드러내기가 이웃 항목을 보였다
+    for abbrev, name in (("Cha EQ", "Channel EQ"), ("TO3000", "TONE3000"), ("Comprs", "Compressor"),
+                         ("Heavnl", "Heavenly Chorus"), ("St-Del", "Stereo Delay"), ("*Ovrdr", "Overdrive"),
+                         ("ParEQ", "Parametric EQ (s/s)")):
+        assert abbrev_matches(abbrev, name), (abbrev, name)
+    for abbrev, name in (("Tuner", "Channel EQ"), ("*Ovrdr", "Distortion"), ("TO3000", "Splice Sounds Listener"), ("", "Tuner")):
+        assert not abbrev_matches(abbrev, name), (abbrev, name)
+    c = PluginCache("t", ["--"], [], {}, {}, None, Path("/nonexistent/plugins-t.json"))
+    assert c.learn_abbrev("Comprs", "Compressor") is True and c.abbrev == {"Comprs": "Compressor"}
+    assert c.learn_abbrev("Tuner", "Channel EQ") is False and "Tuner" not in c.abbrev
+
+
+def test_load_drops_user_abbrevs_that_do_not_match(tmp_path):
+    (tmp_path / "plugins-12.0.1.json").write_text(json.dumps(
+        {"abbrev": {"Tuner": "Channel EQ", "TO3000": "Splice Sounds Listener", "Comprs": "Compressor"}}))
+    c = PluginCache.load(version="12.0.1", user_dir=tmp_path)
+    assert "Tuner" not in c.abbrev and "TO3000" not in c.abbrev and c.abbrev["Comprs"] == "Compressor"
+    assert c.abbrev["Cha EQ"] == "Channel EQ"                        # 번들 축약은 그대로

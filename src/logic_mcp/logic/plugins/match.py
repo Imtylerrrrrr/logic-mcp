@@ -29,6 +29,18 @@ def find(items: list[str], query: str) -> tuple[int | None, list[str]]:
     return None, []
 
 
+_ABBREV_JUNK_RE = re.compile(r"[\s\-_./*]+")
+
+
+def abbrev_matches(abbrev: str, name: str) -> bool:
+    """LCD 축약(앞 `*` = 바이패스)이 전체 이름의 부분 수열인가. 공백·`-`·`.`·`/`·`*`를 떼고 대소문자 무시
+    (`Cha EQ`⊂Channel EQ, `TO3000`⊂TONE3000, `St-Del`⊂Stereo Delay). 드러내기가 이웃 항목을 보여 생긴 오학습
+    (`Tuner`→Channel EQ, `*Ovrdr`→Distortion, `TO3000`→Splice Sounds Listener, 실기 10/24·10/27)을 막는다."""
+    a = _ABBREV_JUNK_RE.sub("", abbrev).lower()
+    rest = iter(_ABBREV_JUNK_RE.sub("", strip_suffix(name)).lower())
+    return bool(a) and all(c in rest for c in a)
+
+
 def strip_suffix(name: str) -> str:
     """`Channel EQ (s/s)` → `Channel EQ`. 잘린 `(s/` 도 떼어낸다."""
     return _SUFFIX_RE.sub("", name.strip()).strip()

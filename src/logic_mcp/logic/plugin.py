@@ -371,8 +371,10 @@ class PluginCommands:
                             revealed = True
                             if shown and shown != "--":
                                 name = self._complete(shown)
-                                self.cache.learn_abbrev(text.lstrip("*"), name)
-                                learned = True
+                                if self.cache.learn_abbrev(text.lstrip("*"), name):
+                                    learned = True
+                                else:
+                                    name = None                 # 축약과 안 맞는 이름 = 이웃 항목 오버레이(실기 10/27): 보고도 저장도 안 함
                         row[str(i + 1)] = {"text": text, "name": name}
                     tracks[str(num)] = row
                     if revealed:

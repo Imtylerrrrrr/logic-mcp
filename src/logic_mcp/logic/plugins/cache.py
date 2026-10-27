@@ -11,6 +11,8 @@ from datetime import datetime
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .match import abbrev_matches
+
 BUNDLED = Path(__file__).with_name("known.json")
 USER_DIR = Path.home() / ".logic-mcp"
 LOGIC_PLIST = Path("/Applications/Logic Pro.app/Contents/Info.plist")
@@ -56,7 +58,7 @@ class PluginCache:
         if u.get("bundled_generated") != b.get("generated"):          # 번들이 재생성됨 → 번들에 있는 이름은 번들 우선(리뷰 M2)
             u_params = {k: v for k, v in u_params.items() if k not in b_params}
         return cls(version=version, bundled_list=list(b.get("list", [])), user_list=list(u.get("list", [])),
-                   abbrev={**b_abbrev, **u.get("abbrev", {})},
+                   abbrev={**b_abbrev, **{k: v for k, v in u.get("abbrev", {}).items() if abbrev_matches(k, v)}},   # 오학습 항목은 버린다
                    params={**copy.deepcopy(b_params), **u_params},
                    scanned_at=u.get("scanned_at"), path=path,
                    bundled_abbrev=b_abbrev, bundled_params=b_params, bundled_generated=b.get("generated"))
@@ -88,9 +90,13 @@ class PluginCache:
                                   ensure_ascii=False, indent=1))
         os.replace(tmp, self.path)
 
-    def learn_abbrev(self, abbrev: str, name: str) -> None:
-        if abbrev.strip() and name:
-            self.abbrev[abbrev.strip()] = name
+    def learn_abbrev(self, abbrev: str, name: str) -> bool:
+        """축약 → 이름을 배운다. 축약이 이름의 부분 수열이 아니면(이웃 항목 오버레이 등) 거절하고 False."""
+        key = abbrev.strip()
+        if not key or not name or not abbrev_matches(key, name):
+            return False
+        self.abbrev[key] = name
+        return True
 
     def param_table(self, name: str) -> dict | None:
         return self.params.get(name)

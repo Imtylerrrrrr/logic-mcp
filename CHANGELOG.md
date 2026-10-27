@@ -13,6 +13,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 - Default `set` tolerances are wider: 0.2 dB (was 0.1) and 2 % for other values with a unit (was 1 %). Numeric sets now try up to 10 correction rounds (was 6). An explicit `tolerance` still wins.
+- A learned LCD abbreviation is kept only if it is a subsequence of the plug-in name (ignoring spaces, `-`, `.`, `/`, `*` and case), so a reveal that showed a neighbouring menu item (`Tuner` → "Channel EQ") is no longer learned; mismatched entries already in the user cache file are dropped on load.
 
 ## [0.1.1] - 2026-10-22
 ### Changed
