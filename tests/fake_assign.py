@@ -987,7 +987,9 @@ def make_assign_logic(tracks: list[Track] | None = None) -> tuple[Surface, FakeT
                     logic.flip_lagged.pop(0)()
         if logic.cursor_lag_s > 0 and logic.timers and not pred(surface.state):
             logic.sleep(timeout)        # 가짜 시계로 기다린다: 지연된 커서 처리(timers)가 이 대기 안에 만기되면 도착
-        return wait_for(pred, timeout)
+        # 틱 스레드가 없고 가짜 시계도 실시간으로 안 흘러, 실시간으로 기다려도 상태가 안 바뀐다 → 같은 결과를 바로 돌려준다
+        # (무변화 틱마다 FEEDBACK_TIMEOUT 0.6 s를 실제로 쓰던 테스트 시간만 준다)
+        return wait_for(pred, 0)
     surface.wait_for = late_wait_for
     fake.now += 1.0                 # 조용 1초 → ready
     surface.tick()
