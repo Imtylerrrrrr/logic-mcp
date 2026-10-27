@@ -622,14 +622,18 @@ class PluginCommands:
                 if removed.verified != "verified":
                     return b._result(action, False, removed.verified, t0, target=target, before=removed.before,
                                      after=removed.after, note=f"제거 단계: {removed.note}")
-                put = self._insert_body(action, t0, target, ch, to_slot, full, replace=False)
+                moved = {"from": slot, "to": to_slot, "plugin": full, "note_path": "remove+insert"}
+                try:
+                    put = self._insert_body(action, t0, target, ch, to_slot, full, replace=False)
+                except ModeError as e:                               # 제거는 끝났다: 이름을 잃지 않게 결과로 돌려준다
+                    return b._result(action, False, "unverified", t0, target=target, before={"slot": slot, "plugin": full},
+                                     after=moved, note=f"제거는 됐으나 재삽입 실패: {e} — {full!r}를 수동으로 다시 넣을 것")
                 if put.verified != "verified":
                     return b._result(action, False, "unverified", t0, target=target, before={"slot": slot, "plugin": full},
-                                     after={"from": slot, "to": to_slot, "plugin": full, "note_path": "remove+insert"},
-                                     note=f"슬롯 {slot}의 {full!r} 제거는 됐으나 재삽입 실패(슬롯 {to_slot}): {put.note}. "
-                                          "직접 다시 넣어야 함")
+                                     after=moved, note=f"슬롯 {slot}의 {full!r} 제거는 됐으나 재삽입 실패(슬롯 {to_slot}): {put.note}. "
+                                                       "직접 다시 넣어야 함")
                 return b._result(action, True, "verified", t0, target=target, before={"slot": slot, "plugin": full},
-                                 after={"from": slot, "to": to_slot, "plugin": full, "note_path": "remove+insert"},
+                                 after=moved,
                                  note="설정값은 초기화됨(MCU에 이동 명령이 없어 제거+재삽입)")
             return b._guarded(action, t0, target, body)
 

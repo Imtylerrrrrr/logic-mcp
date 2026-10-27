@@ -627,3 +627,20 @@ def test_move_skips_when_the_name_is_not_in_the_list(tmp_path):
     assert not r.ok and r.verified == "skipped" and "이름을 확정하지 못해" in r.note
     assert logic.tracks[0].inserts[2] == "Tape Delay" and logic.tracks[0].inserts[6] is None
     assert surface.state.view.kind == "pan"
+
+
+def test_move_reports_the_name_when_reinsert_raises(tmp_path, monkeypatch):   # 제거 뒤 ModeError도 이름을 남긴다
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Compressor")
+    orig = cmds.plugin._remove_body
+
+    def remove_then_break(*a, **k):
+        r = orig(*a, **k)
+        assert r.verified == "verified"
+        logic.refuse = {P.Note.NAME_VALUE}                           # 재삽입 뒤 헤더 확인의 NAME/VALUE 토글이 ModeError
+        return r
+    monkeypatch.setattr(cmds.plugin, "_remove_body", remove_then_break)
+    r = cmds.plugin.move(1, None, 2, 6)
+    assert not r.ok and r.verified == "unverified"
+    assert "제거는 됐으나 재삽입 실패" in r.note and "'Compressor'" in r.note and "수동으로" in r.note
+    assert r.after["plugin"] == "Compressor" and logic.tracks[0].inserts[2] is None
