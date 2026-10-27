@@ -1127,7 +1127,11 @@
           "index": 4,
           "short": "LefMix",
           "name": "Left Mix",
-          "map": null
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
         },
         {
           "index": 5,
@@ -1159,19 +1163,31 @@
           "index": 8,
           "short": "RigMix",
           "name": "Right Mix",
-          "map": null
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
         },
         {
           "index": 9,
           "short": "LeDeTi",
           "name": "Left Delay Time",
-          "map": null
+          "map": {
+            "type": "log",
+            "lo": 5.0,
+            "hi": 2000.0
+          }
         },
         {
           "index": 10,
           "short": "RiDeTi",
           "name": "Right Delay Time",
-          "map": null
+          "map": {
+            "type": "log",
+            "lo": 5.0,
+            "hi": 2000.0
+          }
         },
         {
           "index": 11,
