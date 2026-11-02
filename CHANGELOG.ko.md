@@ -4,7 +4,7 @@
 
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따른다.
 
-## [Unreleased]
+## [0.1.2] - 2026-11-02
 ### Added
 - `logic_plugin` `move`: 플러그인을 빈 슬롯(`to_slot`)으로 옮긴다(제거 뒤 재삽입). MCU에 이동 명령이 없어 플러그인 설정값은 초기화된다. 제거 뒤 재삽입이 실패하면 unverified로 플러그인 이름을 알려 직접 다시 넣을 수 있게 한다.
 - `logic_plugin` `insert`가 캐시 목록 위치에 다른 플러그인이 보이면(프로젝트마다 메뉴 순서가 다름) 삽입 메뉴를 이름으로 훑는다. 캐시 목록에 없는 이름은 접두 일치로 찾는다(`note`는 `name_scan:<틱 수>`). 오버레이에 요청한 이름이 보이지 않으면 확정하지 않는다.

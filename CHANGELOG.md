@@ -4,7 +4,7 @@
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.1.2] - 2026-11-02
 ### Added
 - `logic_plugin` `move`: moves a plug-in to an empty slot (`to_slot`) by removing it and inserting it again. MCU has no move command, so the plug-in's settings are reset. If the reinsert fails after the remove, the result is unverified and names the plug-in so you can insert it again.
 - `logic_plugin` `insert` falls back to scanning the insert menu by name when the cached list position shows a different plug-in (the menu order differs between projects). A name that is not in the cached list is looked up by prefix (`note` is `name_scan:<ticks>`). Nothing is confirmed unless the overlay shows the requested name.
