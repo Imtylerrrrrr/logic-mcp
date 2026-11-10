@@ -584,9 +584,12 @@ class PluginCommands:
             return b._result(action, False, "unverified", t0, target=target,
                              note=f"확정 뒤 편집 뷰 헤더가 Track {tn}(기대 Track {expect}): 플러그인이 트랙 {tn}에 들어갔을 수 있음. "
                                   "Logic에서 직접 확인할 것")
-        if num != slot or not name or not normalize(want).startswith(normalize(name)):
+        n_want, n_name = normalize(want), normalize(name)
+        if num != slot or not name or not (n_want.startswith(n_name) or n_name.startswith(n_want)):
             return b._result(action, False, "unverified", t0, target=target,
                              note=f"확정 뒤 편집 뷰 헤더가 Ins.{num} {name!r}(기대 Ins.{slot} {want!r})")
+        if len(n_name) > len(n_want):                        # 목록 이름이 오버레이 21칸에서 잘린 경우(실기: EVOC 20 TrackOscillat) 헤더의 전체 이름
+            want = name
         d.enter("plugin_channel")
         abbrev = self._slot_text(slot)
         self.cache.learn_abbrev(abbrev.lstrip("*"), want)

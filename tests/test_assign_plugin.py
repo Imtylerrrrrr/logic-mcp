@@ -782,3 +782,12 @@ def test_set_enum_unique_name_under_long_value_overlay(tmp_path):               
     s = cmds.plugin.set(1, None, 2, "CirTyp", "StudoT")
     assert s.ok and s.verified == "verified" and cirtyp.value == 2 and s.after["text"] == "StudoT"
     assert len(turns(fake.sent[n0:])) == 3                                               # VintgT(#6) → StudoT(#3)
+
+
+def test_insert_accepts_a_list_name_truncated_to_the_overlay(tmp_path):   # 실기 11/11: scan 목록의 'EVOC 20 TrackOscillat'
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.plugin_list = PLUGIN_LIST + ["EVOC 20 TrackOscillator"]
+    cache.bundled_list = PLUGIN_LIST + ["EVOC 20 TrackOscillat"]      # 목록 이름은 오버레이 21칸에서 잘려 있다
+    r = cmds.plugin.insert(1, None, 2, "EVOC 20 TrackOscillator")
+    assert r.verified == "verified" and logic.tracks[0].inserts[2] == "EVOC 20 TrackOscillator"
+    assert r.after["plugin"] == "EVOC 20 TrackOscillator"            # 헤더의 전체 이름을 쓴다
