@@ -1,6 +1,6 @@
 {
   "logic_version": "12.0.1",
-  "generated": "2026-10-28",
+  "generated": "2026-11-11",
   "complete": false,
   "list": [
     "--",
@@ -3795,6 +3795,7630 @@
             "options": [
               "Off",
               "On"
+            ]
+          }
+        }
+      ]
+    },
+    "DeEsser": {
+      "pages": 1,
+      "items": [
+        {
+          "index": 1,
+          "short": "Suprss",
+          "name": "Supression",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": -20.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "Sensvt",
+          "name": "Sensivity",
+          "map": null
+        },
+        {
+          "index": 3,
+          "short": "SuponF",
+          "name": "Supression Frequency",
+          "map": {
+            "type": "log",
+            "lo": 100.0,
+            "hi": 12000.0
+          }
+        },
+        {
+          "index": 4,
+          "short": "Detr-F",
+          "name": "Detector-Frequency",
+          "map": {
+            "type": "log",
+            "lo": 1200.0,
+            "hi": 12000.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "Smothn",
+          "name": "Smoothing",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 50.0
+          }
+        },
+        {
+          "index": 6,
+          "short": "Monitr",
+          "name": "Monitor",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "Detctr",
+              "Supprs",
+              "Sens"
+            ]
+          }
+        }
+      ]
+    },
+    "Expander": {
+      "pages": 2,
+      "items": [
+        {
+          "index": 1,
+          "short": "Thrs",
+          "name": "Threshold",
+          "map": {
+            "type": "linear",
+            "lo": -50.0,
+            "hi": 0.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "Ratio",
+          "name": "Ratio",
+          "map": {
+            "type": "linear",
+            "lo": 0.5,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "Attack",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 2000.0
+          }
+        },
+        {
+          "index": 4,
+          "short": "Rel",
+          "name": "Release",
+          "map": {
+            "type": "log",
+            "lo": 2.0,
+            "hi": 2000.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "Gain",
+          "name": "Gain",
+          "map": {
+            "type": "linear",
+            "lo": -50.0,
+            "hi": 20.0
+          }
+        },
+        {
+          "index": 6,
+          "short": "Knee",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 7,
+          "short": "Peak/S",
+          "name": "Peak/RMS",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Peak",
+              "RMS"
+            ]
+          }
+        },
+        {
+          "index": 8,
+          "short": "AutGai",
+          "name": "Auto Gain",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 16,
+          "short": "OutClp",
+          "name": "Output Clip",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "Soft",
+              "Hard"
+            ]
+          }
+        }
+      ]
+    },
+    "Chorus": {
+      "pages": 1,
+      "items": [
+        {
+          "index": 1,
+          "short": "Mix",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "Intensi",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 4,
+          "short": "ty",
+          "name": "-",
+          "map": null
+        },
+        {
+          "index": 5,
+          "short": "Rate",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 20.0
+          }
+        }
+      ]
+    },
+    "Flanger": {
+      "pages": 1,
+      "items": [
+        {
+          "index": 1,
+          "short": "Mix",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "Intensi",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 4,
+          "short": "ty",
+          "name": "-",
+          "map": null
+        },
+        {
+          "index": 5,
+          "short": "Rate",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 20.0
+          }
+        },
+        {
+          "index": 7,
+          "short": "Feedbac",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": -99.0,
+            "hi": 99.0
+          }
+        },
+        {
+          "index": 8,
+          "short": "k",
+          "name": "-",
+          "map": null
+        }
+      ]
+    },
+    "Phaser": {
+      "pages": 2,
+      "items": [
+        {
+          "index": 1,
+          "short": "Fb",
+          "name": "Feedback",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "SweCei",
+          "name": "Sweep Ceiling",
+          "map": null
+        },
+        {
+          "index": 3,
+          "short": "SweFlo",
+          "name": "Sweep Floor",
+          "map": null
+        },
+        {
+          "index": 4,
+          "short": "Stages",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 4.0,
+            "hi": 12.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "EnvFol",
+          "name": "Env Follow",
+          "map": {
+            "type": "linear",
+            "lo": -100.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 6,
+          "short": "RateO1",
+          "name": "Rate LFO 1",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 7,
+          "short": "RateO2",
+          "name": "Rate LFO 2",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 8,
+          "short": "OutMix",
+          "name": "Output Mix",
+          "map": {
+            "type": "linear",
+            "lo": -100.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 10,
+          "short": "LFOMix",
+          "name": "LFO Mix",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 11,
+          "short": "LFOEFo",
+          "name": "LFO Env Follow",
+          "map": {
+            "type": "linear",
+            "lo": -100.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 12,
+          "short": "Phase",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": -180.0,
+            "hi": 180.0
+          }
+        },
+        {
+          "index": 13,
+          "short": "Warmth",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 14,
+          "short": "FBFilt",
+          "name": "FB Filter",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 15,
+          "short": "HPCutf",
+          "name": "HP Cutoff",
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 2000.0
+          }
+        },
+        {
+          "index": 16,
+          "short": "LPCutf",
+          "name": "LP Cutoff",
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 0.0
+          }
+        }
+      ]
+    },
+    "Tremolo": {
+      "pages": 1,
+      "items": [
+        {
+          "index": 1,
+          "short": "Depth",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "Rate",
+          "name": null,
+          "map": null
+        },
+        {
+          "index": 3,
+          "short": "Symmtr",
+          "name": "Symmetry",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 4,
+          "short": "Smothn",
+          "name": "Smoothing",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "Stroph",
+          "name": "Stereophase",
+          "map": {
+            "type": "linear",
+            "lo": -180.0,
+            "hi": 180.0
+          }
+        },
+        {
+          "index": 6,
+          "short": "Offset",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": -180.0,
+            "hi": 180.0
+          }
+        }
+      ]
+    },
+    "Ensemble": {
+      "pages": 2,
+      "items": [
+        {
+          "index": 1,
+          "short": "Intns1",
+          "name": "Intensity LFO 1",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "RateO1",
+          "name": "Rate LFO 1",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 20.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "Intns2",
+          "name": "Intensity LFO 2",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 4,
+          "short": "RateO2",
+          "name": "Rate LFO 2",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 20.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "RanInt",
+          "name": "Random Intensity",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 6,
+          "short": "RanRat",
+          "name": "Random Rate",
+          "map": {
+            "type": "log",
+            "lo": 1.0,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 7,
+          "short": "Fx Vol",
+          "name": "Effect Volume",
+          "map": {
+            "type": "linear",
+            "lo": -10.0,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 8,
+          "short": "Mix",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 14,
+          "short": "Voices",
+          "name": "Voices",
+          "map": {
+            "type": "linear",
+            "lo": 1.0,
+            "hi": 8.0
+          }
+        },
+        {
+          "index": 15,
+          "short": "Phase",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": -90.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 16,
+          "short": "Spread",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 200.0
+          }
+        }
+      ]
+    },
+    "Echo": {
+      "pages": 1,
+      "items": [
+        {
+          "index": 1,
+          "short": "Time",
+          "name": "Time",
+          "map": null
+        },
+        {
+          "index": 2,
+          "short": "Fb",
+          "name": "Feedback",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "Color",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": -100.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 7,
+          "short": "Dry",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 8,
+          "short": "Wet",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        }
+      ]
+    },
+    "Modulation Delay": {
+      "pages": 3,
+      "items": [
+        {
+          "index": 1,
+          "short": "Fb",
+          "name": "Feedback",
+          "map": {
+            "type": "linear",
+            "lo": -99.0,
+            "hi": 99.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "Fln/Ch",
+          "name": "Flanger/Chorus",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "ModInt",
+          "name": "Mod. Intensity",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 4,
+          "short": "RateO1",
+          "name": "Rate LFO 1",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 20.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "RatO1R",
+          "name": "Rate LFO 1 R",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 20.0
+          }
+        },
+        {
+          "index": 6,
+          "short": "RateO2",
+          "name": "Rate LFO 2",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 20.0
+          }
+        },
+        {
+          "index": 7,
+          "short": "RatO2R",
+          "name": "Rate LFO 2 R",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 20.0
+          }
+        },
+        {
+          "index": 8,
+          "short": "OutMix",
+          "name": "Output Mix",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 9,
+          "short": "LFOMix",
+          "name": "LFO Mix",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 10,
+          "short": "VolMod",
+          "name": "Volume Modulation",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 11,
+          "short": "De-War",
+          "name": "De-Warble",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 12,
+          "short": "ConMod",
+          "name": "Constant Mod",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 13,
+          "short": "LFO Ph",
+          "name": "LFO Phase",
+          "map": {
+            "type": "linear",
+            "lo": -180.0,
+            "hi": 180.0
+          }
+        },
+        {
+          "index": 23,
+          "short": "Stereo",
+          "name": "Stereo",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Free",
+              "Link"
+            ]
+          }
+        }
+      ]
+    },
+    "SilverVerb": {
+      "pages": 2,
+      "items": [
+        {
+          "index": 1,
+          "short": "Predly",
+          "name": "Predelay",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 200.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "RooSiz",
+          "name": "Room Size",
+          "map": {
+            "type": "linear",
+            "lo": 10.0,
+            "hi": 200.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "Reflct",
+          "name": "Reflectivity",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 4,
+          "short": "Den/Ti",
+          "name": "Density/Time",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "ModInt",
+          "name": "Modulation Intensity",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 6,
+          "short": "Lo Cut",
+          "name": "Low Cut",
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 6000.0
+          }
+        },
+        {
+          "index": 7,
+          "short": "Hi Cut",
+          "name": "High Cut",
+          "map": {
+            "type": "log",
+            "lo": 1200.0,
+            "hi": 12000.0
+          }
+        },
+        {
+          "index": 15,
+          "short": "ModRat",
+          "name": "Modulation Rate",
+          "map": {
+            "type": "log",
+            "lo": 0.1,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 16,
+          "short": "Mod Ph",
+          "name": "Modulation Phase",
+          "map": {
+            "type": "linear",
+            "lo": -180.0,
+            "hi": 180.0
+          }
+        }
+      ]
+    },
+    "PlatinumVerb": {
+      "pages": 3,
+      "items": [
+        {
+          "index": 1,
+          "short": "Mix",
+          "name": "Mix",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "Predly",
+          "name": "Predelay",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 200.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "RooSiz",
+          "name": "Room Size",
+          "map": {
+            "type": "log",
+            "lo": 1.0,
+            "hi": 200.0
+          }
+        },
+        {
+          "index": 4,
+          "short": "RooShp",
+          "name": "Room Shape",
+          "map": {
+            "type": "linear",
+            "lo": 3.0,
+            "hi": 7.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "StBase",
+          "name": "Stereo Base",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 2.0
+          }
+        },
+        {
+          "index": 6,
+          "short": "BalR/R",
+          "name": "Balance ER/Reverb",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 7,
+          "short": "IntDel",
+          "name": "Initial Delay",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 200.0
+          }
+        },
+        {
+          "index": 8,
+          "short": "Spread",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 200.0
+          }
+        },
+        {
+          "index": 9,
+          "short": "RvbTim",
+          "name": "Reverb Time",
+          "map": {
+            "type": "linear",
+            "lo": 0.5,
+            "hi": 20.0
+          }
+        },
+        {
+          "index": 10,
+          "short": "Densit",
+          "name": "Density",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 11,
+          "short": "LoRato",
+          "name": "Low Ratio",
+          "map": {
+            "type": "linear",
+            "lo": 20.0,
+            "hi": 200.0
+          }
+        },
+        {
+          "index": 12,
+          "short": "Crssvr",
+          "name": "Crossover",
+          "map": {
+            "type": "log",
+            "lo": 100.0,
+            "hi": 1000.0
+          }
+        },
+        {
+          "index": 13,
+          "short": "Hi Cut",
+          "name": "High Cut",
+          "map": {
+            "type": "log",
+            "lo": 1200.0,
+            "hi": 12000.0
+          }
+        },
+        {
+          "index": 14,
+          "short": "LoFLev",
+          "name": "Low Freq Level",
+          "map": {
+            "type": "linear",
+            "lo": -100.0,
+            "hi": 12.0
+          }
+        },
+        {
+          "index": 15,
+          "short": "Diffso",
+          "name": "Diffusion",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 16,
+          "short": "ERScal",
+          "name": "ER Scale",
+          "map": {
+            "type": "linear",
+            "lo": 1.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 23,
+          "short": "Dry",
+          "name": "Dry",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 24,
+          "short": "Wet",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        }
+      ]
+    },
+    "Exciter": {
+      "pages": 1,
+      "items": [
+        {
+          "index": 1,
+          "short": "Frequen",
+          "name": null,
+          "map": null
+        },
+        {
+          "index": 2,
+          "short": "cy",
+          "name": "-",
+          "map": null
+        },
+        {
+          "index": 3,
+          "short": "Color",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "Color1",
+              "Color2"
+            ]
+          }
+        },
+        {
+          "index": 5,
+          "short": "Harmoni",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 200.0
+          }
+        },
+        {
+          "index": 6,
+          "short": "cs",
+          "name": "-",
+          "map": null
+        },
+        {
+          "index": 7,
+          "short": "Dry Sig",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 8,
+          "short": "nal",
+          "name": "-",
+          "map": null
+        }
+      ]
+    },
+    "Limiter": {
+      "pages": 1,
+      "items": [
+        {
+          "index": 1,
+          "short": "Gain",
+          "name": "Gain",
+          "map": {
+            "type": "linear",
+            "lo": -20.0,
+            "hi": 20.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "Lookha",
+          "name": "Lookahead",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "Softkn",
+          "name": "Softknee",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 4,
+          "short": "Rel",
+          "name": "Release",
+          "map": {
+            "type": "log",
+            "lo": 2.0,
+            "hi": 2000.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "OutLev",
+          "name": "Output Level",
+          "map": {
+            "type": "linear",
+            "lo": -10.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 6,
+          "short": "GaiRed",
+          "name": "Gain Reduction",
+          "map": null
+        },
+        {
+          "index": 7,
+          "short": "TrPeDe",
+          "name": "True Peak Detection",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        }
+      ]
+    },
+    "SubBass": {
+      "pages": 2,
+      "items": [
+        {
+          "index": 1,
+          "short": "RatoLo",
+          "name": "Ratio Low",
+          "map": {
+            "type": "linear",
+            "lo": 1.0,
+            "hi": 8.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "CenrLo",
+          "name": "Center Low",
+          "map": {
+            "type": "log",
+            "lo": 40.0,
+            "hi": 2000.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "BanhLo",
+          "name": "Bandwidth Low",
+          "map": {
+            "type": "linear",
+            "lo": 0.2,
+            "hi": 2.0
+          }
+        },
+        {
+          "index": 4,
+          "short": "RatoHi",
+          "name": "Ratio High",
+          "map": {
+            "type": "linear",
+            "lo": 1.0,
+            "hi": 8.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "CenrHi",
+          "name": "Center High",
+          "map": {
+            "type": "log",
+            "lo": 40.0,
+            "hi": 2000.0
+          }
+        },
+        {
+          "index": 6,
+          "short": "BanhHi",
+          "name": "Bandwidth High",
+          "map": {
+            "type": "linear",
+            "lo": 0.2,
+            "hi": 2.0
+          }
+        },
+        {
+          "index": 7,
+          "short": "FrqMix",
+          "name": "Freq Mix",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 8,
+          "short": "Wet",
+          "name": "Wet",
+          "map": null
+        },
+        {
+          "index": 16,
+          "short": "Dry",
+          "name": "Dry",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        }
+      ]
+    },
+    "Bitcrusher": {
+      "pages": 1,
+      "items": [
+        {
+          "index": 1,
+          "short": "Drive",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 50.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "ClpLev",
+          "name": "Clip Level",
+          "map": {
+            "type": "linear",
+            "lo": -10.0,
+            "hi": 0.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "ClipMd",
+          "name": "Clip Mode",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Clip",
+              "Wrap",
+              "Fold"
+            ]
+          }
+        },
+        {
+          "index": 4,
+          "short": "Reslto",
+          "name": "Resolution",
+          "map": {
+            "type": "linear",
+            "lo": 1.0,
+            "hi": 24.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "Downsm",
+          "name": "Downsampling",
+          "map": {
+            "type": "linear",
+            "lo": 1.0,
+            "hi": 40.0
+          }
+        },
+        {
+          "index": 6,
+          "short": "Mix",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        }
+      ]
+    },
+    "Gain": {
+      "pages": 1,
+      "items": [
+        {
+          "index": 1,
+          "short": "Gain",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": -96.0,
+            "hi": 24.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "PhInvr",
+          "name": "Phase Invert",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Norm",
+              "Inv"
+            ]
+          }
+        }
+      ]
+    },
+    "Match EQ": {
+      "pages": 3,
+      "items": [
+        {
+          "index": 1,
+          "short": "Ea-Out",
+          "name": "Ease-Out High",
+          "map": null
+        },
+        {
+          "index": 2,
+          "short": "LimBoo",
+          "name": "Limit Boost",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 3,
+          "short": "Match",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 4,
+          "short": "View",
+          "name": "View",
+          "map": {
+            "type": "enum",
+            "options": [
+              "RefMat",
+              "CurMat",
+              "EQCurv"
+            ]
+          }
+        },
+        {
+          "index": 5,
+          "short": "AppAmt",
+          "name": "Apply Amount",
+          "map": {
+            "type": "linear",
+            "lo": -100.0,
+            "hi": 200.0
+          }
+        },
+        {
+          "index": 6,
+          "short": "C Link",
+          "name": "Channel Link",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 7,
+          "short": "Smothn",
+          "name": "Smoothing",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 24.0
+          }
+        },
+        {
+          "index": 8,
+          "short": "Phase",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "Linear",
+              "Miniml",
+              "Mi,Zer"
+            ]
+          }
+        },
+        {
+          "index": 9,
+          "short": "Analzr",
+          "name": "Analyzer",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 10,
+          "short": "AnlPos",
+          "name": "Analyzer Position",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Pre",
+              "Post"
+            ]
+          }
+        },
+        {
+          "index": 12,
+          "short": "AnlTop",
+          "name": "Analyzer Top",
+          "map": {
+            "type": "linear",
+            "lo": 20.0,
+            "hi": -40.0
+          }
+        },
+        {
+          "index": 14,
+          "short": "E-I/Ea",
+          "name": "Ease-In / Ease-Out",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 15,
+          "short": "Ea-InH",
+          "name": "Ease-In High",
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 21961.0
+          }
+        },
+        {
+          "index": 16,
+          "short": "Ea-Out",
+          "name": "Ease-Out Low",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 961.0
+          }
+        },
+        {
+          "index": 22,
+          "short": "BoLiMa",
+          "name": "Boost Limit Max",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 30.0
+          }
+        }
+      ]
+    },
+    "Multipressor": {
+      "pages": 7,
+      "items": [
+        {
+          "index": 1,
+          "short": "Ba1Com",
+          "name": "Band 1 Comp. Threshol",
+          "map": {
+            "type": "linear",
+            "lo": -60.0,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "Ba2Com",
+          "name": "Band 2 Comp. Threshol",
+          "map": {
+            "type": "linear",
+            "lo": -60.0,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "Ba3Com",
+          "name": "Band 3 Comp. Threshol",
+          "map": {
+            "type": "linear",
+            "lo": -60.0,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 4,
+          "short": "Ba4Com",
+          "name": "Band 4 Comp. Threshol",
+          "map": {
+            "type": "linear",
+            "lo": -60.0,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "Ba1Mak",
+          "name": "Band 1 Make Up",
+          "map": {
+            "type": "linear",
+            "lo": -20.0,
+            "hi": 20.0
+          }
+        },
+        {
+          "index": 6,
+          "short": "Ba2Mak",
+          "name": "Band 2 Make Up",
+          "map": {
+            "type": "linear",
+            "lo": -20.0,
+            "hi": 20.0
+          }
+        },
+        {
+          "index": 7,
+          "short": "Ba3Mak",
+          "name": "Band 3 Make Up",
+          "map": {
+            "type": "linear",
+            "lo": -20.0,
+            "hi": 20.0
+          }
+        },
+        {
+          "index": 8,
+          "short": "Ba4Mak",
+          "name": "Band 4 Make Up",
+          "map": {
+            "type": "linear",
+            "lo": -20.0,
+            "hi": 20.0
+          }
+        },
+        {
+          "index": 9,
+          "short": "Ba1Com",
+          "name": "Band 1 Comp. Ratio",
+          "map": {
+            "type": "linear",
+            "lo": 1.0,
+            "hi": 30.0
+          }
+        },
+        {
+          "index": 10,
+          "short": "Ba2Com",
+          "name": "Band 2 Comp. Ratio",
+          "map": {
+            "type": "linear",
+            "lo": 1.0,
+            "hi": 30.0
+          }
+        },
+        {
+          "index": 11,
+          "short": "Ba3Com",
+          "name": "Band 3 Comp. Ratio",
+          "map": {
+            "type": "linear",
+            "lo": 1.0,
+            "hi": 30.0
+          }
+        },
+        {
+          "index": 12,
+          "short": "Ba4Com",
+          "name": "Band 4 Comp. Ratio",
+          "map": {
+            "type": "linear",
+            "lo": 1.0,
+            "hi": 30.0
+          }
+        },
+        {
+          "index": 14,
+          "short": "BaXoF2",
+          "name": "Xover Frequency 1/2",
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 20000.0
+          }
+        },
+        {
+          "index": 15,
+          "short": "BaXoF3",
+          "name": "Xover Frequency 2/3",
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 20000.0
+          }
+        },
+        {
+          "index": 16,
+          "short": "BaXoF4",
+          "name": "Xover Frequency 3/4",
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 20000.0
+          }
+        },
+        {
+          "index": 17,
+          "short": "Band1A",
+          "name": "Band 1 Attack",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 200.0
+          }
+        },
+        {
+          "index": 18,
+          "short": "Band2A",
+          "name": "Band 2 Attack",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 200.0
+          }
+        },
+        {
+          "index": 19,
+          "short": "Band3A",
+          "name": "Band 3 Attack",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 200.0
+          }
+        },
+        {
+          "index": 20,
+          "short": "Band4A",
+          "name": "Band 4 Attack",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 200.0
+          }
+        },
+        {
+          "index": 21,
+          "short": "Ban1Re",
+          "name": "Band 1 Release",
+          "map": {
+            "type": "log",
+            "lo": 2.0,
+            "hi": 2000.0
+          }
+        },
+        {
+          "index": 22,
+          "short": "Ban2Re",
+          "name": "Band 2 Release",
+          "map": {
+            "type": "log",
+            "lo": 2.0,
+            "hi": 2000.0
+          }
+        },
+        {
+          "index": 23,
+          "short": "Ban3Re",
+          "name": "Band 3 Release",
+          "map": {
+            "type": "log",
+            "lo": 2.0,
+            "hi": 2000.0
+          }
+        },
+        {
+          "index": 24,
+          "short": "Ban4Re",
+          "name": "Band 4 Release",
+          "map": {
+            "type": "log",
+            "lo": 2.0,
+            "hi": 2000.0
+          }
+        },
+        {
+          "index": 25,
+          "short": "Respns",
+          "name": "Response",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 200.0
+          }
+        },
+        {
+          "index": 26,
+          "short": "Respns",
+          "name": "Response",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 200.0
+          }
+        },
+        {
+          "index": 27,
+          "short": "Respns",
+          "name": "Response",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 200.0
+          }
+        },
+        {
+          "index": 28,
+          "short": "Respns",
+          "name": "Response",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 200.0
+          }
+        },
+        {
+          "index": 29,
+          "short": "Ba1Exp",
+          "name": "Band 1 Exp. Ratio",
+          "map": {
+            "type": "linear",
+            "lo": 1.0,
+            "hi": 10.1
+          }
+        },
+        {
+          "index": 30,
+          "short": "Ba2Exp",
+          "name": "Band 2 Exp. Ratio",
+          "map": {
+            "type": "linear",
+            "lo": 1.0,
+            "hi": 10.1
+          }
+        },
+        {
+          "index": 31,
+          "short": "Ba3Exp",
+          "name": "Band 3 Exp. Ratio",
+          "map": {
+            "type": "linear",
+            "lo": 1.0,
+            "hi": 10.1
+          }
+        },
+        {
+          "index": 32,
+          "short": "Ba4Exp",
+          "name": "Band 4 Exp. Ratio",
+          "map": {
+            "type": "linear",
+            "lo": 1.0,
+            "hi": 10.1
+          }
+        },
+        {
+          "index": 33,
+          "short": "ExpThr",
+          "name": "Exp. Threshold",
+          "map": {
+            "type": "linear",
+            "lo": -60.0,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 34,
+          "short": "ExpThr",
+          "name": "Exp. Threshold",
+          "map": {
+            "type": "linear",
+            "lo": -60.0,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 35,
+          "short": "ExpThr",
+          "name": "Exp. Threshold",
+          "map": {
+            "type": "linear",
+            "lo": -60.0,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 36,
+          "short": "ExpThr",
+          "name": "Exp. Threshold",
+          "map": {
+            "type": "linear",
+            "lo": -60.0,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 37,
+          "short": "Redcto",
+          "name": "Reduction",
+          "map": {
+            "type": "linear",
+            "lo": -50.0,
+            "hi": 0.0
+          }
+        },
+        {
+          "index": 38,
+          "short": "Redcto",
+          "name": "Reduction",
+          "map": {
+            "type": "linear",
+            "lo": -50.0,
+            "hi": 0.0
+          }
+        },
+        {
+          "index": 39,
+          "short": "Redcto",
+          "name": "Reduction",
+          "map": {
+            "type": "linear",
+            "lo": -50.0,
+            "hi": 0.0
+          }
+        },
+        {
+          "index": 40,
+          "short": "Redcto",
+          "name": "Reduction",
+          "map": null
+        },
+        {
+          "index": 41,
+          "short": "Ban1By",
+          "name": "Band 1 Bypass",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 42,
+          "short": "Ban2By",
+          "name": "Band 2 Bypass",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 43,
+          "short": "Ban3By",
+          "name": "Band 3 Bypass",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 44,
+          "short": "Ban4By",
+          "name": "Band 4 Bypass",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 45,
+          "short": "Ban1So",
+          "name": "Band 1 Solo",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 46,
+          "short": "Ban2So",
+          "name": "Band 2 Solo",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 47,
+          "short": "Ban3So",
+          "name": "Band 3 Solo",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 48,
+          "short": "Ban4So",
+          "name": "Band 4 Solo",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 49,
+          "short": "Ban1Mo",
+          "name": "Band 1 Monitor",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 50,
+          "short": "Ban2Mo",
+          "name": "Band 2 Monitor",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 51,
+          "short": "Ban3Mo",
+          "name": "Band 3 Monitor",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 52,
+          "short": "Ban4Mo",
+          "name": "Band 4 Monitor",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 54,
+          "short": "Lookha",
+          "name": "Lookahead",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 20.0
+          }
+        },
+        {
+          "index": 55,
+          "short": "AutGai",
+          "name": "Auto Gain",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 56,
+          "short": "MasGai",
+          "name": "Master Gain",
+          "map": {
+            "type": "linear",
+            "lo": -20.0,
+            "hi": 20.0
+          }
+        }
+      ]
+    },
+    "Delay Designer": {
+      "pages": 4,
+      "items": [
+        {
+          "index": 1,
+          "short": "Dry",
+          "name": "Dry",
+          "map": null
+        },
+        {
+          "index": 2,
+          "short": "Wet",
+          "name": "Wet",
+          "map": null
+        },
+        {
+          "index": 3,
+          "short": "FbEnbl",
+          "name": "Feedback Enable",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 4,
+          "short": "Fb Amt",
+          "name": "Feedback Amount",
+          "map": null
+        },
+        {
+          "index": 5,
+          "short": "Fb Tap",
+          "name": "Feedback Tap",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Tap A"
+            ]
+          }
+        },
+        {
+          "index": 6,
+          "short": "SyToTe",
+          "name": "Sync to Tempo",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 7,
+          "short": "Grid",
+          "name": null,
+          "map": null
+        },
+        {
+          "index": 8,
+          "short": "Swing",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 33.0,
+            "hi": 99.0
+          }
+        },
+        {
+          "index": 9,
+          "short": "TapRec",
+          "name": "Tap Record",
+          "map": {
+            "type": "enum",
+            "options": [
+              "tap"
+            ]
+          }
+        },
+        {
+          "index": 10,
+          "short": "LasTap",
+          "name": "Last Tap",
+          "map": {
+            "type": "enum",
+            "options": [
+              "last"
+            ]
+          }
+        },
+        {
+          "index": 11,
+          "short": "TaByTi",
+          "name": "Tap by Time",
+          "map": {
+            "type": "enum",
+            "options": [
+              "1.",
+              "2.",
+              "3.",
+              "4."
+            ]
+          }
+        },
+        {
+          "index": 12,
+          "short": "TaByNa",
+          "name": "Tap by Name",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Tap A",
+              "Tap B",
+              "Tap C",
+              "Tap D"
+            ]
+          }
+        },
+        {
+          "index": 13,
+          "short": "TapTim",
+          "name": "Tap Time",
+          "map": {
+            "type": "log",
+            "lo": 5.6,
+            "hi": 10000.0
+          }
+        },
+        {
+          "index": 14,
+          "short": "TapLev",
+          "name": "Tap Level",
+          "map": null
+        },
+        {
+          "index": 15,
+          "short": "TapMut",
+          "name": "Tap Mute",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Active",
+              "Muted"
+            ]
+          }
+        },
+        {
+          "index": 19,
+          "short": "FilEnb",
+          "name": "Filter Enable",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 20,
+          "short": "FHPssF",
+          "name": "Filter HighPass Freq",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 20000.0
+          }
+        },
+        {
+          "index": 21,
+          "short": "FLPssF",
+          "name": "Filter LowPass Freq",
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 22000.0
+          }
+        },
+        {
+          "index": 22,
+          "short": "FilRes",
+          "name": "Filter Resonance",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 23,
+          "short": "FiltrS",
+          "name": "Filter Slope",
+          "map": {
+            "type": "linear",
+            "lo": 6.0,
+            "hi": 12.0
+          }
+        },
+        {
+          "index": 24,
+          "short": "PitXps",
+          "name": "Pitch Transpose",
+          "map": {
+            "type": "linear",
+            "lo": -12.5,
+            "hi": 12.5
+          }
+        },
+        {
+          "index": 32,
+          "short": "PitEnb",
+          "name": "Pitch Enable",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        }
+      ]
+    },
+    "Linear Phase EQ": {
+      "pages": 6,
+      "items": [
+        {
+          "index": 1,
+          "short": "LoCutS",
+          "name": "Low Cut Slope",
+          "map": {
+            "type": "linear",
+            "lo": 6.0,
+            "hi": 48.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "LoShGa",
+          "name": "Low Shelf Gain",
+          "map": {
+            "type": "linear",
+            "lo": -24.0,
+            "hi": 24.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "Pea1Ga",
+          "name": "Peak 1 Gain",
+          "map": {
+            "type": "linear",
+            "lo": -24.0,
+            "hi": 24.0
+          }
+        },
+        {
+          "index": 4,
+          "short": "Pea2Ga",
+          "name": "Peak 2 Gain",
+          "map": {
+            "type": "linear",
+            "lo": -24.0,
+            "hi": 24.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "Pea3Ga",
+          "name": "Peak 3 Gain",
+          "map": {
+            "type": "linear",
+            "lo": -24.0,
+            "hi": 24.0
+          }
+        },
+        {
+          "index": 6,
+          "short": "Pea4Ga",
+          "name": "Peak 4 Gain",
+          "map": {
+            "type": "linear",
+            "lo": -24.0,
+            "hi": 24.0
+          }
+        },
+        {
+          "index": 7,
+          "short": "HiShGa",
+          "name": "High Shelf Gain",
+          "map": {
+            "type": "linear",
+            "lo": -24.0,
+            "hi": 24.0
+          }
+        },
+        {
+          "index": 8,
+          "short": "HiCutS",
+          "name": "High Cut Slope",
+          "map": {
+            "type": "linear",
+            "lo": 6.0,
+            "hi": 48.0
+          }
+        },
+        {
+          "index": 9,
+          "short": "LoCutF",
+          "name": "Low Cut Frequency",
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 20000.0
+          }
+        },
+        {
+          "index": 10,
+          "short": "LoShF",
+          "name": "Low Shelf Frequency",
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 20000.0
+          }
+        },
+        {
+          "index": 11,
+          "short": "Peak1F",
+          "name": "Peak 1 Frequency",
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 20000.0
+          }
+        },
+        {
+          "index": 12,
+          "short": "Peak2F",
+          "name": "Peak 2 Frequency",
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 20000.0
+          }
+        },
+        {
+          "index": 13,
+          "short": "Peak3F",
+          "name": "Peak 3 Frequency",
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 20000.0
+          }
+        },
+        {
+          "index": 14,
+          "short": "Peak4F",
+          "name": "Peak 4 Frequency",
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 20000.0
+          }
+        },
+        {
+          "index": 15,
+          "short": "HiShF",
+          "name": "High Shelf Frequency",
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 20000.0
+          }
+        },
+        {
+          "index": 16,
+          "short": "HiCutF",
+          "name": "High Cut Frequency",
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 20000.0
+          }
+        },
+        {
+          "index": 17,
+          "short": "LoCutQ",
+          "name": "Low Cut Q-Factor",
+          "map": {
+            "type": "log",
+            "lo": 0.1,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 18,
+          "short": "LoShQ",
+          "name": "Low Shelf Q-Factor",
+          "map": {
+            "type": "linear",
+            "lo": 0.1,
+            "hi": 2.0
+          }
+        },
+        {
+          "index": 19,
+          "short": "Peak1Q",
+          "name": "Peak 1 Q-Factor",
+          "map": {
+            "type": "log",
+            "lo": 0.1,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 20,
+          "short": "Peak2Q",
+          "name": "Peak 2 Q-Factor",
+          "map": {
+            "type": "log",
+            "lo": 0.1,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 21,
+          "short": "Peak3Q",
+          "name": "Peak 3 Q-Factor",
+          "map": {
+            "type": "log",
+            "lo": 0.1,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 22,
+          "short": "Peak4Q",
+          "name": "Peak 4 Q-Factor",
+          "map": {
+            "type": "log",
+            "lo": 0.1,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 23,
+          "short": "HiShQ",
+          "name": "High Shelf Q-Factor",
+          "map": {
+            "type": "linear",
+            "lo": 0.1,
+            "hi": 2.0
+          }
+        },
+        {
+          "index": 24,
+          "short": "HiCutQ",
+          "name": "High Cut Q-Factor",
+          "map": {
+            "type": "log",
+            "lo": 0.1,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 25,
+          "short": "LCO/Of",
+          "name": "Low Cut On/Off",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 26,
+          "short": "LSO/Of",
+          "name": "Low Shelf On/Off",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 27,
+          "short": "Pe1On/",
+          "name": "Peak 1 On/Off",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 28,
+          "short": "Pe2On/",
+          "name": "Peak 2 On/Off",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 29,
+          "short": "Pe3On/",
+          "name": "Peak 3 On/Off",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 30,
+          "short": "Pe4On/",
+          "name": "Peak 4 On/Off",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 31,
+          "short": "HSO/Of",
+          "name": "High Shelf On/Off",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 32,
+          "short": "HCO/Of",
+          "name": "High Cut On/Off",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 33,
+          "short": "AnOn/O",
+          "name": "Analyzer On/Off",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 34,
+          "short": "AnlrMd",
+          "name": "Analyzer Mode",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Peak",
+              "RMS"
+            ]
+          }
+        },
+        {
+          "index": 35,
+          "short": "AnlzrD",
+          "name": "Analyzer Decay",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 30.0
+          }
+        },
+        {
+          "index": 36,
+          "short": "AnlPos",
+          "name": "Analyzer Position",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Pre EQ",
+              "Post Q"
+            ]
+          }
+        },
+        {
+          "index": 37,
+          "short": "AnlRes",
+          "name": "Analyzer Resolution",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Lo(204",
+              "Medium",
+              "Hi(819"
+            ]
+          }
+        },
+        {
+          "index": 38,
+          "short": "AnlTop",
+          "name": "Analyzer Top",
+          "map": {
+            "type": "linear",
+            "lo": 20.0,
+            "hi": -40.0
+          }
+        },
+        {
+          "index": 40,
+          "short": "Ga-QCo",
+          "name": "Gain-Q Coupling",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 47,
+          "short": "G-QCou",
+          "name": "Gain-Q Couple Mode",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Prprto",
+              "Light",
+              "Medium",
+              "Strong",
+              "AsmLig",
+              "AsmMed",
+              "AsmStr"
+            ]
+          }
+        },
+        {
+          "index": 48,
+          "short": "MasGai",
+          "name": "Master  Gain",
+          "map": null
+        }
+      ]
+    },
+    "Parametric EQ": {
+      "pages": 1,
+      "items": [
+        {
+          "index": 1,
+          "short": "Gain",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": -18.0,
+            "hi": 18.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "Frequen",
+          "name": null,
+          "map": null
+        },
+        {
+          "index": 4,
+          "short": "cy",
+          "name": "-",
+          "map": null
+        },
+        {
+          "index": 5,
+          "short": "Q-Facto",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.1,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 6,
+          "short": "r",
+          "name": "-",
+          "map": null
+        }
+      ]
+    },
+    "Low Pass Filter": {
+      "pages": 1,
+      "items": [
+        {
+          "index": 1,
+          "short": "Frequen",
+          "name": null,
+          "map": null
+        },
+        {
+          "index": 2,
+          "short": "cy",
+          "name": "-",
+          "map": null
+        },
+        {
+          "index": 3,
+          "short": "Order",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 1.0,
+            "hi": 12.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "Smoothi",
+          "name": null,
+          "map": {
+            "type": "log",
+            "lo": 10.0,
+            "hi": 5000.0
+          }
+        },
+        {
+          "index": 6,
+          "short": "ng",
+          "name": "-",
+          "map": null
+        }
+      ]
+    },
+    "High Pass Filter": {
+      "pages": 1,
+      "items": [
+        {
+          "index": 1,
+          "short": "Frequen",
+          "name": null,
+          "map": null
+        },
+        {
+          "index": 2,
+          "short": "cy",
+          "name": "-",
+          "map": null
+        },
+        {
+          "index": 3,
+          "short": "Order",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 1.0,
+            "hi": 12.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "Smoothi",
+          "name": null,
+          "map": {
+            "type": "log",
+            "lo": 10.0,
+            "hi": 5000.0
+          }
+        },
+        {
+          "index": 6,
+          "short": "ng",
+          "name": "-",
+          "map": null
+        }
+      ]
+    },
+    "Low Shelving EQ": {
+      "pages": 1,
+      "items": [
+        {
+          "index": 1,
+          "short": "Gain",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": -18.0,
+            "hi": 18.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "Frequen",
+          "name": null,
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 20000.0
+          }
+        },
+        {
+          "index": 4,
+          "short": "cy",
+          "name": "-",
+          "map": null
+        }
+      ]
+    },
+    "High Shelving EQ": {
+      "pages": 1,
+      "items": [
+        {
+          "index": 1,
+          "short": "Gain",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": -18.0,
+            "hi": 18.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "Frequen",
+          "name": null,
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 20000.0
+          }
+        },
+        {
+          "index": 4,
+          "short": "cy",
+          "name": "-",
+          "map": null
+        }
+      ]
+    },
+    "Fat EQ": {
+      "pages": 4,
+      "items": [
+        {
+          "index": 1,
+          "short": "Band 1",
+          "name": "Band 1",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 2,
+          "short": "Mode 1",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "Shelf",
+              "Cut"
+            ]
+          }
+        },
+        {
+          "index": 3,
+          "short": "Freq 1",
+          "name": "Frequency 1",
+          "map": null
+        },
+        {
+          "index": 4,
+          "short": "Order1",
+          "name": "Order 1",
+          "map": {
+            "type": "linear",
+            "lo": 1.0,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "Gain 1",
+          "name": "Gain 1",
+          "map": {
+            "type": "linear",
+            "lo": -18.0,
+            "hi": 18.0
+          }
+        },
+        {
+          "index": 6,
+          "short": "Band 2",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 7,
+          "short": "Mode 2",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "Par",
+              "Shelf"
+            ]
+          }
+        },
+        {
+          "index": 8,
+          "short": "Freq 2",
+          "name": "Frequency 2",
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 0.0
+          }
+        },
+        {
+          "index": 9,
+          "short": "Q 2",
+          "name": "Q-Factor 2",
+          "map": {
+            "type": "linear",
+            "lo": 0.1,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 10,
+          "short": "Gain 2",
+          "name": "Gain 2",
+          "map": {
+            "type": "linear",
+            "lo": -18.0,
+            "hi": 18.0
+          }
+        },
+        {
+          "index": 11,
+          "short": "Band 3",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 12,
+          "short": "Freq 3",
+          "name": "Frequency 3",
+          "map": null
+        },
+        {
+          "index": 13,
+          "short": "Q 3",
+          "name": "Q-Factor 3",
+          "map": {
+            "type": "linear",
+            "lo": 0.1,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 14,
+          "short": "Gain 3",
+          "name": "Gain 3",
+          "map": {
+            "type": "linear",
+            "lo": -18.0,
+            "hi": 18.0
+          }
+        },
+        {
+          "index": 15,
+          "short": "Band 4",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 16,
+          "short": "Mode 4",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "Par",
+              "Shelf"
+            ]
+          }
+        },
+        {
+          "index": 17,
+          "short": "Freq 4",
+          "name": "Frequency 4",
+          "map": null
+        },
+        {
+          "index": 18,
+          "short": "Q 4",
+          "name": "Q-Factor 4",
+          "map": {
+            "type": "linear",
+            "lo": 0.1,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 19,
+          "short": "Gain 4",
+          "name": "Gain 4",
+          "map": {
+            "type": "linear",
+            "lo": -18.0,
+            "hi": 18.0
+          }
+        },
+        {
+          "index": 20,
+          "short": "Band 5",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 21,
+          "short": "Mode 5",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "Shelf",
+              "Cut"
+            ]
+          }
+        },
+        {
+          "index": 22,
+          "short": "Freq 5",
+          "name": "Frequency 5",
+          "map": null
+        },
+        {
+          "index": 23,
+          "short": "Order5",
+          "name": "Order 5",
+          "map": {
+            "type": "linear",
+            "lo": 1.0,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 24,
+          "short": "Gain 5",
+          "name": "Gain 5",
+          "map": null
+        },
+        {
+          "index": 32,
+          "short": "Mastrl",
+          "name": "Masterlevel",
+          "map": null
+        }
+      ]
+    },
+    "DJ EQ": {
+      "pages": 1,
+      "items": [
+        {
+          "index": 1,
+          "short": "Hi Sh",
+          "name": "High Shelf",
+          "map": {
+            "type": "linear",
+            "lo": -30.0,
+            "hi": 18.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "Freq",
+          "name": "Frequency",
+          "map": null
+        },
+        {
+          "index": 3,
+          "short": "Q",
+          "name": "Q-Factor",
+          "map": {
+            "type": "linear",
+            "lo": 0.7,
+            "hi": 4.0
+          }
+        },
+        {
+          "index": 4,
+          "short": "Gain",
+          "name": "Gain",
+          "map": {
+            "type": "linear",
+            "lo": -30.0,
+            "hi": 18.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "Lo Sh",
+          "name": "Low Shelf",
+          "map": {
+            "type": "linear",
+            "lo": -30.0,
+            "hi": 18.0
+          }
+        }
+      ]
+    },
+    "Silver EQ": {
+      "pages": 1,
+      "items": [
+        {
+          "index": 1,
+          "short": "Hi Sh",
+          "name": "High Shelf",
+          "map": {
+            "type": "linear",
+            "lo": -18.0,
+            "hi": 18.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "HiFreq",
+          "name": "High Frequency",
+          "map": {
+            "type": "log",
+            "lo": 1000.0,
+            "hi": 20000.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "Freq",
+          "name": "Frequency",
+          "map": null
+        },
+        {
+          "index": 4,
+          "short": "Q",
+          "name": "Q-Factor",
+          "map": {
+            "type": "linear",
+            "lo": 0.7,
+            "hi": 4.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "Gain",
+          "name": "Gain",
+          "map": {
+            "type": "linear",
+            "lo": -18.0,
+            "hi": 18.0
+          }
+        },
+        {
+          "index": 6,
+          "short": "Lo Sh",
+          "name": "Low Shelf",
+          "map": {
+            "type": "linear",
+            "lo": -18.0,
+            "hi": 18.0
+          }
+        },
+        {
+          "index": 7,
+          "short": "LoFreq",
+          "name": "Low Frequency",
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 1000.0
+          }
+        }
+      ]
+    },
+    "Silver Compressor": {
+      "pages": 1,
+      "items": [
+        {
+          "index": 1,
+          "short": "Thresho",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": -50.0,
+            "hi": 0.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "ld",
+          "name": "-",
+          "map": null
+        },
+        {
+          "index": 3,
+          "short": "Ratio",
+          "name": null,
+          "map": null
+        },
+        {
+          "index": 5,
+          "short": "Attack",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 200.0
+          }
+        },
+        {
+          "index": 7,
+          "short": "Release",
+          "name": null,
+          "map": {
+            "type": "log",
+            "lo": 2.0,
+            "hi": 2000.0
+          }
+        }
+      ]
+    },
+    "Silver Gate": {
+      "pages": 1,
+      "items": [
+        {
+          "index": 1,
+          "short": "Thrs",
+          "name": "Threshold",
+          "map": {
+            "type": "linear",
+            "lo": -100.0,
+            "hi": 0.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "Attack",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "Hold",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1000.0
+          }
+        },
+        {
+          "index": 4,
+          "short": "Rel",
+          "name": "Release",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 300.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "Lookha",
+          "name": "Lookahead",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 20.0
+          }
+        }
+      ]
+    },
+    "Enveloper": {
+      "pages": 1,
+      "items": [
+        {
+          "index": 1,
+          "short": "AtTime",
+          "name": "Attack Time",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 200.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "AtGain",
+          "name": "Attack Gain",
+          "map": {
+            "type": "linear",
+            "lo": -100.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "RelTim",
+          "name": "Release Time",
+          "map": {
+            "type": "log",
+            "lo": 2.0,
+            "hi": 2000.0
+          }
+        },
+        {
+          "index": 4,
+          "short": "RelGai",
+          "name": "Release Gain",
+          "map": {
+            "type": "linear",
+            "lo": -100.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "Thrs",
+          "name": "Threshold",
+          "map": {
+            "type": "linear",
+            "lo": -100.0,
+            "hi": 0.0
+          }
+        },
+        {
+          "index": 6,
+          "short": "Lookha",
+          "name": "Lookahead",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 7,
+          "short": "OutLev",
+          "name": "Out Level",
+          "map": {
+            "type": "linear",
+            "lo": -20.0,
+            "hi": 20.0
+          }
+        }
+      ]
+    },
+    "Spectral Gate": {
+      "pages": 2,
+      "items": [
+        {
+          "index": 1,
+          "short": "Thrs",
+          "name": "Threshold",
+          "map": {
+            "type": "linear",
+            "lo": -100.0,
+            "hi": 0.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "CentrF",
+          "name": "Center Frequency",
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 20000.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "Bandwd",
+          "name": "Bandwidth",
+          "map": null
+        },
+        {
+          "index": 4,
+          "short": "SubEnr",
+          "name": "Sub Energy",
+          "map": {
+            "type": "linear",
+            "lo": -100.0,
+            "hi": 20.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "LoLevl",
+          "name": "Low Level",
+          "map": {
+            "type": "linear",
+            "lo": -100.0,
+            "hi": 20.0
+          }
+        },
+        {
+          "index": 6,
+          "short": "SupEnr",
+          "name": "Super Energy",
+          "map": {
+            "type": "linear",
+            "lo": -100.0,
+            "hi": 20.0
+          }
+        },
+        {
+          "index": 7,
+          "short": "HiLevl",
+          "name": "High Level",
+          "map": {
+            "type": "linear",
+            "lo": -100.0,
+            "hi": 20.0
+          }
+        },
+        {
+          "index": 8,
+          "short": "Gain",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": -20.0,
+            "hi": 20.0
+          }
+        },
+        {
+          "index": 14,
+          "short": "Speed",
+          "name": "Speed",
+          "map": {
+            "type": "linear",
+            "lo": 0.1,
+            "hi": 2.0
+          }
+        },
+        {
+          "index": 15,
+          "short": "CF Mod",
+          "name": "CF Modulation",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 16,
+          "short": "BW Mod",
+          "name": "BW Modulation",
+          "map": null
+        }
+      ]
+    },
+    "Denoiser": {
+      "pages": 1,
+      "items": [
+        {
+          "index": 1,
+          "short": "Thrs",
+          "name": "Threshold",
+          "map": {
+            "type": "linear",
+            "lo": -100.0,
+            "hi": 0.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "Reduce",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": -100.0,
+            "hi": 0.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "NoiTyp",
+          "name": "Noise Type",
+          "map": {
+            "type": "linear",
+            "lo": -1.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 4,
+          "short": "FSmoth",
+          "name": "Freq Smoothing",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1000.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "TimSmo",
+          "name": "Time Smoothing",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1000.0
+          }
+        },
+        {
+          "index": 6,
+          "short": "Trnsto",
+          "name": "Transition",
+          "map": {
+            "type": "log",
+            "lo": 0.1,
+            "hi": 100.0
+          }
+        }
+      ]
+    },
+    "Microphaser": {
+      "pages": 1,
+      "items": [
+        {
+          "index": 1,
+          "short": "LFO Rat",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "e",
+          "name": "-",
+          "map": null
+        },
+        {
+          "index": 3,
+          "short": "Feedbac",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 4,
+          "short": "k",
+          "name": "-",
+          "map": null
+        },
+        {
+          "index": 5,
+          "short": "Intensi",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 6,
+          "short": "ty",
+          "name": "-",
+          "map": null
+        }
+      ]
+    },
+    "Fuzz-Wah": {
+      "pages": 2,
+      "items": [
+        {
+          "index": 1,
+          "short": "ReltvQ",
+          "name": "Relative Q",
+          "map": {
+            "type": "linear",
+            "lo": -1.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "PedPos",
+          "name": "Pedal Position",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "AuWaDe",
+          "name": "Auto Wah Depth",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "0.00",
+              "0.00",
+              "0.00",
+              "0.00",
+              "0.00",
+              "0.00",
+              "0.00",
+              "0.00",
+              "0.00",
+              "0.00",
+              "0.01",
+              "0.01",
+              "0.01",
+              "0.02"
+            ]
+          }
+        },
+        {
+          "index": 4,
+          "short": "AuWahA",
+          "name": "Auto Wah Attack",
+          "map": {
+            "type": "log",
+            "lo": 10.0,
+            "hi": 10000.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "AuWaRe",
+          "name": "Auto Wah Release",
+          "map": {
+            "type": "log",
+            "lo": 10.0,
+            "hi": 10000.0
+          }
+        },
+        {
+          "index": 6,
+          "short": "FuzGai",
+          "name": "Fuzz Gain",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 20.0
+          }
+        },
+        {
+          "index": 7,
+          "short": "FuzTon",
+          "name": "Fuzz Tone",
+          "map": {
+            "type": "log",
+            "lo": 200.0,
+            "hi": 20000.0
+          }
+        },
+        {
+          "index": 8,
+          "short": "ComRat",
+          "name": "Comp Ratio",
+          "map": {
+            "type": "linear",
+            "lo": 1.0,
+            "hi": 0.0
+          }
+        },
+        {
+          "index": 12,
+          "short": "PeRaSt",
+          "name": "Pedal Range Start",
+          "map": {
+            "type": "linear",
+            "lo": -0.5,
+            "hi": 1.5
+          }
+        },
+        {
+          "index": 13,
+          "short": "PeRaEn",
+          "name": "Pedal Range End",
+          "map": {
+            "type": "linear",
+            "lo": -0.5,
+            "hi": 1.5
+          }
+        },
+        {
+          "index": 14,
+          "short": "AutGai",
+          "name": "Auto Gain",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 15,
+          "short": "WahLev",
+          "name": "Wah Level",
+          "map": {
+            "type": "linear",
+            "lo": -50.0,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 16,
+          "short": "FXOrdr",
+          "name": "FX Order",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Wa-Com",
+              "Co-Fuz",
+              "Fu-Wah",
+              "Co-Wah",
+              "Wa-Fuz",
+              "Fu-Com"
+            ]
+          }
+        }
+      ]
+    },
+    "AutoFilter": {
+      "pages": 4,
+      "items": [
+        {
+          "index": 1,
+          "short": "Cutoff",
+          "name": "Cutoff",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "Res",
+          "name": "Resonance",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "EnCuMo",
+          "name": "Env Cutoff Mod",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 4,
+          "short": "LFOCMo",
+          "name": "LFO Cutoff Mod",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "PrFiDi",
+          "name": "Pre Filter Distortion",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 400.0
+          }
+        },
+        {
+          "index": 6,
+          "short": "PoFiDi",
+          "name": "st Filter Distortion",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 400.0
+          }
+        },
+        {
+          "index": 7,
+          "short": "DrSign",
+          "name": "Dry Signal",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 200.0
+          }
+        },
+        {
+          "index": 8,
+          "short": "MaiOut",
+          "name": "Main Out",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 6.0
+          }
+        },
+        {
+          "index": 9,
+          "short": "Fatnss",
+          "name": "Fatness",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 10,
+          "short": "FilrMd",
+          "name": "Filter Mode",
+          "map": {
+            "type": "enum",
+            "options": [
+              "LP 6dB",
+              "LP12dB",
+              "LP18dB",
+              "LP24dB",
+              "MM HP",
+              "MM BP",
+              "MM LP",
+              "Peak"
+            ]
+          }
+        },
+        {
+          "index": 14,
+          "short": "St Ph",
+          "name": "Stereo Phase",
+          "map": {
+            "type": "linear",
+            "lo": -180.0,
+            "hi": 180.0
+          }
+        },
+        {
+          "index": 15,
+          "short": "Wf",
+          "name": "Waveform",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Saw Up",
+              "SawDow",
+              "Tgl",
+              "Pulse",
+              "Random"
+            ]
+          }
+        },
+        {
+          "index": 16,
+          "short": "Pulswd",
+          "name": "Pulsewidth",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 17,
+          "short": "Retrgg",
+          "name": "Retrigger",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 19,
+          "short": "Thrs",
+          "name": "Threshold",
+          "map": {
+            "type": "linear",
+            "lo": -100.0,
+            "hi": 0.0
+          }
+        },
+        {
+          "index": 20,
+          "short": "Attack",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1000.0
+          }
+        },
+        {
+          "index": 21,
+          "short": "Decay",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1000.0
+          }
+        },
+        {
+          "index": 22,
+          "short": "Sus",
+          "name": "Sustain",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 23,
+          "short": "Rel",
+          "name": "Release",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1000.0
+          }
+        },
+        {
+          "index": 24,
+          "short": "EnvDyn",
+          "name": "Env Dynamic",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 29,
+          "short": "BeaSyn",
+          "name": "Beat Sync",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 30,
+          "short": "Rate",
+          "name": null,
+          "map": null
+        },
+        {
+          "index": 31,
+          "short": "SyncPh",
+          "name": "Sync Phase",
+          "map": {
+            "type": "linear",
+            "lo": -180.0,
+            "hi": 180.0
+          }
+        }
+      ]
+    },
+    "Scanner Vibrato": {
+      "pages": 1,
+      "items": [
+        {
+          "index": 1,
+          "short": "Type",
+          "name": "Type",
+          "map": {
+            "type": "enum",
+            "options": [
+              "C0",
+              "V1",
+              "C1",
+              "V2",
+              "C2",
+              "V3",
+              "C3"
+            ]
+          }
+        },
+        {
+          "index": 2,
+          "short": "Depth",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": -1.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "Rate",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 1.0,
+            "hi": 8.0
+          }
+        }
+      ]
+    },
+    "Ringshifter": {
+      "pages": 4,
+      "items": [
+        {
+          "index": 1,
+          "short": "OprgMd",
+          "name": "Operating Mode",
+          "map": {
+            "type": "enum",
+            "options": [
+              "RinSin",
+              "RinSid",
+              "FShSin",
+              "FShDua"
+            ]
+          }
+        },
+        {
+          "index": 2,
+          "short": "Freq",
+          "name": "Frequency",
+          "map": {
+            "type": "linear",
+            "lo": -5000.0,
+            "hi": 5000.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "EFFrOn",
+          "name": "Envelope Follower Fol",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 4,
+          "short": "En->Os",
+          "name": "Env->Osc Modulation",
+          "map": {
+            "type": "linear",
+            "lo": -1.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "LFO On",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 6,
+          "short": "LFO->O",
+          "name": "LFO->Osc Modulation",
+          "map": {
+            "type": "linear",
+            "lo": -1.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 7,
+          "short": "LFORat",
+          "name": "LFO Rate",
+          "map": null
+        },
+        {
+          "index": 8,
+          "short": "Dr/Wet",
+          "name": "Dry/Wet",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 9,
+          "short": "Freq",
+          "name": "Frequency",
+          "map": {
+            "type": "linear",
+            "lo": -5000.0,
+            "hi": 5000.0
+          }
+        },
+        {
+          "index": 10,
+          "short": "FShtMd",
+          "name": "Freq. Shift Mode",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Expnnt",
+              "Linear"
+            ]
+          }
+        },
+        {
+          "index": 11,
+          "short": "En->Os",
+          "name": "Env->Osc Modulation",
+          "map": {
+            "type": "linear",
+            "lo": -1.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 12,
+          "short": "LFO->O",
+          "name": "LFO->Osc Modulation",
+          "map": {
+            "type": "linear",
+            "lo": -1.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 13,
+          "short": "OprgMd",
+          "name": "Operating Mode",
+          "map": {
+            "type": "enum",
+            "options": [
+              "RinSin",
+              "RinSid",
+              "FShSin",
+              "FShDua"
+            ]
+          }
+        },
+        {
+          "index": 14,
+          "short": "Fb",
+          "name": "Feedback",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 15,
+          "short": "StWidt",
+          "name": "Stereo Width",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 16,
+          "short": "Dr/Wet",
+          "name": "Dry/Wet",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 17,
+          "short": "E->Dr/",
+          "name": "Env->Dry/Wet Modulati",
+          "map": {
+            "type": "linear",
+            "lo": -1.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 18,
+          "short": "LFO->D",
+          "name": "LFO->Dry/Wet Modulati",
+          "map": {
+            "type": "linear",
+            "lo": -1.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 19,
+          "short": "EFFrOn",
+          "name": "Envelope Follower Fol",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 20,
+          "short": "EnFoSe",
+          "name": "Envelope Follower Sen",
+          "map": {
+            "type": "linear",
+            "lo": -10.0,
+            "hi": 20.0
+          }
+        },
+        {
+          "index": 21,
+          "short": "EnForA",
+          "name": "Envelope Follower Att",
+          "map": {
+            "type": "log",
+            "lo": 0.1,
+            "hi": 1000.0
+          }
+        },
+        {
+          "index": 22,
+          "short": "EnFoRe",
+          "name": "ope Follower Release",
+          "map": {
+            "type": "log",
+            "lo": 0.1,
+            "hi": 1000.0
+          }
+        },
+        {
+          "index": 23,
+          "short": "LFO On",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 24,
+          "short": "LFOSyn",
+          "name": "LFO Sync",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 25,
+          "short": "LFORat",
+          "name": "LFO Rate",
+          "map": null
+        },
+        {
+          "index": 26,
+          "short": "LFOSym",
+          "name": "LFO Symmetry",
+          "map": {
+            "type": "linear",
+            "lo": -1.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 27,
+          "short": "LFOSmo",
+          "name": "LFO Smooth",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 28,
+          "short": "DelAmt",
+          "name": "Delay Amount",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 29,
+          "short": "DelSyn",
+          "name": "Delay Sync",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 30,
+          "short": "DelTim",
+          "name": "Delay Time",
+          "map": null
+        },
+        {
+          "index": 31,
+          "short": "DeLoCu",
+          "name": "Delay Low Cut",
+          "map": null
+        },
+        {
+          "index": 32,
+          "short": "DeHiCu",
+          "name": "Delay High Cut",
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 20000.0
+          }
+        }
+      ]
+    },
+    "Pitch Shifter": {
+      "pages": 1,
+      "items": [
+        {
+          "index": 1,
+          "short": "Semtns",
+          "name": "Semitones",
+          "map": {
+            "type": "linear",
+            "lo": -12.0,
+            "hi": 12.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "Cents",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": -50.0,
+            "hi": 50.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "Delay",
+          "name": "Delay",
+          "map": {
+            "type": "linear",
+            "lo": 2.0,
+            "hi": 60.0
+          }
+        },
+        {
+          "index": 6,
+          "short": "Crssfd",
+          "name": "Crossfade",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 8,
+          "short": "Mix",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        }
+      ]
+    },
+    "Pitch Correction": {
+      "pages": 5,
+      "items": [
+        {
+          "index": 1,
+          "short": "BypAll",
+          "name": "Bypass All",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 2,
+          "short": "RooNot",
+          "name": "Root Note",
+          "map": {
+            "type": "enum",
+            "options": [
+              "None",
+              "C",
+              "C|D",
+              "D",
+              "D|E",
+              "E",
+              "F",
+              "F|G",
+              "G",
+              "G|A",
+              "A",
+              "A|B",
+              "B"
+            ]
+          }
+        },
+        {
+          "index": 3,
+          "short": "Sc/Chr",
+          "name": "Scale/Chord Type",
+          "map": {
+            "type": "enum",
+            "options": [
+              "UsrScl",
+              "ChrScl",
+              "MajScl",
+              "MaPeSc",
+              "MiPeSc",
+              "Maj+7S",
+              "NaMiSc",
+              "HaMiSc",
+              "MeMiSc",
+              "MajChr",
+              "6",
+              "6/9",
+              "7",
+              "7sus4",
+              "7/5",
+              "7/9"
+            ]
+          }
+        },
+        {
+          "index": 4,
+          "short": "Respns",
+          "name": "Response",
+          "map": {
+            "type": "linear",
+            "lo": 122.0,
+            "hi": 999.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "Tolrnc",
+          "name": "Tolerance",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 50.0
+          }
+        },
+        {
+          "index": 6,
+          "short": "NePiDe",
+          "name": "euralPitch Detection",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 7,
+          "short": "PitRan",
+          "name": "Pitch Range",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Normal",
+              "Low"
+            ]
+          }
+        },
+        {
+          "index": 8,
+          "short": "ShwPit",
+          "name": "Show Pitch",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Input",
+              "Output"
+            ]
+          }
+        },
+        {
+          "index": 9,
+          "short": "Use C",
+          "name": "Use C",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "use"
+            ]
+          }
+        },
+        {
+          "index": 10,
+          "short": "Use C#",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "use"
+            ]
+          }
+        },
+        {
+          "index": 11,
+          "short": "Use D",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "use"
+            ]
+          }
+        },
+        {
+          "index": 12,
+          "short": "Use D#",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "use"
+            ]
+          }
+        },
+        {
+          "index": 13,
+          "short": "Use E",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "use"
+            ]
+          }
+        },
+        {
+          "index": 14,
+          "short": "Use F",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "use"
+            ]
+          }
+        },
+        {
+          "index": 15,
+          "short": "Use F#",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "use"
+            ]
+          }
+        },
+        {
+          "index": 16,
+          "short": "Use G",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "use"
+            ]
+          }
+        },
+        {
+          "index": 17,
+          "short": "Use G#",
+          "name": "Use G#",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "use"
+            ]
+          }
+        },
+        {
+          "index": 18,
+          "short": "Use A",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "use"
+            ]
+          }
+        },
+        {
+          "index": 19,
+          "short": "Use A#",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "use"
+            ]
+          }
+        },
+        {
+          "index": 20,
+          "short": "Use B",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "use"
+            ]
+          }
+        },
+        {
+          "index": 21,
+          "short": "BypssC",
+          "name": "Bypass C",
+          "map": {
+            "type": "enum",
+            "options": [
+              "corrct",
+              "bypass"
+            ]
+          }
+        },
+        {
+          "index": 22,
+          "short": "BypssC",
+          "name": "Bypass C#",
+          "map": {
+            "type": "enum",
+            "options": [
+              "corrct",
+              "bypass"
+            ]
+          }
+        },
+        {
+          "index": 23,
+          "short": "BypssD",
+          "name": "Bypass D",
+          "map": {
+            "type": "enum",
+            "options": [
+              "corrct",
+              "bypass"
+            ]
+          }
+        },
+        {
+          "index": 24,
+          "short": "BypssD",
+          "name": "Bypass D#",
+          "map": {
+            "type": "enum",
+            "options": [
+              "corrct",
+              "bypass"
+            ]
+          }
+        },
+        {
+          "index": 25,
+          "short": "BypssE",
+          "name": "Bypass E",
+          "map": {
+            "type": "enum",
+            "options": [
+              "corrct",
+              "bypass"
+            ]
+          }
+        },
+        {
+          "index": 26,
+          "short": "BypssF",
+          "name": "Bypass F",
+          "map": {
+            "type": "enum",
+            "options": [
+              "corrct",
+              "bypass"
+            ]
+          }
+        },
+        {
+          "index": 27,
+          "short": "BypssF",
+          "name": "Bypass F#",
+          "map": {
+            "type": "enum",
+            "options": [
+              "corrct",
+              "bypass"
+            ]
+          }
+        },
+        {
+          "index": 28,
+          "short": "BypssG",
+          "name": "Bypass G",
+          "map": {
+            "type": "enum",
+            "options": [
+              "corrct",
+              "bypass"
+            ]
+          }
+        },
+        {
+          "index": 29,
+          "short": "BypssG",
+          "name": "Bypass G#",
+          "map": {
+            "type": "enum",
+            "options": [
+              "corrct",
+              "bypass"
+            ]
+          }
+        },
+        {
+          "index": 30,
+          "short": "BypssA",
+          "name": "Bypass A",
+          "map": {
+            "type": "enum",
+            "options": [
+              "corrct",
+              "bypass"
+            ]
+          }
+        },
+        {
+          "index": 31,
+          "short": "BypssA",
+          "name": "Bypass A#",
+          "map": {
+            "type": "enum",
+            "options": [
+              "corrct",
+              "bypass"
+            ]
+          }
+        },
+        {
+          "index": 32,
+          "short": "BypssB",
+          "name": "Bypass B",
+          "map": {
+            "type": "enum",
+            "options": [
+              "corrct",
+              "bypass"
+            ]
+          }
+        },
+        {
+          "index": 38,
+          "short": "Refrnc",
+          "name": "Reference",
+          "map": {
+            "type": "linear",
+            "lo": -100.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 39,
+          "short": "GlbTun",
+          "name": "Global Tuning",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 40,
+          "short": "Detune",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": -50.0,
+            "hi": 50.0
+          }
+        }
+      ]
+    },
+    "Vocal Transformer": {
+      "pages": 2,
+      "items": [
+        {
+          "index": 1,
+          "short": "Pitch",
+          "name": "Pitch",
+          "map": {
+            "type": "linear",
+            "lo": -24.0,
+            "hi": 24.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "FinPit",
+          "name": "Fine Pitch",
+          "map": {
+            "type": "linear",
+            "lo": -100.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "Glide",
+          "name": "Glide",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1000.0
+          }
+        },
+        {
+          "index": 4,
+          "short": "Robotz",
+          "name": "Robotize",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 5,
+          "short": "PitBas",
+          "name": "Pitch Base",
+          "map": {
+            "type": "enum",
+            "options": [
+              "F 1",
+              "F#1",
+              "G 1",
+              "G#1",
+              "A 1",
+              "A#1",
+              "B 1",
+              "C 2",
+              "C#2",
+              "D 2",
+              "D#2",
+              "E 2",
+              "F 2",
+              "F#2",
+              "G 2",
+              "G#2"
+            ]
+          }
+        },
+        {
+          "index": 6,
+          "short": "PitTrc",
+          "name": "Pitch Tracking",
+          "map": {
+            "type": "linear",
+            "lo": -100.0,
+            "hi": 200.0
+          }
+        },
+        {
+          "index": 7,
+          "short": "Formnt",
+          "name": "Formant",
+          "map": {
+            "type": "linear",
+            "lo": -24.0,
+            "hi": 24.0
+          }
+        },
+        {
+          "index": 8,
+          "short": "Mix",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 15,
+          "short": "GriSiz",
+          "name": "Grain Size",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Auto",
+              "1 ms",
+              "2 ms",
+              "3 ms",
+              "4 ms",
+              "5 ms",
+              "6 ms",
+              "7 ms",
+              "8 ms",
+              "9 ms",
+              "10 ms",
+              "11 ms",
+              "12 ms",
+              "13 ms",
+              "14 ms",
+              "15 ms"
+            ]
+          }
+        },
+        {
+          "index": 16,
+          "short": "Formnt",
+          "name": "Formants",
+          "map": {
+            "type": "enum",
+            "options": [
+              "PrcAlw",
+              "KeUnFo"
+            ]
+          }
+        }
+      ]
+    },
+    "Grooveshifter": {
+      "pages": 1,
+      "items": [
+        {
+          "index": 1,
+          "short": "Swing",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 50.0,
+            "hi": 75.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "Grid",
+          "name": null,
+          "map": null
+        },
+        {
+          "index": 3,
+          "short": "Accent",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": -12.0,
+            "hi": 12.0
+          }
+        },
+        {
+          "index": 4,
+          "short": "GriSiz",
+          "name": "Grain Size",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Auto",
+              "1 ms",
+              "2 ms",
+              "3 ms",
+              "4 ms",
+              "5 ms",
+              "6 ms",
+              "7 ms",
+              "8 ms",
+              "9 ms",
+              "10 ms",
+              "11 ms",
+              "12 ms",
+              "13 ms",
+              "14 ms",
+              "15 ms"
+            ]
+          }
+        },
+        {
+          "index": 5,
+          "short": "Matral",
+          "name": "Material",
+          "map": {
+            "type": "enum",
+            "options": [
+              "tonal",
+              "beat"
+            ]
+          }
+        }
+      ]
+    },
+    "Clip Distortion": {
+      "pages": 2,
+      "items": [
+        {
+          "index": 1,
+          "short": "ClpDrv",
+          "name": "Clip Drive",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 50.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "ClpTon",
+          "name": "Clip Tone",
+          "map": null
+        },
+        {
+          "index": 3,
+          "short": "ClpSym",
+          "name": "Clip Symmetry",
+          "map": {
+            "type": "linear",
+            "lo": -100.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 4,
+          "short": "Mix",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "ClpFil",
+          "name": "Clip Filter",
+          "map": null
+        },
+        {
+          "index": 6,
+          "short": "LPFilt",
+          "name": "LP Filter",
+          "map": null
+        },
+        {
+          "index": 7,
+          "short": "HiShGa",
+          "name": "High Shelf Gain",
+          "map": {
+            "type": "linear",
+            "lo": -30.0,
+            "hi": 30.0
+          }
+        },
+        {
+          "index": 8,
+          "short": "HiShFn",
+          "name": "High Shelf Freqency",
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 20000.0
+          }
+        },
+        {
+          "index": 15,
+          "short": "InGain",
+          "name": "Input Gain",
+          "map": {
+            "type": "linear",
+            "lo": -30.0,
+            "hi": 30.0
+          }
+        },
+        {
+          "index": 16,
+          "short": "OutGai",
+          "name": "Output Gain",
+          "map": null
+        }
+      ]
+    },
+    "Phase Distortion": {
+      "pages": 1,
+      "items": [
+        {
+          "index": 1,
+          "short": "Cutoff",
+          "name": "Cutoff",
+          "map": null
+        },
+        {
+          "index": 2,
+          "short": "Res",
+          "name": "Resonance",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "Monitr",
+          "name": "Monitor",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 4,
+          "short": "Delay",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "Intnst",
+          "name": "Intensity",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 6,
+          "short": "Mix",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 7,
+          "short": "PhRevr",
+          "name": "Phase Reverse",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        }
+      ]
+    },
+    "Distortion II": {
+      "pages": 1,
+      "items": [
+        {
+          "index": 1,
+          "short": "Drive",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "Tone",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": -10.0,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "Pre Gai",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": -10.0,
+            "hi": 20.0
+          }
+        },
+        {
+          "index": 6,
+          "short": "n",
+          "name": "-",
+          "map": null
+        },
+        {
+          "index": 7,
+          "short": "Distort",
+          "name": "Distortion Type",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Growl",
+              "Bity",
+              "Nasty",
+              "Class A"
+            ]
+          }
+        },
+        {
+          "index": 8,
+          "short": "onType",
+          "name": "-",
+          "map": {
+            "type": "enum",
+            "options": [
+              "B hard"
+            ]
+          }
+        }
+      ]
+    },
+    "EnVerb": {
+      "pages": 2,
+      "items": [
+        {
+          "index": 1,
+          "short": "DrSiDe",
+          "name": "Dry Signal Delay",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 5000.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "Predly",
+          "name": "Predelay",
+          "map": {
+            "type": "linear",
+            "lo": 10.0,
+            "hi": 1000.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "Attack",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 10.0,
+            "hi": 1000.0
+          }
+        },
+        {
+          "index": 4,
+          "short": "Decay",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 10.0,
+            "hi": 1000.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "Sus",
+          "name": "Sustain",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 6,
+          "short": "Hold",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 10.0,
+            "hi": 1000.0
+          }
+        },
+        {
+          "index": 7,
+          "short": "Rel",
+          "name": "Release",
+          "map": {
+            "type": "linear",
+            "lo": 10.0,
+            "hi": 1000.0
+          }
+        },
+        {
+          "index": 12,
+          "short": "Densit",
+          "name": "Density",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 13,
+          "short": "Spread",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 200.0
+          }
+        },
+        {
+          "index": 14,
+          "short": "Hi Cut",
+          "name": "High Cut",
+          "map": {
+            "type": "log",
+            "lo": 1000.0,
+            "hi": 12000.0
+          }
+        },
+        {
+          "index": 15,
+          "short": "Crssvr",
+          "name": "Crossover",
+          "map": {
+            "type": "log",
+            "lo": 100.0,
+            "hi": 1000.0
+          }
+        },
+        {
+          "index": 16,
+          "short": "LoFLev",
+          "name": "Low Freq Level",
+          "map": {
+            "type": "linear",
+            "lo": -100.0,
+            "hi": 12.0
+          }
+        }
+      ]
+    },
+    "GoldVerb": {
+      "pages": 2,
+      "items": [
+        {
+          "index": 1,
+          "short": "Mix",
+          "name": "Mix",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "Predly",
+          "name": "Predelay",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 200.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "RooSiz",
+          "name": "Room Size",
+          "map": {
+            "type": "log",
+            "lo": 1.0,
+            "hi": 200.0
+          }
+        },
+        {
+          "index": 4,
+          "short": "RooShp",
+          "name": "Room Shape",
+          "map": {
+            "type": "linear",
+            "lo": 3.0,
+            "hi": 7.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "StBase",
+          "name": "Stereo Base",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 2.0
+          }
+        },
+        {
+          "index": 6,
+          "short": "BalR/R",
+          "name": "Balance ER/Reverb",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 7,
+          "short": "IntDel",
+          "name": "Initial Delay",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 200.0
+          }
+        },
+        {
+          "index": 8,
+          "short": "Spread",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 200.0
+          }
+        },
+        {
+          "index": 13,
+          "short": "RvbTim",
+          "name": "Reverb Time",
+          "map": {
+            "type": "linear",
+            "lo": 0.5,
+            "hi": 20.0
+          }
+        },
+        {
+          "index": 14,
+          "short": "Densit",
+          "name": "Density",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 15,
+          "short": "Hi Cut",
+          "name": "High Cut",
+          "map": {
+            "type": "log",
+            "lo": 1200.0,
+            "hi": 12000.0
+          }
+        },
+        {
+          "index": 16,
+          "short": "Diffso",
+          "name": "Diffusion",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        }
+      ]
+    },
+    "AVerb": {
+      "pages": 1,
+      "items": [
+        {
+          "index": 1,
+          "short": "Mix",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "PrDely",
+          "name": "Pre Delay",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 200.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "Reflct",
+          "name": "Reflectivity",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 4,
+          "short": "RooSiz",
+          "name": "Room Size",
+          "map": {
+            "type": "linear",
+            "lo": 10.0,
+            "hi": 200.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "Den/Ti",
+          "name": "Density/Time",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        }
+      ]
+    },
+    "High Cut": {
+      "pages": 1,
+      "items": [
+        {
+          "index": 1,
+          "short": "Frequen",
+          "name": null,
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 20000.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "cy",
+          "name": "-",
+          "map": null
+        }
+      ]
+    },
+    "Low Cut": {
+      "pages": 1,
+      "items": [
+        {
+          "index": 1,
+          "short": "Frequen",
+          "name": null,
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 20000.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "cy",
+          "name": "-",
+          "map": null
+        }
+      ]
+    },
+    "EVOC 20 Filterbank": {
+      "pages": 8,
+      "items": [
+        {
+          "index": 1,
+          "short": "ForShf",
+          "name": "Formant Shift",
+          "map": {
+            "type": "linear",
+            "lo": -2.0,
+            "hi": 2.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "Res",
+          "name": "Resonance",
+          "map": {
+            "type": "linear",
+            "lo": 0.5,
+            "hi": 16.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "LoFreq",
+          "name": "Low Frequency",
+          "map": {
+            "type": "log",
+            "lo": 75.0,
+            "hi": 750.0
+          }
+        },
+        {
+          "index": 4,
+          "short": "HiFreq",
+          "name": "High Frequency",
+          "map": {
+            "type": "log",
+            "lo": 800.0,
+            "hi": 8000.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "BoostA",
+          "name": "Boost A",
+          "map": {
+            "type": "linear",
+            "lo": -20.0,
+            "hi": 20.0
+          }
+        },
+        {
+          "index": 6,
+          "short": "BoostB",
+          "name": "Boost B",
+          "map": {
+            "type": "linear",
+            "lo": -20.0,
+            "hi": 20.0
+          }
+        },
+        {
+          "index": 7,
+          "short": "LevlA<",
+          "name": "Level A<>B",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 8,
+          "short": "OutLev",
+          "name": "Output Level",
+          "map": {
+            "type": "linear",
+            "lo": -60.0,
+            "hi": 60.0
+          }
+        },
+        {
+          "index": 9,
+          "short": "LFO->F",
+          "name": "LFO -> Formant",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 10,
+          "short": "LFO1Ra",
+          "name": "LFO1 Rate",
+          "map": {
+            "type": "linear",
+            "lo": 32.0,
+            "hi": 200.0
+          }
+        },
+        {
+          "index": 11,
+          "short": "LFO Wf",
+          "name": "LFO Waveform",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Tgl",
+              "SawDow",
+              "Saw Up",
+              "Squar1",
+              "Squar2",
+              "Sam&Ho",
+              "LaSa&H",
+              "Sine"
+            ]
+          }
+        },
+        {
+          "index": 12,
+          "short": "LFO Wf",
+          "name": "LFO Waveform",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Tgl",
+              "SawDow",
+              "Saw Up",
+              "Squar1",
+              "Squar2",
+              "Sam&Ho",
+              "LaSa&H",
+              "Sine"
+            ]
+          }
+        },
+        {
+          "index": 13,
+          "short": "LFO2Ra",
+          "name": "LFO2 Rate",
+          "map": {
+            "type": "linear",
+            "lo": 32.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 14,
+          "short": "LFO->X",
+          "name": "LFO -> Xfade",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 15,
+          "short": "St Md",
+          "name": "Stereo Mode",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Mon/St",
+              "St/St"
+            ]
+          }
+        },
+        {
+          "index": 16,
+          "short": "Stereo",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 5.0
+          }
+        },
+        {
+          "index": 17,
+          "short": "LoBaMd",
+          "name": "Low Band Mode",
+          "map": {
+            "type": "enum",
+            "options": [
+              "LP",
+              "BP"
+            ]
+          }
+        },
+        {
+          "index": 18,
+          "short": "HiBaMd",
+          "name": "High Band Mode",
+          "map": {
+            "type": "enum",
+            "options": [
+              "HP",
+              "BP"
+            ]
+          }
+        },
+        {
+          "index": 19,
+          "short": "Slope",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 1.0,
+            "hi": 2.0
+          }
+        },
+        {
+          "index": 20,
+          "short": "Distrt",
+          "name": "Distortion",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 21,
+          "short": "Bands",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 5.0,
+            "hi": 20.0
+          }
+        },
+        {
+          "index": 22,
+          "short": "Levl1A",
+          "name": "Level  1 A",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 23,
+          "short": "Levl2A",
+          "name": "Level  2 A",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 24,
+          "short": "Levl3A",
+          "name": "Level  3 A",
+          "map": null
+        },
+        {
+          "index": 25,
+          "short": "Levl4A",
+          "name": "Level  4 A",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 26,
+          "short": "Levl5A",
+          "name": "Level  5 A",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 27,
+          "short": "Levl6A",
+          "name": "Level  6 A",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 28,
+          "short": "Levl7A",
+          "name": "Level  7 A",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 29,
+          "short": "Levl8A",
+          "name": "Level  8 A",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 30,
+          "short": "Levl9A",
+          "name": "Level  9 A",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 31,
+          "short": "Levl10",
+          "name": "Level 10 A",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 32,
+          "short": "Levl11",
+          "name": "Level 11 A",
+          "map": null
+        },
+        {
+          "index": 33,
+          "short": "Levl12",
+          "name": "Level 12 A",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 34,
+          "short": "Levl13",
+          "name": "Level 13 A",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 35,
+          "short": "Levl14",
+          "name": "Level 14 A",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 36,
+          "short": "Levl15",
+          "name": "Level 15 A",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 37,
+          "short": "Levl16",
+          "name": "Level 16 A",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 38,
+          "short": "Levl17",
+          "name": "Level 17 A",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 39,
+          "short": "Levl18",
+          "name": "Level 18 A",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 40,
+          "short": "Levl19",
+          "name": "Level 19 A",
+          "map": null
+        },
+        {
+          "index": 41,
+          "short": "Levl20",
+          "name": "Level 20 A",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 42,
+          "short": "Levl1B",
+          "name": "Level  1 B",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 43,
+          "short": "Levl2B",
+          "name": "Level  2 B",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 44,
+          "short": "Levl3B",
+          "name": "Level  3 B",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 45,
+          "short": "Levl4B",
+          "name": "Level  4 B",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 46,
+          "short": "Levl5B",
+          "name": "Level  5 B",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 47,
+          "short": "Levl6B",
+          "name": "Level  6 B",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 48,
+          "short": "Levl7B",
+          "name": "Level  7 B",
+          "map": null
+        },
+        {
+          "index": 49,
+          "short": "Levl8B",
+          "name": "Level  8 B",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 50,
+          "short": "Levl9B",
+          "name": "Level  9 B",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 51,
+          "short": "Levl10",
+          "name": "Level 10 B",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 52,
+          "short": "Levl11",
+          "name": "Level 11 B",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 53,
+          "short": "Levl12",
+          "name": "Level 12 B",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 54,
+          "short": "Levl13",
+          "name": "Level 13 B",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 55,
+          "short": "Levl14",
+          "name": "Level 14 B",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 56,
+          "short": "Levl15",
+          "name": "Level 15 B",
+          "map": null
+        },
+        {
+          "index": 60,
+          "short": "Levl16",
+          "name": "Level 16 B",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 61,
+          "short": "Levl17",
+          "name": "Level 17 B",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 62,
+          "short": "Levl18",
+          "name": "Level 18 B",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 63,
+          "short": "Levl19",
+          "name": "Level 19 B",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 64,
+          "short": "Levl20",
+          "name": "Level 20 B",
+          "map": null
+        }
+      ]
+    },
+    "Guitar Amp Pro": {
+      "pages": 3,
+      "items": [
+        {
+          "index": 1,
+          "short": "Gain",
+          "name": "Gain",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "EQ Low",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "EQ Mid",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 4,
+          "short": "EQ Hi",
+          "name": "EQ High",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "Presnc",
+          "name": "Presence",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 6,
+          "short": "Master",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 7,
+          "short": "OutGai",
+          "name": "Output Gain",
+          "map": {
+            "type": "linear",
+            "lo": -60.0,
+            "hi": 15.0
+          }
+        },
+        {
+          "index": 8,
+          "short": "Amp",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "UKCom3",
+              "UKTop5",
+              "USCom4",
+              "USHC40",
+              "USHT10",
+              "Custm5",
+              "BrtCln",
+              "BrtGai",
+              "AmrCln",
+              "AmrGai",
+              "ClTuAm"
+            ]
+          }
+        },
+        {
+          "index": 9,
+          "short": "Link Q",
+          "name": "Link EQ",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 10,
+          "short": "EQModl",
+          "name": "EQ Model",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Brtsh1",
+              "Brtsh2",
+              "Amercn",
+              "Modern"
+            ]
+          }
+        },
+        {
+          "index": 11,
+          "short": "LinSpk",
+          "name": "Link Speaker",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 12,
+          "short": "Spkr",
+          "name": "Speaker",
+          "map": {
+            "type": "enum",
+            "options": [
+              "UK1x12",
+              "UK2x12",
+              "UK2x12",
+              "UK4x12",
+              "US1x10",
+              "USXOB1",
+              "USXOB2",
+              "USXOB3",
+              "USBrRa",
+              "AnlSim",
+              "UK1x12",
+              "UK4x12",
+              "US1x12",
+              "US1x12",
+              "DI-Box"
+            ]
+          }
+        },
+        {
+          "index": 13,
+          "short": "MicTyp",
+          "name": "Microphone type",
+          "map": {
+            "type": "enum",
+            "options": [
+              "undfnd"
+            ]
+          }
+        },
+        {
+          "index": 14,
+          "short": "MicPos",
+          "name": "Microphone pos",
+          "map": {
+            "type": "enum",
+            "options": [
+              "undfnd"
+            ]
+          }
+        },
+        {
+          "index": 15,
+          "short": "FXEnbl",
+          "name": "FX Enable",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 16,
+          "short": "FX Md",
+          "name": "FX Mode",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Trem",
+              "Vibrat"
+            ]
+          }
+        },
+        {
+          "index": 19,
+          "short": "FX Dep",
+          "name": "FX Depth",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 20,
+          "short": "FXSyMd",
+          "name": "FX Sync Mode",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Free",
+              "Sync"
+            ]
+          }
+        },
+        {
+          "index": 21,
+          "short": "FXSped",
+          "name": "FX Speed",
+          "map": null
+        },
+        {
+          "index": 22,
+          "short": "RvbEnb",
+          "name": "Reverb Enable",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 23,
+          "short": "Rvb Md",
+          "name": "Reverb Mode",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Sprng2"
+            ]
+          }
+        },
+        {
+          "index": 24,
+          "short": "RvbLev",
+          "name": "Reverb Level",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 10.0
+          }
+        }
+      ]
+    },
+    "Bass Amp": {
+      "pages": 1,
+      "items": [
+        {
+          "index": 1,
+          "short": "Model",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "AmrBas",
+              "AmrDee",
+              "AmrSco",
+              "AmrBrg",
+              "NeAmBa",
+              "NeAmBr",
+              "ToClIW",
+              "ToClID",
+              "ToClIM"
+            ]
+          }
+        },
+        {
+          "index": 2,
+          "short": "PrGain",
+          "name": "Pre Gain",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "Bass",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 4,
+          "short": "Mid",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "MidFrq",
+          "name": "Mid Freq",
+          "map": null
+        },
+        {
+          "index": 6,
+          "short": "Treble",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 10.0
+          }
+        },
+        {
+          "index": 7,
+          "short": "OutLev",
+          "name": "Output Level",
+          "map": {
+            "type": "linear",
+            "lo": -60.0,
+            "hi": 15.0
+          }
+        }
+      ]
+    },
+    "Tuner": {
+      "pages": 1,
+      "items": [
+        {
+          "index": 1,
+          "short": "Referen",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 410.0,
+            "hi": 470.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "ce",
+          "name": "-",
+          "map": null
+        },
+        {
+          "index": 3,
+          "short": "Deviati",
+          "name": null,
+          "map": null
+        },
+        {
+          "index": 4,
+          "short": "on",
+          "name": "-",
+          "map": null
+        },
+        {
+          "index": 5,
+          "short": "Note",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "None"
+            ]
+          }
+        },
+        {
+          "index": 7,
+          "short": "Output",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 8,
+          "short": "Mute",
+          "name": "-",
+          "map": null
+        }
+      ]
+    },
+    "Test Oscillator": {
+      "pages": 2,
+      "items": [
+        {
+          "index": 1,
+          "short": "Freq",
+          "name": "Frequency",
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 20000.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "Level",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": -96.0,
+            "hi": 6.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "Wf",
+          "name": "Waveform",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Sine",
+              "WhtNoi",
+              "PinNoi",
+              "Square",
+              "Dirac"
+            ]
+          }
+        },
+        {
+          "index": 4,
+          "short": "SwOn/O",
+          "name": "Sweep On/Off",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 5,
+          "short": "SweTrg",
+          "name": "Sweep Trigger",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On",
+              "On",
+              "On",
+              "On",
+              "Off",
+              "On",
+              "On",
+              "On",
+              "On",
+              "On",
+              "On",
+              "On",
+              "On",
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 6,
+          "short": "SweRep",
+          "name": "Sweep Repeat",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Single",
+              "Contno"
+            ]
+          }
+        },
+        {
+          "index": 7,
+          "short": "SweTim",
+          "name": "Sweep Time",
+          "map": {
+            "type": "linear",
+            "lo": 1.0,
+            "hi": 30.0
+          }
+        },
+        {
+          "index": 8,
+          "short": "SwepMd",
+          "name": "Sweep Mode",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Linear",
+              "Logrth"
+            ]
+          }
+        },
+        {
+          "index": 14,
+          "short": "SwSttF",
+          "name": "Sweep Start Freq",
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 20000.0
+          }
+        },
+        {
+          "index": 15,
+          "short": "SwEndF",
+          "name": "Sweep End Freq",
+          "map": {
+            "type": "log",
+            "lo": 20.0,
+            "hi": 20000.0
+          }
+        },
+        {
+          "index": 16,
+          "short": "AntAla",
+          "name": "AntiAlias",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        }
+      ]
+    },
+    "Level Meter": {
+      "pages": 1,
+      "items": [
+        {
+          "index": 1,
+          "short": "Mode",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "Peak",
+              "RMS",
+              "Peak&S",
+              "TrePea"
+            ]
+          }
+        },
+        {
+          "index": 2,
+          "short": "TarLev",
+          "name": "Target Level",
+          "map": {
+            "type": "linear",
+            "lo": -30.0,
+            "hi": 0.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "ResMar",
+          "name": "Reset Margins",
+          "map": null
+        },
+        {
+          "index": 4,
+          "short": "L",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "-"
+            ]
+          }
+        },
+        {
+          "index": 5,
+          "short": "R",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "-"
+            ]
+          }
+        },
+        {
+          "index": 6,
+          "short": "MargnL",
+          "name": "Margin L",
+          "map": {
+            "type": "enum",
+            "options": [
+              "-"
+            ]
+          }
+        },
+        {
+          "index": 7,
+          "short": "MargnR",
+          "name": "Margin R",
+          "map": {
+            "type": "enum",
+            "options": [
+              "-"
+            ]
+          }
+        }
+      ]
+    },
+    "EVOC 20 TrackOscillator": {
+      "pages": 6,
+      "items": [
+        {
+          "index": 1,
+          "short": "ForShf",
+          "name": "Formant Shift",
+          "map": {
+            "type": "linear",
+            "lo": -1.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 2,
+          "short": "Res",
+          "name": "Resonance",
+          "map": {
+            "type": "linear",
+            "lo": 0.5,
+            "hi": 4.0
+          }
+        },
+        {
+          "index": 3,
+          "short": "LoFreq",
+          "name": "Low Frequency",
+          "map": {
+            "type": "log",
+            "lo": 75.0,
+            "hi": 750.0
+          }
+        },
+        {
+          "index": 4,
+          "short": "HiFreq",
+          "name": "High Frequency",
+          "map": {
+            "type": "log",
+            "lo": 800.0,
+            "hi": 8000.0
+          }
+        },
+        {
+          "index": 5,
+          "short": "FMIntn",
+          "name": "FM Intensity",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 6,
+          "short": "OscRat",
+          "name": "Osc. Ratio",
+          "map": {
+            "type": "linear",
+            "lo": 0.5,
+            "hi": 3.5
+          }
+        },
+        {
+          "index": 7,
+          "short": "Attack",
+          "name": "Attack",
+          "map": {
+            "type": "log",
+            "lo": 0.2,
+            "hi": 200.0
+          }
+        },
+        {
+          "index": 8,
+          "short": "Rel",
+          "name": "Release",
+          "map": {
+            "type": "linear",
+            "lo": 2.0,
+            "hi": 0.0
+          }
+        },
+        {
+          "index": 9,
+          "short": "AnlsIn",
+          "name": "Analysis In",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Track",
+              "SidChi"
+            ]
+          }
+        },
+        {
+          "index": 10,
+          "short": "SynsIn",
+          "name": "Synthesis In",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Track",
+              "SidChi",
+              "Osc"
+            ]
+          }
+        },
+        {
+          "index": 11,
+          "short": "Bands",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 5.0,
+            "hi": 20.0
+          }
+        },
+        {
+          "index": 12,
+          "short": "LFORat",
+          "name": "LFO Rate",
+          "map": {
+            "type": "linear",
+            "lo": 32.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 13,
+          "short": "LFO Wf",
+          "name": "LFO Waveform",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Tgl",
+              "SawDow",
+              "Saw Up",
+              "Squar1",
+              "Squar2",
+              "Sam&Ho",
+              "LaSa&H",
+              "Sine"
+            ]
+          }
+        },
+        {
+          "index": 14,
+          "short": "LFO->F",
+          "name": "LFO -> Formant",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 15,
+          "short": "TOVibr",
+          "name": "TO Vibrato",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1.0
+          }
+        },
+        {
+          "index": 16,
+          "short": "ForStr",
+          "name": "Formant Stretch",
+          "map": {
+            "type": "linear",
+            "lo": 0.5,
+            "hi": 2.0
+          }
+        },
+        {
+          "index": 17,
+          "short": "LoBaMd",
+          "name": "Low Band Mode",
+          "map": {
+            "type": "enum",
+            "options": [
+              "LP",
+              "BP"
+            ]
+          }
+        },
+        {
+          "index": 18,
+          "short": "HiBaMd",
+          "name": "High Band Mode",
+          "map": {
+            "type": "enum",
+            "options": [
+              "HP",
+              "BP"
+            ]
+          }
+        },
+        {
+          "index": 19,
+          "short": "Freeze",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 20,
+          "short": "Stereo",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 5.0
+          }
+        },
+        {
+          "index": 21,
+          "short": "U/VSrc",
+          "name": "U/V Source",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "Noise",
+              "Noi+Sy",
+              "Blend"
+            ]
+          }
+        },
+        {
+          "index": 22,
+          "short": "U/VSen",
+          "name": "U/V Sensitivity",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 23,
+          "short": "U/VLev",
+          "name": "U/V Level",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 24,
+          "short": "OscPit",
+          "name": "Osc. Pitch",
+          "map": {
+            "type": "linear",
+            "lo": -24.0,
+            "hi": 24.0
+          }
+        },
+        {
+          "index": 25,
+          "short": "MaxFrq",
+          "name": "Max. Frequency",
+          "map": {
+            "type": "log",
+            "lo": 40.0,
+            "hi": 4000.0
+          }
+        },
+        {
+          "index": 26,
+          "short": "Glide",
+          "name": "Glide",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 1000.0
+          }
+        },
+        {
+          "index": 27,
+          "short": "QtzStr",
+          "name": "Qtz. Strength",
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
+        },
+        {
+          "index": 28,
+          "short": "QuantC",
+          "name": "Quantize C",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 29,
+          "short": "QuantC",
+          "name": "Quantize C",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 30,
+          "short": "QuantD",
+          "name": "Quantize D",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 31,
+          "short": "QuantD",
+          "name": "Quantize D",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 32,
+          "short": "QuantE",
+          "name": "Quantize E",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 33,
+          "short": "QuantF",
+          "name": "Quantize F",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 34,
+          "short": "QuantF",
+          "name": "Quantize F",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 35,
+          "short": "QuantG",
+          "name": "Quantize G",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 36,
+          "short": "QuantG",
+          "name": "Quantize G",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 37,
+          "short": "QuantA",
+          "name": "Quantize A",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 38,
+          "short": "QuantA",
+          "name": "Quantize A",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 39,
+          "short": "QuantB",
+          "name": "Quantize B",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Off",
+              "On"
+            ]
+          }
+        },
+        {
+          "index": 40,
+          "short": "RooNot",
+          "name": "Root Note",
+          "map": {
+            "type": "enum",
+            "options": [
+              "None",
+              "C",
+              "C|D",
+              "D",
+              "D|E",
+              "E",
+              "F",
+              "F|G",
+              "G",
+              "G|A",
+              "A",
+              "A|B",
+              "B"
+            ]
+          }
+        },
+        {
+          "index": 43,
+          "short": "Sc/Chr",
+          "name": "Scale/Chord Type",
+          "map": {
+            "type": "enum",
+            "options": [
+              "MajScl",
+              "MinScl",
+              "MajChr",
+              "6",
+              "6/9",
+              "7",
+              "7sus4",
+              "7/5",
+              "7/9",
+              "7/9",
+              "7/9",
+              "7/11",
+              "7/13",
+              "7/13",
+              "Maj7",
+              "Maj7/9"
+            ]
+          }
+        },
+        {
+          "index": 44,
+          "short": "Tune",
+          "name": null,
+          "map": {
+            "type": "linear",
+            "lo": 425.0,
+            "hi": 455.0
+          }
+        },
+        {
+          "index": 45,
+          "short": "Out",
+          "name": null,
+          "map": {
+            "type": "enum",
+            "options": [
+              "Voc",
+              "Syn",
+              "Ana"
+            ]
+          }
+        },
+        {
+          "index": 46,
+          "short": "OutLev",
+          "name": "Output Level",
+          "map": {
+            "type": "linear",
+            "lo": -60.0,
+            "hi": 60.0
+          }
+        },
+        {
+          "index": 47,
+          "short": "St Md",
+          "name": "Stereo Mode",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Mon/St"
+            ]
+          }
+        },
+        {
+          "index": 48,
+          "short": "Trk Md",
+          "name": "Track Mode",
+          "map": {
+            "type": "enum",
+            "options": [
+              "Old",
+              "Cepstr",
+              "AKF"
             ]
           }
         }

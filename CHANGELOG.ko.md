@@ -4,6 +4,14 @@
 
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/)를 따른다.
 
+## [Unreleased]
+### Added
+- Logic 12.0.1 삽입 메뉴의 플러그인 67종 전부에 번들 파라미터 표(이전 10종). MCU로 보이는 메뉴 항목마다 표가 있고, 파라미터는 모두 1,064개. Space Designer(178)·EVOC 20 Filterbank(61)가 가장 크다.
+- `scripts/calibrate_batch.sh [strip] "이름" ...`: 여러 플러그인을 차례로 `calibrate_plugin.py --write --yes`로 수집한다. 번들에 이미 있는 이름은 건너뛰고, 플러그인마다 로그를 `~/.logic-mcp/calib-logs/`에 남긴다.
+
+### Fixed
+- `logic_plugin` `insert`가 캐시 목록 이름이 오버레이 21칸에서 잘린 플러그인(`EVOC 20 TrackOscillat`)도 편집 뷰 헤더에 전체 이름이 보이면 받아들이고 전체 이름으로 보고한다. 이전에는 플러그인이 슬롯에 들어갔는데도 unverified로 끝났다.
+
 ## [0.1.2] - 2026-11-02
 ### Added
 - `logic_plugin` `move`: 플러그인을 빈 슬롯(`to_slot`)으로 옮긴다(제거 뒤 재삽입). MCU에 이동 명령이 없어 플러그인 설정값은 초기화된다. 제거 뒤 재삽입이 실패하면 unverified로 플러그인 이름을 알려 직접 다시 넣을 수 있게 한다.

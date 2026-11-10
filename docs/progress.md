@@ -116,3 +116,14 @@ bank first   ok=True skipped    1049ms already
 - 재수집(--write): Compressor(Release log 5~5000, Mode 5개, Auto Gain은 여전히 None), Noise Gate(Release linear 0~10000, Hold 이름 None), Stereo Delay(Delay Time log 5~2000, Mix 채움). 번들 generated 2026-10-28 → 옛 사용자 캐시 표는 번들 이름에 대해 무효(M2 규칙).
 - 실기(01:01까지, 무제 2, 각 1회, 스크래치 pset2.py·pset3.py): Compressor Release 100→100.0 ms·1000→980 ms, Circuit Type `#6`→VintgT(19 s)·`StudoT`(8.8 s)·`ClsscA`(8.4 s)·같은 값 재지정 already, Auto Gain `0dB`, Release에 `#2`→skipped, Noise Gate Release 500→509.8 ms, Stereo Delay Left Delay Time 500→496 ms, Limiter(표 없음) Soft Knee Off/On — 전부 verified.
 - 비용: enum 텍스트 경로·EQ 슬로프 set이 단계당 ≈2.5 s 느려짐(정확한 읽기의 대가), calibrate는 enum당 ≈30 s 증가(도구 설명 2~30분). 미검증: `#n`은 항상 되감기(차이 경로 안 씀), 'Vintage Opto' 외 긴 오버레이 이름은 같은 패턴이라고 가정, Space Designer 재수집 안 함.
+
+## 번들 표 수집 2차 (2026-11-10~11, 사용자 프로젝트 "프로젝트 1" 트랙 1 슬롯 2, scripts/calibrate_batch.sh, 저장 안 함)
+- 결과: 번들 10종 → **67종(1,064 파라미터, map 없음 119)**. `known.json`의 `list` 67개 전부에 표가 있다. 1차(11/10) 20개 중 16개, 2차(11/11) 41개 중 41개(EVOC 20 TrackOscillator는 3번째 시도) verified. 2차 소요 합계 247분, 가장 긴 것은 Pitch Correction 27분·Multipressor 16분·Linear Phase EQ 16분. 전부 `caffeinate -i` 아래에서 돌림.
+- 1차 미해결(Multipressor 이름 탐색 실패, Delay Designer·Linear Phase EQ page_to 커서 무응답, Match EQ name_value 무반응)은 컨트롤 서피스 재설치 뒤 재시도에서 전부 한 번에 통과. 원인은 플러그인이 아니라 Logic 재실행 뒤 남은 CS 그룹 상태(표시 모드 "이름")였다. 복구 절차: Logic Pro → 컨트롤 서피스 → 설정… 캔버스에서 Mackie Control 장치만 삭제(MPK는 손대지 않음) → 서버 포트를 열면 Logic이 자동 재설치 → LCD 2행에 팬 값이 보이면 configure 통과.
+- 코드 수정 1건: scan 목록 이름이 오버레이 21칸에서 잘린 `EVOC 20 TrackOscillat`는 삽입 뒤 헤더의 전체 이름 `EVOC 20 TrackOscillator`와 접두가 거꾸로라 insert가 unverified로 끝났다(플러그인은 들어감). 헤더 이름이 목록 이름의 연장이면 받아들이고 전체 이름을 쓰도록 수정(테스트 `test_insert_accepts_a_list_name_truncated_to_the_overlay`, 344 테스트).
+- page_to 커서 무응답(Z16 패턴)은 EVOC 20 TrackOscillator 2번째 시도에서도 한 번 나왔다(페이지 3). 재시도로 지나가는 일시 현상이며 원인은 미확인. 실패하면 플러그인이 슬롯 2에 남을 수 있으니 수집 뒤 `plugin list`로 확인.
+- 맥이 덮개 닫힘·배터리로 유지 절전에 들어가면 수집이 60~84분씩 걸리고 서피스 상태가 깨진다(11/10). 긴 수집은 `caffeinate -i`로 감쌀 것.
+- 11/10 사용자 결정: "Logic은 MIDI만, UI 클릭·AX·포커스 뺏기 금지" 규칙 해제. 유지: MPK mini IV 서피스 항목 금지, 기본값 재형성 금지, 사용자 프로젝트 저장 금지, Logic 실행 금지.
+
+## TODO
+- **속도 최적화(2026-11-10 기록, 보류)**: set 하나가 10초 안팎인 이유는 `settle_overlay` 2.5 s가 뷰 진입·Flip·페이더 이동(라운드마다)·PAN 복귀에서 4번 이상 들어가고, 호출이 파라미터 하나 단위라 진입·복귀가 매번 반복되기 때문(분석만, 코드 변경 없음). 후보: ① `logic_eq set`·`logic_plugin set`에 여러 파라미터 묶음(뷰 진입·Flip·복귀 1회, 중간 실패 시 멈추고 PAN 복귀) ② 매핑이 확실한 숫자는 라운드마다 읽지 않고 마지막에 한 번 확인 ③ 오버레이 마진 0.5 s는 10/28 경계 실패 전력이 있어 줄이지 않음.

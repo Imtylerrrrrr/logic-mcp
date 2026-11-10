@@ -4,6 +4,14 @@
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+### Added
+- Bundled parameter tables for all 67 plug-ins in the Logic 12.0.1 insert menu (was 10): every entry of the menu as it appears over MCU now has a table, 1,064 parameters in total. Space Designer and EVOC 20 Filterbank have the largest tables (178 and 61 parameters).
+- `scripts/calibrate_batch.sh [strip] "Name" ...` runs `calibrate_plugin.py --write --yes` for several plug-ins in a row, skips names already in the bundle, and writes one log per plug-in to `~/.logic-mcp/calib-logs/`.
+
+### Fixed
+- `logic_plugin` `insert` accepts a plug-in whose cached list name was cut to the 21-character overlay (`EVOC 20 TrackOscillat`) when the edit view header shows the full name, and reports the full name. Previously the insert was reported unverified although the plug-in was in the slot.
+
 ## [0.1.2] - 2026-11-02
 ### Added
 - `logic_plugin` `move`: moves a plug-in to an empty slot (`to_slot`) by removing it and inserting it again. MCU has no move command, so the plug-in's settings are reset. If the reinsert fails after the remove, the result is unverified and names the plug-in so you can insert it again.
