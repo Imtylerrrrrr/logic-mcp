@@ -40,6 +40,11 @@ def set_numeric(d: ModeDriver, ch: int, target: float, mapping: Mapping | None, 
     before = _num(cur)
     if before is not None and within(before, target, tolerance):
         return SetOutcome(True, cur, 0, "already")
+    if mapping is not None and mapping.type in ("log", "linear"):
+        lo, hi = sorted((mapping.lo, mapping.hi))
+        if target < lo - tolerance or target > hi + tolerance:   # 보내기 전에 거른다: 끝까지 밀고 틱 무반응으로 실패하던 것(실기 11/11 GoldVerb Room Size 1500, 10~200 m)
+            unit = f" {cur.unit}" if cur.unit else ""
+            return SetOutcome(False, cur, 0, f"skip:범위 밖: {lo:g}~{hi:g}{unit}")
     rounds = 0
     if mapping is not None:
         d.flip(True)

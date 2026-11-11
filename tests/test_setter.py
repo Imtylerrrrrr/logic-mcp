@@ -50,6 +50,32 @@ def test_set_numeric_gives_up_after_ten_rounds():
     assert out.ok is False and out.rounds == 10 and "못 맞춤" in out.note and "10회" in out.note
 
 
+def test_set_numeric_out_of_range_is_skipped_before_any_midi():          # 실기 11/11: GoldVerb Room Size 1500(10~200 m)이 페이더를 끝까지 밀고 실패
+    d, logic, eq = eq_driver()
+    n0 = len(logic.fake.sent)
+    out = set_numeric(d, 0, 25000.0, Mapping("log", 20.0, 20000.0), tolerance=500.0)
+    assert out == SetOutcome(False, d.read_value(0), 0, "skip:범위 밖: 20~20000 Hz")
+    assert logic.fake.sent[n0:] == [] and eq[0][0].value == 20.0
+    assert verdict(out) == (False, "skipped", "범위 밖: 20~20000 Hz")
+    out = set_numeric(d, 5, -30.0, Mapping("linear", -24.0, 24.0), tolerance=0.2)
+    assert out.note == "skip:범위 밖: -24~24 dB" and logic.fake.sent[n0:] == []
+
+
+def test_set_numeric_at_the_range_end_proceeds():
+    d, logic, eq = eq_driver()
+    out = set_numeric(d, 0, 20000.0, Mapping("log", 20.0, 20000.0), tolerance=400.0)
+    assert out.ok and eq[0][0].value == 20000.0
+
+
+def test_set_numeric_range_check_skips_db_table():                     # db_table의 lo·hi는 기본값(0~1)이라 범위가 아니다
+    from logic_mcp.logic.faders import FaderTable
+    d, logic, eq = eq_driver()
+    n0 = len(logic.fake.sent)
+    out = set_numeric(d, 5, -3.0, Mapping("db_table"), tolerance=0.2, faders=FaderTable.load())
+    assert not out.note.startswith("skip:") and [m for m in logic.fake.sent[n0:] if m[0] & 0xF0 == 0xE0]
+    assert out.ok and abs(eq[1][1].value - -3.0) <= 0.2
+
+
 def test_tolerance_argument_overrides_default(tmp_path):                 # Review Focus 5: 사용자 tolerance가 새 기본값보다 우선
     from logic_mcp.logic.commands import Commands
     from logic_mcp.logic.faders import FaderTable

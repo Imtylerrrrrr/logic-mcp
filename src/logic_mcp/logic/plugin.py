@@ -400,6 +400,7 @@ class PluginCommands:
                 mapping = _map_from(item.get("map"))
                 numeric, want = coerce(value, before_v, mapping)                # 숫자 입력도 enum이면 선택지 경로(리뷰 I3·I4)
                 if numeric:
+                    probed, raw0 = False, None
                     if mapping is None:
                         d.flip(True)
                         st = b.surface.state.strips[col]
@@ -415,9 +416,17 @@ class PluginCommands:
                                              after=self._param_dict(full, slot, item, d.read_value(col)), note=note)
                         item["map"] = _map_to(mapping)
                         self.cache.save()
+                        probed = True
                     tol = tolerance if tolerance is not None else tolerance_for(float(want), before_v.unit)
                     out = set_numeric(d, col, float(want), mapping, tol, b.faders)
-                    if not out.ok:                                         # 틀린 map을 지워 다음에 다시 프로빙하게 한다(리뷰 m5)
+                    if out.note.startswith("skip:"):                       # 범위 밖: map은 그대로. 방금 프로빙으로 옮긴 값은 되돌린다
+                        if probed:
+                            if raw0 is not None:
+                                d.fader(col, raw0)
+                                out.note += " (프로빙으로 옮긴 값을 원래 위치로 복원)"
+                            else:
+                                out.note += f" (프로빙으로 값이 바뀜, 복원 못함: 원래 값 {before_v.text})"
+                    elif not out.ok:                                       # 틀린 map을 지워 다음에 다시 프로빙하게 한다(리뷰 m5)
                         item["map"] = None
                         self.cache.save()
                 else:

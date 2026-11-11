@@ -406,6 +406,22 @@ def test_map_is_cleared_and_saved_when_numeric_set_fails(tmp_path):             
     assert [it["map"] for it in saved["params"]["Compressor"]["items"] if it["index"] == 2] == [None]
 
 
+def test_out_of_range_set_keeps_map_and_restores_after_probe(tmp_path):              # 범위 밖은 skipped: map을 지우지 않고, 프로빙으로 옮긴 값은 되돌린다
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Compressor")
+    thr = logic.tracks[0].params[2][1]
+    s = cmds.plugin.set(1, None, 2, "Thrs", -100.0)                                  # map 없음 → 프로빙(-60~0) → 범위 밖
+    assert not s.ok and s.verified == "skipped" and "범위 밖: -60~0" in s.note and "복원" in s.note
+    assert thr.value == -20.0
+    assert [it["map"] for it in cache.param_table("Compressor")["items"] if it["index"] == 2] == [
+        {"type": "linear", "lo": -60.0, "hi": 0.0}]
+    n0 = len(fake.sent)
+    s = cmds.plugin.set(1, None, 2, "Thrs", 10.0)                                    # 아는 map: 페이더를 보내지 않는다
+    assert s.verified == "skipped" and s.note == "범위 밖: -60~0" and thr.value == -20.0
+    assert not [m for m in fake.sent[n0:] if m[0] & 0xF0 == 0xE0]
+    assert surface.state.view.kind == "pan" and not surface.state.assignment.flip
+
+
 def test_list_bank_reenters_pl_per_track(tmp_path):
     """실기 8차: PL 안에서 SELECT 만 누르면 2행이 새 트랙을 따라오지 않는다 → 트랙마다 PAN 에서 재진입해야 인벤토리가 맞다."""
     cmds, surface, fake, logic, cache = make(tmp_path)
