@@ -107,12 +107,13 @@ def enum_matches(v: Value, target: str) -> bool:
 
 
 def set_enum(d: ModeDriver, ch: int, target: str, max_steps: int = 16) -> SetOutcome:
-    """틱 1씩 움직여 텍스트가 맞을 때까지. 끝에 닿아 값이 안 바뀌면 반대로 돈다."""
-    cur = d.read_value(ch)
+    """틱 1씩 움직여 텍스트가 맞을 때까지. 끝에 닿아 값이 안 바뀌면 반대로 돈다. 못 찾으면 정착 텍스트를 바꾼 틱의 방향 합만큼
+    되돌리고 읽어서 처음 값인지 확인한다(실기 11/11: Thrs에 'abc'를 주면 16틱 뒤 -20 → -12에 남았다)."""
+    first = cur = d.read_value(ch)
     if enum_matches(cur, target):
         return SetOutcome(True, cur, 0, "already")
     seen = [cur.text]
-    direction = 1
+    direction, moved = 1, 0
     for n in range(1, max_steps + 1):
         d.tick(ch, direction)
         d.settle_overlay()        # 틱마다(끝값 무변화 틱도) 2초간 21칸 값 오버레이('Vintage Opto')가 열을 덮는다: 걷힌 뒤 정착 텍스트를 읽는다(실측 2026-10-28)
@@ -121,8 +122,17 @@ def set_enum(d: ModeDriver, ch: int, target: str, max_steps: int = 16) -> SetOut
             return SetOutcome(True, cur, n, "")
         if cur.text == seen[-1]:
             direction = -direction
+        else:
+            moved += direction    # 끝값 무변화 틱(오버레이는 그릴 수 있다)은 세지 않는다
         seen.append(cur.text)
-    return SetOutcome(False, cur, max_steps, f"선택지에서 {target!r}를 못 찾음. 본 값: {seen}")
+    for _ in range(abs(moved)):
+        d.tick(ch, -1 if moved > 0 else 1)
+    if moved:
+        d.settle_overlay()
+    back = d.read_value(ch)
+    same = back.text == first.text or (back.number is not None and back.number == first.number)   # 처음 읽기가 오버레이('-20.00')였어도
+    restored = "원래 값으로 되돌림" if same else f"되돌리기 실패: {back.text!r}(원래 {first.text!r})"
+    return SetOutcome(False, back, max_steps, f"선택지에서 {target!r}를 못 찾음. 본 값: {seen}. {restored}")
 
 
 def set_enum_index(d: ModeDriver, ch: int, n: int, options: list[str] | None, max_options: int = 16,

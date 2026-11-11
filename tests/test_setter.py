@@ -110,6 +110,29 @@ def test_set_enum_forward_and_reverse():
     assert bad.ok is False and "Maybe" in bad.note
 
 
+def test_set_enum_failure_ticks_back_to_the_start():                    # 실기 11/11: Thrs에 'abc' → 16틱 뒤 -20 → -12에 남음
+    d, logic, eq = eq_driver()
+    sent = recorded_ticks(d)
+    out = set_enum(d, 5, "abc")                                    # 밴드 2 게인 0.0 dB, 틱당 0.5
+    assert out.ok is False and out.note.endswith("원래 값으로 되돌림") and "'abc'" in out.note
+    assert eq[1][1].value == 0.0 and out.value.number == 0.0
+    assert sent == [1] * 16 + [-1] * 16
+    eq[0][3] = Param("CirTyp", "Circuit Type", "enum", options=("PltDig", "StdVCA", "StdFET"), value=1)
+    logic.redraw()
+    sent.clear()
+    out = set_enum(d, 3, "abc", max_steps=2)                       # StdFET(+1) → 끝 무변화(+1, 세지 않음) → 1틱만 되돌림
+    assert out.ok is False and out.value.text == "StdVCA" and eq[0][3].value == 1
+    assert sent == [1, 1, -1] and out.note.endswith("원래 값으로 되돌림")
+
+
+def test_set_enum_failure_reports_when_the_restore_does_not_land():
+    d, logic, eq = eq_driver()
+    real = d.tick
+    d.tick = lambda ch, steps: real(ch, steps) if steps > 0 else False   # 되돌리는 틱이 먹지 않는 Logic
+    out = set_enum(d, 5, "abc", max_steps=4)
+    assert out.ok is False and out.note.endswith("되돌리기 실패: '2.0 dB'(원래 '0.0 dB')") and eq[1][1].value == 2.0
+
+
 def test_enum_matches():
     assert enum_matches(parse_value("36 dB/Oct"), "36")
     assert enum_matches(parse_value("On"), "On") and not enum_matches(parse_value("Off"), "On")
