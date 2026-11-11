@@ -6,7 +6,7 @@ import math
 from typing import TYPE_CHECKING
 
 from .modes import ModeError
-from .setter import set_enum, set_numeric
+from .setter import set_enum, set_numeric, verdict
 from .strips import StripAux
 from .values import Mapping, Value, parse_value, tolerance_for
 
@@ -167,11 +167,10 @@ class EqCommands:
                     unit = {"freq": "Hz", "gain": "dB"}.get(param)          # q는 단위 없음(실측 T 매핑, 프로빙 안 함)
                     out = set_numeric(d, col, float(value), EQ_MAPPING[param], tolerance_for(float(value), unit))
                 after = _value_dict(band, param, out.value)
-                note = ("Channel EQ 삽입됨. " if inserted else "") + out.note
-                if out.ok and out.note == "already" and not inserted:
-                    return b._result(action, True, "skipped", t0, target=target, before=before, after=after, note="already")
-                return b._result(action, out.ok, "verified" if out.ok else "unverified", t0, target=target,
-                                 before=before, after=after, note=note.strip())
+                ok, verified, note = verdict(out)
+                if inserted:                                             # 삽입이 일어났으면 already여도 skipped가 아니다
+                    verified, note = ("verified" if ok else "unverified"), "Channel EQ 삽입됨. " + note
+                return b._result(action, ok, verified, t0, target=target, before=before, after=after, note=note.strip())
 
             def body_noting_insert() -> "ToolResult":                  # ModeError 에도 삽입 여부를 알린다
                 try:

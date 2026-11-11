@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass
 
 from ..mcu.protocol import MAX_FADER
@@ -142,3 +143,47 @@ def set_enum_index(d: ModeDriver, ch: int, n: int, options: list[str] | None, ma
         return SetOutcome(True, cur, steps, "no_options")
     ok = cur.text == options[n - 1]
     return SetOutcome(ok, cur, steps, "" if ok else f"#{n} 도착 텍스트 {cur.text!r} ≠ 표 {options[n - 1]!r}")
+
+
+def coerce(value, before: Value, mapping: Mapping | None) -> tuple[bool, float | str]:
+    """set 입력 → (숫자 경로인지, 값). bool은 "On"/"Off", 숫자·숫자로 읽히는 문자열은 숫자. 숫자여도 매핑이 enum이거나
+    매핑이 없고 지금 값(before)이 숫자가 아니면 선택지 텍스트로 돌린다(정수면 `3`, 아니면 `3.5`)."""
+    numeric = isinstance(value, (int, float)) and not isinstance(value, bool)
+    if not numeric and isinstance(value, str):
+        try:
+            value, numeric = float(value), True
+        except ValueError:
+            numeric = False
+    if numeric and ((mapping is not None and mapping.type == "enum")
+                    or (mapping is None and before.kind != "number")):
+        numeric, value = False, str(int(value)) if float(value).is_integer() else str(value)   # 숫자 입력도 enum이면 선택지 경로(리뷰 I3·I4)
+    if numeric:
+        return True, float(value)
+    return False, ("On" if value else "Off") if isinstance(value, bool) else str(value)
+
+
+def set_option(d: ModeDriver, col: int, want: str, options: list[str] | None, before: Value) -> SetOutcome:
+    """선택지 경로. options = 캘리브레이션한 선택지 표(없으면 None). 틱을 보내지 않고 거른 경우는 note `skip:<이유>`
+    (값은 before 그대로, verdict가 skipped로 바꾼다)."""
+    if (m := re.fullmatch(r"#(\d+)", want)):                    # n번째 선택지(축약 텍스트가 겹칠 때)
+        if options is None and before.kind == "number":
+            return SetOutcome(False, before, 0, "skip:#n은 enum 파라미터에만 쓸 수 있음")
+        return set_enum_index(d, col, int(m.group(1)), options)
+    if options and (hits := [i for i, o in enumerate(options, 1) if o == want]):
+        if len(hits) > 1:
+            return SetOutcome(False, before, 0,
+                              f"skip:{want!r}가 {len(hits)}개({', '.join(f'#{i}' for i in hits)}): 번호로 지정")
+        start = options.index(before.text) + 1 if options.count(before.text) == 1 else None
+        return set_enum_index(d, col, hits[0], options, start=start)   # 지금 위치가 표에서 하나뿐이면 차이만큼, 아니면 되감기
+    return set_enum(d, col, want)                                # 표 없음·표에 없는 이름: 텍스트 경로
+
+
+def verdict(out: SetOutcome) -> tuple[bool, str, str]:
+    """SetOutcome → ToolResult의 (ok, verified, note)."""
+    if out.ok and out.note == "already":
+        return True, "skipped", "already"
+    if out.ok and out.note == "no_options":
+        return True, "unverified", "선택지 표 없음(calibrate 전): 도착 텍스트만 보고"
+    if out.note.startswith("skip:"):
+        return False, "skipped", out.note[5:]
+    return out.ok, "verified" if out.ok else "unverified", out.note

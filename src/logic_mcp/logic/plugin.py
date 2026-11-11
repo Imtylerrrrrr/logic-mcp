@@ -12,7 +12,7 @@ from .plugins.cache import PluginCache
 from .plugins.scan import ITEM_TICKS, rewind_to_empty, seek_by_name
 from .plugins.match import find, normalize, strip_suffix
 from .strips import StripAux, StripUnsupported
-from .setter import probe_mapping, set_enum, set_enum_index, set_numeric
+from .setter import coerce, probe_mapping, set_numeric, set_option, verdict
 from .values import Mapping, Value, parse_value, tolerance_for
 
 if TYPE_CHECKING:
@@ -380,23 +380,14 @@ class PluginCommands:
             target = {**b._target(ch), "slot": slot}
 
             def body() -> "ToolResult":
-                nonlocal value
                 self.b._fresh()
                 full, _abbrev, pages = self._open_edit(ch, slot)
                 item = self._locate(full, pages, param)
                 col = self._goto_param(item)
                 before_v = d.read_column(col)[1]
                 before = self._param_dict(full, slot, item, before_v)
-                numeric = isinstance(value, (int, float)) and not isinstance(value, bool)
-                if not numeric and isinstance(value, str):
-                    try:
-                        value, numeric = float(value), True
-                    except ValueError:
-                        numeric = False
-                mapping = _map_from(item.get("map")) if numeric else None
-                if numeric and ((mapping is not None and mapping.type == "enum")
-                                or (mapping is None and before_v.kind != "number")):
-                    numeric, value = False, str(int(value)) if float(value).is_integer() else str(value)   # 숫자 입력도 enum이면 선택지 경로(리뷰 I3·I4)
+                mapping = _map_from(item.get("map"))
+                numeric, want = coerce(value, before_v, mapping)                # 숫자 입력도 enum이면 선택지 경로(리뷰 I3·I4)
                 if numeric:
                     if mapping is None:
                         d.flip(True)
@@ -413,36 +404,20 @@ class PluginCommands:
                                              after=self._param_dict(full, slot, item, d.read_value(col)), note=note)
                         item["map"] = _map_to(mapping)
                         self.cache.save()
-                    tol = tolerance if tolerance is not None else tolerance_for(float(value), before_v.unit)
-                    out = set_numeric(d, col, float(value), mapping, tol, b.faders)
+                    tol = tolerance if tolerance is not None else tolerance_for(float(want), before_v.unit)
+                    out = set_numeric(d, col, float(want), mapping, tol, b.faders)
                     if not out.ok:                                         # 틀린 map을 지워 다음에 다시 프로빙하게 한다(리뷰 m5)
                         item["map"] = None
                         self.cache.save()
                 else:
-                    want = ("On" if value else "Off") if isinstance(value, bool) else str(value)
                     emap = item.get("map") or {}
                     options = emap.get("options") if emap.get("type") == "enum" else None
-                    if (m := re.fullmatch(r"#(\d+)", want)):                    # n번째 선택지(축약 텍스트가 겹칠 때)
-                        if emap.get("type") != "enum" and before_v.kind == "number":
-                            return b._result(action, False, "skipped", t0, target=target, before=before,
-                                             note="#n은 enum 파라미터에만 쓸 수 있음")
-                        out = set_enum_index(d, col, int(m.group(1)), options)
-                    elif options and (hits := [i for i, o in enumerate(options, 1) if o == want]):
-                        if len(hits) > 1:
-                            return b._result(action, False, "skipped", t0, target=target, before=before,
-                                             note=f"{want!r}가 {len(hits)}개({', '.join(f'#{i}' for i in hits)}): 번호로 지정")
-                        start = options.index(before_v.text) + 1 if options.count(before_v.text) == 1 else None
-                        out = set_enum_index(d, col, hits[0], options, start=start)   # 지금 위치가 표에서 하나뿐이면 차이만큼, 아니면 되감기
-                    else:
-                        out = set_enum(d, col, want)                            # 표 없음·표에 없는 이름: 텍스트 경로
-                after = self._param_dict(full, slot, item, out.value)
-                if out.ok and out.note == "already":
-                    return b._result(action, True, "skipped", t0, target=target, before=before, after=after, note="already")
-                if out.ok and out.note == "no_options":
-                    return b._result(action, True, "unverified", t0, target=target, before=before, after=after,
-                                     note="선택지 표 없음(calibrate 전): 도착 텍스트만 보고")
-                return b._result(action, out.ok, "verified" if out.ok else "unverified", t0, target=target,
-                                 before=before, after=after, note=out.note)
+                    out = set_option(d, col, str(want), options, before_v)
+                ok, verified, note = verdict(out)
+                if verified == "skipped" and not ok:                       # 틱 없이 거른 경우(skip:)는 after 없이
+                    return b._result(action, False, "skipped", t0, target=target, before=before, note=note)
+                return b._result(action, ok, verified, t0, target=target, before=before,
+                                 after=self._param_dict(full, slot, item, out.value), note=note)
             return b._guarded(action, t0, target, body)
 
     def _insert_body(self, action: str, t0: int, target: dict, ch: int, slot: int, plugin: str,

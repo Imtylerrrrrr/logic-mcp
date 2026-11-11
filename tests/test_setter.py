@@ -1,7 +1,8 @@
 import pytest
 
 from logic_mcp.logic.modes import OVERLAY_S, ModeDriver
-from logic_mcp.logic.setter import enum_matches, probe_mapping, set_enum, set_enum_index, set_numeric
+from logic_mcp.logic.setter import (SetOutcome, coerce, enum_matches, probe_mapping, set_enum, set_enum_index,
+                                    set_numeric, set_option, verdict)
 from logic_mcp.logic.values import Mapping, parse_value
 from tests.fake_assign import Param, make_assign_logic
 
@@ -226,3 +227,85 @@ def test_set_enum_index_ticks_the_difference_when_start_is_known():
     assert out.ok and out.value.text == "StudoT" and eq[0][3].value == 2 and sent == [-1] * 3
     out = set_enum_index(d, 3, 7, list(CIRCUIT_SHORT), start=3)
     assert out.ok and out.value.text == "VinOpt" and eq[0][3].value == 6 and sent == [-1] * 3 + [1] * 4
+
+
+NUM, OPT = parse_value("20.0Hz"), parse_value("On")
+
+
+def test_coerce_bool_number_and_text():
+    assert coerce(True, NUM, None) == (False, "On") and coerce(False, NUM, None) == (False, "Off")
+    assert coerce(3, NUM, None) == (True, 3.0) and coerce(2.5, NUM, Mapping("log", 20.0, 20000.0)) == (True, 2.5)
+    assert coerce("1.5", NUM, None) == (True, 1.5)
+    assert coerce("Vintage", NUM, None) == (False, "Vintage")
+
+
+def test_coerce_falls_back_to_option_text_for_enum():
+    enum = Mapping("enum", options=("6", "12"))
+    assert coerce(2, NUM, enum) == (False, "2") and coerce(2.5, NUM, enum) == (False, "2.5")
+    assert coerce("3", NUM, enum) == (False, "3")
+    assert coerce(1, OPT, None) == (False, "1")                               # 매핑 없음 + 지금 값이 숫자가 아님
+    assert coerce(1, OPT, Mapping("linear", 0.0, 10.0)) == (True, 1.0)       # 숫자 매핑이 있으면 지금 값 종류와 무관
+
+
+def test_set_option_index_skips_numeric_parameter_without_table():
+    d, logic, eq = eq_driver()
+    before = d.read_value(0)
+    sent = recorded_ticks(d)
+    out = set_option(d, 0, "#2", None, before)
+    assert out == SetOutcome(False, before, 0, "skip:#n은 enum 파라미터에만 쓸 수 있음") and sent == []
+
+
+def test_set_option_index_rewinds_with_or_without_table():
+    d, logic, eq = eq_driver()
+    eq[0][3] = Param("CirTyp", "Circuit Type", "enum", options=CIRCUIT, value=2)
+    logic.redraw()
+    sent = recorded_ticks(d)
+    out = set_option(d, 3, "#6", list(CIRCUIT), d.read_value(3))            # #n은 지금 위치가 하나뿐이어도 되감기
+    assert out.ok and eq[0][3].value == 5 and sent == [-1] * 16 + [1] * 5
+    sent.clear()
+    out = set_option(d, 3, "#2", None, d.read_value(3))                      # 표 없음 + enum 값 → 번호 경로(no_options)
+    assert out.ok and out.note == "no_options" and eq[0][3].value == 1 and sent == [-1] * 16 + [1]
+
+
+def test_set_option_duplicate_text_is_skipped():
+    d, logic, eq = eq_driver()
+    eq[0][3] = Param("CirTyp", "Circuit Type", "enum", options=CIRCUIT, value=0)
+    logic.redraw()
+    before = d.read_value(3)
+    sent = recorded_ticks(d)
+    out = set_option(d, 3, "Studio", list(CIRCUIT), before)
+    assert out == SetOutcome(False, before, 0, "skip:'Studio'가 2개(#2, #3): 번호로 지정")
+    assert sent == [] and eq[0][3].value == 0
+
+
+def test_set_option_unique_text_uses_start_only_when_current_is_unique():
+    d, logic, eq = eq_driver()
+    eq[0][3] = Param("CirTyp", "Circuit Type", "enum", options=CIRCUIT_SHORT, value=5)
+    logic.redraw()
+    sent = recorded_ticks(d)
+    out = set_option(d, 3, "StudoT", list(CIRCUIT_SHORT), d.read_value(3))  # VintgT(#6) → StudoT(#3): 차이만큼
+    assert out.ok and eq[0][3].value == 2 and sent == [-1] * 3
+    eq[0][3] = Param("CirTyp", "Circuit Type", "enum", options=CIRCUIT, value=1)
+    logic.redraw()
+    sent.clear()
+    out = set_option(d, 3, "Classc", list(CIRCUIT), d.read_value(3))        # 지금 'Studio'는 표에 둘 → 되감기
+    assert out.ok and eq[0][3].value == 3 and sent == [-1] * 16 + [1] * 3
+
+
+def test_set_option_falls_back_to_text_path():
+    d, logic, eq = eq_driver()
+    out = set_option(d, 3, "On", None, d.read_value(3))                      # 표 없음
+    assert out.ok and eq[0][3].value == 1
+    eq[0][3] = Param("CirTyp", "Circuit Type", "enum", options=CIRCUIT_SHORT, value=5)
+    logic.redraw()
+    out = set_option(d, 3, "StudoT", list(CIRCUIT), d.read_value(3))        # 표에 없는 이름(낡은 표)
+    assert out.ok and out.value.text == "StudoT" and eq[0][3].value == 2
+
+
+def test_verdict_maps_each_outcome():
+    v = parse_value("1.0")
+    assert verdict(SetOutcome(True, v, 0, "already")) == (True, "skipped", "already")
+    assert verdict(SetOutcome(True, v, 2, "no_options")) == (True, "unverified", "선택지 표 없음(calibrate 전): 도착 텍스트만 보고")
+    assert verdict(SetOutcome(False, v, 0, "skip:#n은 enum 파라미터에만 쓸 수 있음")) == (False, "skipped", "#n은 enum 파라미터에만 쓸 수 있음")
+    assert verdict(SetOutcome(True, v, 1, "fader")) == (True, "verified", "fader")
+    assert verdict(SetOutcome(False, v, 10, "못 맞춤")) == (False, "unverified", "못 맞춤")
