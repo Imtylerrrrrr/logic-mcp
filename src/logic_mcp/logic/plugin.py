@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime
 from typing import TYPE_CHECKING
 
 from ..mcu import protocol as P
 from ..mcu import state as S
 from .modes import CONFIRM_S, EDIT_OPEN_S, OVERLAY_WIDTH, ModeError
 from .plugins.cache import PluginCache
-from .plugins.scan import ITEM_TICKS, rewind_to_empty, scan_list, seek_by_name
+from .plugins.scan import ITEM_TICKS, rewind_to_empty, seek_by_name
 from .plugins.match import find, normalize, strip_suffix
 from .strips import StripAux, StripUnsupported
 from .setter import probe_mapping, set_enum, set_enum_index, set_numeric
@@ -20,7 +19,6 @@ if TYPE_CHECKING:
     from .commands import Commands, ToolResult
 
 MAX_SLOT = 8            # 2a는 Plug-in Channel 뷰(PL)의 슬롯 1~8만(실측 C: 9~15 접근 경로 미확인)
-MAX_OPTIONS = 16        # 열거형 선택지 수집 상한(캘리브레이션)
 VALUE_ROW_S = 1.0       # VALUE 전환 뒤 대상 열 2행이 축약명에서 값으로 바뀔 때까지(재수집: 토글 판정 뒤에도 축약명이 남음)
 EMPTY_TEXTS = ("", "--")  # PL·Mixer 2행에서 빈 슬롯(`--` 또는 갱신 전 공백, 실측 C·H)
 EMPTY_SHORTS = ("", "-")  # 편집 뷰 빈 파라미터 칸(공백 또는 1행 `-`, 실기 10차: Adaptive Limiter·Overdrive·Distortion)
@@ -98,6 +96,8 @@ class PluginCommands:
         self.d = base.modes
         self.cache = cache or PluginCache.load()
         self.inventory: dict[str, dict[str, dict | None] | None] = {}
+        from .plugin_mixer import AuxMixer               # 순환 import 회피: plugin_mixer가 이 모듈의 상수를 쓴다
+        self.mixer = AuxMixer(self)                      # Aux 스트립 슬롯 1(Plug-in Mixer 뷰) 경로
 
     # ---------- 공통 ----------
     def _slot_text(self, slot: int) -> str:
@@ -237,89 +237,6 @@ class PluginCommands:
         return {"plugin": full, "slot": slot, "index": item["index"], "short": item["short"],
                 "name": item.get("name"), "value": v.number, "text": v.text}
 
-    # ---------- Aux: Plug-in Mixer 뷰 슬롯 1(실전 F2) ----------
-    def _mixer_slot1(self) -> list[str]:
-        """Plug-in Mixer 뷰 2행 8열(V-Pot n = 스트립 n의 슬롯 1). 뷰가 다른 슬롯(P<n>)이면 슬롯 1로 돌린 뒤 읽는다
-        (Mixer 뷰는 마지막 편집 슬롯을 따른다, 실측 O·실기 10/27). 돌리지 못하면 ModeError."""
-        d = self.d
-        d.enter("plugin_mixer")
-        if d.view.index not in (None, 1):
-            self._steer_mixer_to_slot1(d.view.index)
-        return [d.view.columns[i][1].strip() for i in range(MAX_SLOT)]
-
-    def _steer_mixer_to_slot1(self, shown: int) -> None:
-        """트랙 스트립(선택된 것 먼저)의 PL에서 슬롯 1이 차 있으면 V-Pot 1을 틱 없이 눌러 편집 뷰를 슬롯 1로 열고(실측 F(2):
-        값 보존, 미리 선택 없음 → 교체 없음), PLUGIN으로 P1 Mixer 뷰에 간다. 빈 슬롯 누름은 무반응이라(실측 F) 차 있는 트랙만 쓴다.
-        틱은 절대 보내지 않는다(틱 = 미리 선택 → 누르면 교체)."""
-        b, d = self.b, self.d
-        d.leave(keep_select=True)                            # 남은 미리 선택을 모드 전환으로 취소한 뒤 누른다
-        state = b.surface.state
-        numbered = [ch for ch, s in enumerate(state.strips) if s.number is not None]
-        numbered.sort(key=lambda ch: not state.strips[ch].select)
-        for ch in numbered:
-            if b.strips.kind(d, b.surface.state, ch) != "track":
-                continue
-            b._channel(ch, "plugin_channel")
-            if self._slot_text(1) in EMPTY_TEXTS:
-                continue
-            if not d.press_vpot_until(0, lambda v: v.kind in ("plugin_edit", "empty_edit") and v.index == 1, EDIT_OPEN_S):
-                raise ModeError("mixer", "슬롯 1 편집 뷰(Mixer 뷰를 슬롯 1로)", f"{d.view.kind} {d.view.index or ''}".strip())
-            d.settle_smart()
-            d.enter("plugin_mixer")
-            if d.view.index not in (None, 1):
-                raise ModeError("mixer", "Plug-in Mixer 슬롯 1", f"슬롯 1 편집 뒤에도 Mixer 뷰 슬롯이 {d.view.index}")
-            return
-        raise ModeError("mixer", "Plug-in Mixer 슬롯 1", f"Mixer 뷰 슬롯이 {shown}, 슬롯 1이 찬 트랙 스트립이 없어 슬롯 1로 돌리지 못함")
-
-    def _mixer_confirm(self, ch: int, before: list[str]) -> tuple[list[str], list[int]]:
-        """미리 선택한 V-Pot ch를 눌러 확정하고 Mixer 뷰를 다시 읽는다. 확정 뒤 편집 뷰는 선택 트랙 기준이라(실전 F2)
-        헤더로 검증하지 않는다. (다시 읽은 8열, 바뀐 다른 열 번호)."""
-        d = self.d
-        d.press_vpot_until(ch, lambda w: w.kind in ("plugin_edit", "empty_edit"), CONFIRM_S)
-        d.settle_smart()
-        if d.view.kind == "plugin_mixer":
-            d.leave(keep_select=True)       # 확정이 안 먹었으면 남은 미리 선택의 깜박임을 열 텍스트로 읽지 않도록 모드 전환으로 취소
-        after = self._mixer_slot1()
-        return after, [i + 1 for i in range(MAX_SLOT) if i != ch and after[i] != before[i]]
-
-    def _mixer_insert(self, action: str, t0: int, target: dict, ch: int, want: str, prefix: bool) -> "ToolResult":
-        """Aux 스트립 슬롯 1 삽입: Mixer 뷰 V-Pot ch로 이름 탐색 → 확정 → 열 ch만 바뀌었는지 확인."""
-        b, d = self.b, self.d
-        before = self._mixer_slot1()
-        current = before[ch]
-        if current not in EMPTY_TEXTS:                       # replace도 막는다: 교체 확정은 Mixer 뷰에서 검증 경로가 없다
-            return b._result(action, False, "skipped", t0, target=target,
-                             note=f"슬롯 1에 {current!r}가 있음. Aux 스트립은 교체를 지원하지 않음: remove 뒤 insert")
-        found, ticks, name = seek_by_name(d, ch, want, prefix)
-        if not found:                                        # 누르지 않는다: finally의 leave가 미리 선택을 취소
-            return b._result(action, False, "unverified", t0, target=target,
-                             note=f"이름 탐색 {ticks}틱 뒤에도 {want!r} 못 찾음(마지막 {name!r}). 설치 목록이 다른 듯. `logic_plugin scan` 권장")
-        after, moved = self._mixer_confirm(ch, before)
-        ok = after[ch] not in EMPTY_TEXTS and not moved
-        if ok:
-            self.cache.learn_abbrev(after[ch].lstrip("*"), name)
-            self.cache.save()
-        return b._result(action, ok, "verified" if ok else "unverified", t0, target=target,
-                         before={"slot": 1, "text": current},
-                         after={"slot": 1, "plugin": name, "abbrev": after[ch], "replaced": None, "path": "mixer"},
-                         note=f"name_scan:{ticks}" if ok else
-                         f"Mixer 뷰 확인 실패: 열 {ch + 1} {after[ch]!r}, 바뀐 다른 스트립 {moved}")
-
-    def _mixer_remove(self, action: str, t0: int, target: dict, ch: int) -> "ToolResult":
-        """Aux 스트립 슬롯 1 제거: Mixer 뷰 V-Pot ch를 `--`로 되감아 확정 → 열 ch만 비었는지 확인."""
-        b, d = self.b, self.d
-        before = self._mixer_slot1()
-        current = before[ch]
-        if current in EMPTY_TEXTS:
-            return b._result(action, True, "skipped", t0, target=target, after={"slot": 1, "text": current, "path": "mixer"},
-                             note="already")
-        rewind_to_empty(d, ch)                               # 오버레이 `--` 확인까지
-        after, moved = self._mixer_confirm(ch, before)
-        ok = after[ch] in EMPTY_TEXTS and not moved
-        return b._result(action, ok, "verified" if ok else "unverified", t0, target=target,
-                         before={"slot": 1, "text": current}, after={"slot": 1, "text": after[ch], "path": "mixer"},
-                         note="" if ok else f"Mixer 뷰 확인 실패: 열 {ch + 1} {after[ch]!r}, 바뀐 다른 스트립 {moved}")
-
     # ---------- 명령 ----------
     def list(self, strip: int | None, number: int | None) -> "ToolResult":
         b, d, action = self.b, self.d, "plugin_list"
@@ -382,7 +299,7 @@ class PluginCommands:
                 aux_error = ""
                 if aux:
                     try:
-                        slot1 = self._mixer_slot1()
+                        slot1 = self.mixer.slot1()
                     except ModeError as e:                      # 이미 읽은 트랙 행은 버리지 않는다: Aux 행만 null로 두고 unverified
                         aux_error = f"Aux 슬롯 1을 못 읽음: {e}"
                     else:
@@ -540,7 +457,7 @@ class PluginCommands:
         want = self.cache.items[idx] if idx is not None else plugin
         v = slot - 1
         if slot == 1 and b.strips.kind(d, b.surface.state, ch) == "aux":   # Aux 슬롯 2~8은 _channel이 StripAux
-            return self._mixer_insert(action, t0, target, ch, want, prefix=idx is None)
+            return self.mixer.insert(action, t0, target, ch, want, prefix=idx is None)
         self.b._channel(ch, "plugin_channel")
         current = self._slot_text(slot)
         occupied = current not in EMPTY_TEXTS
@@ -602,7 +519,7 @@ class PluginCommands:
         """remove·move 공통 본체(_guarded 안에서, _fresh 뒤). `--`로 되감아 확정 → 빈 편집 뷰 → PL 2행 `--` 확인."""
         b, d = self.b, self.d
         if slot == 1 and b.strips.kind(d, b.surface.state, ch) == "aux":
-            return self._mixer_remove(action, t0, target, ch)
+            return self.mixer.remove(action, t0, target, ch)
         self.b._channel(ch, "plugin_channel")
         current = self._slot_text(slot)
         if current in EMPTY_TEXTS:
@@ -738,114 +655,11 @@ class PluginCommands:
             return b._guarded(action, t0, target, body)
 
     def calibrate(self, strip: int | None, number: int | None, slot: int) -> "ToolResult":
-        """편집 뷰에서 파라미터마다 전체 이름(틱 오버레이 1행), 숫자 매핑(Flip 페이더 프로빙), 열거형 선택지(-1로 처음까지 간 뒤
-        +1로 끝까지, 정착 열 텍스트)를 모아 캐시에 저장한다. 값을 바꾸고 되돌리지 않는다 → scripts/calibrate_plugin.py가
-        삽입한 임시 인스턴스에만 쓴다."""
-        b, d, action = self.b, self.d, "plugin_calibrate"
-        t0 = b._now_ms()
-        with b._lock:
-            if (r := b._require_ready(action, t0)) is not None:
-                return r
-            ch = self.b._begin(action, strip, number, t0, slot, MAX_SLOT,
-                               f"slot은 1-{MAX_SLOT}(Plug-in Channel 뷰에서 닿는 슬롯만 지원)")
-            if not isinstance(ch, int):
-                return ch
-            target = {**b._target(ch), "slot": slot}
-
-            def body() -> "ToolResult":
-                self.b._fresh()
-                full, _abbrev, pages = self._open_edit(ch, slot)
-                self._merge_items(full, pages, self._read_pages(pages))
-                table = self._table(full, pages)
-                probed = enums = 0
-                for item in table["items"]:
-                    col = self._goto_param(item)                                   # VALUE 모드
-                    v = d.read_column(col)[1]
-                    header = d.surface.state.lcd[0]                                # 틱 전 1행(축약명). 이름은 틱 뒤 바뀐 칸에서만 뗀다
-                    name: str | None = None
-                    # 이름은 LCD가 바뀐 틱(tick() True)의 오버레이에서만 받는다. 끝값 무변화 틱은 오버레이가 없을 수 있어
-                    # 정착 1행 조각을 이름으로 읽게 된다(리뷰 I3).
-                    if v.kind == "enum":
-                        # 텍스트가 같아도 멈추지 않고 고정 횟수: 축약이 겹치는 선택지를 남긴다(10/27 Circuit Type 'Studio'×2는 오버레이를 읽은 것, 10/28)
-                        for _ in range(MAX_OPTIONS):                               # 처음(가장 앞 선택지)까지 -1(끝에선 무변화). 읽지 않으니 오버레이 대기 없음
-                            if d.tick(col, -1) and name is None:
-                                name = overlay_param_name(header, d.surface.state.lcd[0], col)
-                        d.settle_overlay()                                         # 첫 읽기 전에만 오버레이가 걷히길 기다린다
-                        texts = [d.read_column(col)[1].text]
-                        for _ in range(MAX_OPTIONS - 1):                           # +1로 끝까지 모은다(처음에 있었으면 여기서 이름)
-                            if d.tick(col, 1) and name is None:
-                                name = overlay_param_name(header, d.surface.state.lcd[0], col)
-                            d.settle_overlay()
-                            texts.append(d.read_column(col)[1].text)
-                        options = list(texts)
-                        while len(options) > 1 and options[-1] == options[-2]:     # 끝에 닿은 뒤 무변화 틱의 반복은 하나로. 한계: 진짜로 끝에 연속된 같은 텍스트도 합쳐진다
-                            options.pop()
-                        capped = all(a != b for a, b in zip(texts, texts[1:]))     # 상한까지 한 번도 안 멈춤(잘라내기 전 기준 = 옛 루프가 MAX_OPTIONS개 모은 경우)
-                        if capped and all(parse_value(o).kind == "number" for o in options):
-                            # 상한까지 모인 숫자 선택지 = 첫 읽기가 남은 축약명을 받은 연속 숫자 파라미터(재수집 Rel·Q·Gain)
-                            d.flip(True)
-                            mapping, _lo, _hi = probe_mapping(d, col)
-                            d.settle_overlay()                                     # 페이더 값 오버레이(14칸, 2.0초)가 다음 열을 덮어 공백·이전 값으로 읽힌다(실측 2026-10-20 Space Designer 77/178 map None)
-                            item["map"] = None
-                            if mapping is not None:
-                                item["map"] = _map_to(mapping)
-                                probed += 1
-                        else:
-                            item["map"] = {"type": "enum", "options": options}
-                            enums += 1
-                    else:
-                        if d.tick(col, 1):
-                            name = overlay_param_name(header, d.surface.state.lcd[0], col)
-                            d.tick(col, -1)
-                        elif d.tick(col, -1):                                      # 최댓값이면 반대 방향으로 한 틱
-                            name = overlay_param_name(header, d.surface.state.lcd[0], col)
-                            d.tick(col, 1)
-                        d.settle_overlay()
-                        if v.kind == "number" and not item.get("map"):
-                            d.flip(True)
-                            mapping, _lo, _hi = probe_mapping(d, col)              # 페이더 1·16383 → 범위(실측 X: 에코 뒤 LCD까지 대기)
-                            d.settle_overlay()
-                            if mapping is not None:
-                                item["map"] = _map_to(mapping)
-                                probed += 1
-                    if name and "Page" not in name:
-                        item["name"] = name
-                    d.toggle_name_value()                                           # NAME 모드로 복귀(다음 page_to가 헤더를 읽는다)
-                self.cache.save()
-                return b._result(action, True, "verified", t0, target=target,
-                                 after={"plugin": full, "pages": pages, "items": table["items"], "probed": probed, "enums": enums})
-            return b._guarded(action, t0, target, body)
+        """plugins/calibrate.py의 calibrate로 위임(설명은 그쪽). import는 순환을 피해 여기서."""
+        from .plugins import calibrate as cal
+        return cal.calibrate(self, strip, number, slot)
 
     def scan(self, force: bool = False) -> "ToolResult":
-        b, d, action = self.b, self.d, "plugin_scan"
-        t0 = b._now_ms()
-        with b._lock:
-            if (r := b._require_ready(action, t0)) is not None:
-                return r
-            if self.cache.user_list and not force:
-                return b._result(action, True, "skipped", t0, after=self.cache.to_resource(),
-                                 note=f"already: {self.cache.scanned_at}에 스캔한 {len(self.cache.user_list)}개. 다시 하려면 force=true")
-
-            def body() -> "ToolResult":
-                self.b._fresh()
-                d.enter("plugin_mixer")                              # P1 Mixer: 스트립 ch의 V-Pot = 그 트랙의 슬롯 1
-                slot = d.view.index or 1
-
-                def empty_strips() -> list[int]:
-                    return [ch for ch, s in enumerate(b.surface.state.strips)
-                            if s.number is not None and d.view.columns[ch][1].strip() in EMPTY_TEXTS]
-                found = empty_strips()
-                if not found:
-                    return b._result(action, False, "skipped", t0, note=f"스캔에 쓸 빈 슬롯 {slot}이 보이는 뱅크에 없음. 슬롯 {slot}이 빈 트랙을 뱅크에 띄우고 다시")
-                ch = found[0]
-                names = scan_list(d, ch)
-                self.cache.user_list = names
-                self.cache.scanned_at = datetime.now().isoformat(timespec="seconds")
-                self.cache.save()
-                d.leave(keep_select=True)                            # 미리 선택 취소(삽입 없음)
-                d.enter("plugin_mixer")
-                still_empty = ch in empty_strips()
-                return b._result(action, still_empty, "verified" if still_empty else "unverified", t0,
-                                 after={"count": len(names), "path": str(self.cache.path), "strip": ch + 1, "slot": slot},
-                                 note="" if still_empty else "스캔 뒤 슬롯이 비어 있지 않음(확인 누름이 섞였을 수 있음)")
-            return b._guarded(action, t0, None, body)
+        """plugins/calibrate.py의 scan으로 위임. import는 순환을 피해 여기서."""
+        from .plugins import calibrate as cal
+        return cal.scan(self, force)
