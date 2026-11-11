@@ -133,6 +133,18 @@ def test_get_and_set_by_index_and_name(tmp_path):
     assert surface.state.view.kind == "pan" and not surface.state.assignment.flip
 
 
+def test_get_and_set_two_cell_param_by_full_name(tmp_path):            # 실기 11/11 Silver Compressor: 축약명 `Thresho`+`ld`
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Silver Compressor")
+    g = cmds.plugin.get(1, None, 2, "Threshold")
+    assert g.verified == "verified" and g.after["index"] == 1 and g.after["short"] == "Threshold" and g.after["value"] == -20.0
+    assert cmds.plugin.get(1, None, 2, "Thresho").after["index"] == 1                  # 접두로도
+    s = cmds.plugin.set(1, None, 2, "Threshold", -30.0)
+    assert s.ok and s.verified == "verified" and s.after["value"] == -30.0
+    assert logic.tracks[0].params[2][0].value == -30.0
+    assert [it["index"] for it in cache.param_table("Silver Compressor")["items"]] == [1, 3, 5, 7]
+
+
 def test_set_uses_known_mapping_without_probe(tmp_path):
     cmds, surface, fake, logic, cache = make(tmp_path)
     cache.params["Compressor"] = {"pages": 3, "items": [

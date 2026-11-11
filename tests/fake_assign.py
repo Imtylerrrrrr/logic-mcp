@@ -99,6 +99,7 @@ class Param:
     ends: tuple[str, str] | None = None   # 양 끝 값의 표시 텍스트(예: Min/Max). 숫자가 아닌 끝을 가진 파라미터 흉내(리뷰 I4)
     digits: int = 1             # log 값 반올림 자릿수(Q는 실측 T처럼 3자리 유효숫자에 가깝게 3)
     labels: tuple[str, ...] = ()   # enum 오버레이 전체 텍스트(정착 열은 options의 6자 축약). 실측 2026-10-28 Circuit Type 'Vintage Opto'/'VinOpt'
+    span: int = 1               # 편집 뷰 열 폭. 2면 이름·값을 두 열(14자)에 왼쪽 정렬로 이어 쓰고, 0은 앞 파라미터가 덮은 자리(wide())
 
     def text(self) -> str:
         """7칸 열 텍스트. 실측 형식: 20.0Hz / 100 Hz / 1040Hz / 20000 / 0.0 dB / 0.71 / On."""
@@ -117,6 +118,8 @@ class Param:
             s = f"{v:.1f}{self.unit}"
         elif self.unit == ":1":
             s = f"{v:.1f}:1"
+        elif self.unit == "pad:1":                   # 숫자 5칸 왼쪽 정렬 + `:1`(실기 11/11 Silver Compressor `2.0  :1`, 다른 자릿수는 가정)
+            s = f"{v:.1f}".ljust(5) + ":1"
         else:
             s = f"{v:.2f}"
         return col(s)
@@ -234,6 +237,30 @@ def space_designer() -> list[Param]:
     return [Param(n, f"Space Designer {n}", "linear", 0.0, 100.0, 50.0, step=1.0) for n in names]
 
 
+def wide(params: list[Param]) -> list[Param]:
+    """옛 플러그인 넓은 배치: 파라미터마다 두 열(span 2). 둘째 열은 span 0 자리(그리지 않음, 틱·페이더에 무반응 — 가정)."""
+    out: list[Param] = []
+    for p in params:
+        p.span = 2
+        out += [p, Param("-", "-", "enum", options=(" ",), span=0)]
+    return out
+
+
+def silver_compressor() -> list[Param]:
+    """실기 11/11 Silver Compressor 1페이지: 4개를 열 1·3·5·7에 두 칸씩. 6자보다 긴 이름은 다음 열로 넘친다
+    (NAME 2행 `Thresho`|`ld`, 7자 `Release`는 제 열을 꽉 채움). 값 `-20.0`·`2.0  :1`·`0.0`·`100.0`.
+    범위는 번들 표(Threshold -50~0, Attack 0~200, Release log 2~2000), Ratio 1~20은 가정."""
+    return wide([Param("Threshold", "Threshold", "linear", -50.0, 0.0, -20.0, unit="n1", step=0.5),
+                 Param("Ratio", "Ratio", "linear", 1.0, 20.0, 2.0, unit="pad:1", step=0.1),
+                 Param("Attack", "Attack", "linear", 0.0, 200.0, 0.0, unit="n1", step=1.0),
+                 Param("Release", "Release", "log", 2.0, 2000.0, 100.0, unit="n1", step=1.05)])
+
+
+def edit_row(ps: list[Param], text) -> str:
+    """편집 뷰 한 행(56칸). 열마다 text(p)를 7 × span 칸에 왼쪽 정렬(span 0 자리는 건너뜀)."""
+    return "".join(text(p)[:7 * p.span].ljust(7 * p.span) for p in ps).ljust(56)
+
+
 def with_dash_cells(params: list[Param], n: int) -> list[Param]:
     """빈 파라미터 칸 n개를 끝에 붙인다: 1행 `-`, 2행 공백, 틱·페이더에 무반응(실기 10차: Adaptive Limiter·Overdrive·Distortion)."""
     return params + [Param("-", "-", "enum", options=(" ",)) for _ in range(n)]
@@ -270,6 +297,8 @@ class Track:
             self.params[slot] = compressor()
         elif name == "Space Designer":
             self.params[slot] = space_designer()
+        elif name == "Silver Compressor":
+            self.params[slot] = silver_compressor()
         else:
             self.params[slot] = generic(name)
 
@@ -496,10 +525,10 @@ class FakeLogic:
             return r1, r2, "PL"
         if self.view == "plugin_edit":
             ps = self._edit_page()
-            names = "".join(col(p.short) for p in ps).ljust(56)
+            names = edit_row(ps, lambda p: p.short)
             if self.name_mode:
                 return self._header(self._edit_track()), names, self._slot_digits()
-            return names, "".join(p.text() for p in ps).ljust(56), self._slot_digits()
+            return names, edit_row(ps, lambda p: p.text()), self._slot_digits()
         if self.view in ("empty_edit", "midi_fx"):
             return "-      " * 8, " " * 56, "M1" if self.view == "midi_fx" else self._slot_digits()
         raise AssertionError(self.view)

@@ -148,7 +148,10 @@ class PluginCommands:
         return full, abbrev, pages
 
     def _read_pages(self, pages: int) -> list[dict]:
-        """NAME 모드에서 시작. 페이지마다 축약명(NAME)과 값(VALUE)을 읽고 NAME 모드로 돌아온다."""
+        """NAME 모드에서 시작. 페이지마다 축약명(NAME)과 값(VALUE)을 읽고 NAME 모드로 돌아온다.
+        옛 플러그인은 파라미터 하나가 두 열을 쓴다(실기 11/11 Silver Compressor: NAME `Thresho`|`ld`, VALUE `-20.0`|공백).
+        축약명이 열을 꽉 채우고(7자, 구분 공백 없음) 다음 열에 축약명이 있는데 그 열 값이 비어 있으면 한 파라미터로 잇는다
+        (축약명은 두 열을 이은 것, 인덱스는 앞 열, 뒤 열은 항목을 만들지 않는다)."""
         d, items = self.d, []
         prev: list[tuple[str, str]] = []
         for page in range(1, pages + 1):
@@ -162,10 +165,16 @@ class PluginCommands:
             skip = 0
             if page == pages and pages >= 2:     # 마지막 페이지는 오른쪽 정렬이라 앞 k열이 직전 페이지와 겹친다(실측 W)
                 skip = next((k for k in range(7, 0, -1) if prev[8 - k:] == pairs[:k]), 0)
-            for i, short in enumerate(shorts):
+            i = 0
+            while i < len(shorts):
+                short, width = shorts[i], 1
+                if (len(short) == S.COL_W and i + 1 < len(shorts) and shorts[i + 1] not in EMPTY_SHORTS
+                        and not cols[i + 1].strip()):
+                    short, width = short + shorts[i + 1], 2
                 if short not in EMPTY_SHORTS and i >= skip:
                     items.append({"index": (page - 1) * 8 + i + 1, "short": short, "value": values[i].number,
                                   "text": values[i].text})
+                i += width
             prev = pairs
         return items
 
@@ -231,8 +240,8 @@ class PluginCommands:
         self.d.page_to(page)
         self.d.toggle_name_value()
         col = (item["index"] - 1) % 8
-        self.d.surface.wait_for(lambda s: s.lcd[1][col * S.COL_W:(col + 1) * S.COL_W].strip() != item["short"],
-                                VALUE_ROW_S)                         # 시간 초과면 그대로 진행(값이 축약명과 같은 파라미터)
+        self.d.surface.wait_for(lambda s: s.lcd[1][col * S.COL_W:(col + 1) * S.COL_W].strip() != item["short"][:S.COL_W],
+                                VALUE_ROW_S)                         # 시간 초과면 그대로 진행(값이 축약명과 같은 파라미터). 두 열 축약명은 앞 7자만 이 열에 보인다
         return col
 
     def _param_dict(self, full: str, slot: int, item: dict, v: Value) -> dict:

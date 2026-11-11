@@ -2,7 +2,7 @@ from logic_mcp.logic.plugin import overlay_param_name
 from logic_mcp.logic.commands import Commands
 from logic_mcp.logic.faders import FaderTable
 from logic_mcp.logic.plugins.cache import PluginCache
-from tests.fake_assign import PLUGIN_LIST, SLOPES, Param, compressor, make_assign_logic, with_dash_cells
+from tests.fake_assign import PLUGIN_LIST, SLOPES, Param, compressor, make_assign_logic, wide, with_dash_cells
 
 
 def make(tmp_path):
@@ -62,6 +62,35 @@ def test_dash_cells_are_not_params(tmp_path):                        # 실기 10
     r = cmds.plugin.calibrate(strip=1, number=None, slot=2)
     assert r.verified == "verified" and [it["index"] for it in r.after["items"]] == [1, 2, 3]
     assert [it["short"] for it in cache.param_table("Chorus")["items"]] == ["Drive", "Tone", "Output"]
+
+
+def test_two_cell_params_are_one_param(tmp_path):                    # 실기 11/11 Silver Compressor: `Thresho`|`ld`는 한 파라미터
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Silver Compressor")
+    r = cmds.plugin.params(1, None, 2)
+    assert r.verified == "verified"
+    assert [(p["index"], p["short"], p["value"]) for p in r.after["params"]] == [
+        (1, "Threshold", -20.0), (3, "Ratio", 2.0), (5, "Attack", 0.0), (7, "Release", 100.0)]   # `ld` 유령 없음
+    r = cmds.plugin.calibrate(strip=1, number=None, slot=2)
+    assert r.verified == "verified"
+    items = r.after["items"]
+    assert [it["index"] for it in items] == [1, 3, 5, 7]
+    assert [it["short"] for it in cache.param_table("Silver Compressor")["items"]] == ["Threshold", "Ratio", "Attack", "Release"]
+    assert items[0]["map"] == {"type": "linear", "lo": -50.0, "hi": 0.0}
+    assert items[1]["map"] == {"type": "linear", "lo": 1.0, "hi": 20.0}             # `2.0  :1`도 숫자로 읽혀 프로빙
+    assert items[3]["map"]["type"] == "log"
+
+
+def test_goto_param_waits_for_a_two_cell_short_to_leave_its_column(tmp_path):    # 두 열 축약명은 앞 7자만 그 열에 보인다
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Chorus")
+    logic.tracks[0].params[2] = wide([Param("Mix", "Mix", "linear", 0.0, 100.0, 50.0, unit="%", step=1.0),
+                                      Param("Intensity", "Intensity", "linear", 0.0, 100.0, 30.0, unit="%", step=1.0)])
+    cache.params["Chorus"] = {"pages": 1, "items": [                       # 표가 있어 페이지를 읽지 않고 바로 _goto_param
+        {"index": 1, "short": "Mix", "name": None, "map": None}, {"index": 3, "short": "Intensity", "name": None, "map": None}]}
+    logic.value_row_partial = True                          # VALUE 전환 뒤 열 1~7은 늦게: 열 2는 잠시 `Intensi`
+    r = cmds.plugin.get(1, None, 2, "Intensity")
+    assert r.verified == "verified" and r.after["index"] == 3 and r.after["value"] == 30.0 and r.after["text"] == "30.0%"
 
 
 def test_calibrate_names_drop_neighbor_shorts_under_narrow_overlay(tmp_path):    # 실기 10차: 이름 오버레이는 1행 2~3열만 덮는다
