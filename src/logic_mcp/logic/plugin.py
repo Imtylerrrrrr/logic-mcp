@@ -78,7 +78,9 @@ class ParamNotFound(Exception):
 def _map_from(d: dict | None) -> Mapping | None:
     if not d:
         return None
-    return Mapping(d["type"], d.get("lo", 0.0), d.get("hi", 1.0), tuple(d.get("options", ())))
+    if "type" not in d:                                   # 손으로 고친 캐시의 망가진 map은 없는 것으로(리뷰 A1)
+        return None
+    return Mapping(d["type"], d.get("lo", 0.0), d.get("hi", 1.0), tuple(d.get("options") or ()))
 
 
 def _map_to(m: Mapping) -> dict:

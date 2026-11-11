@@ -231,3 +231,11 @@ def test_eq_get_turns_strip_unsupported_into_skipped_result(monkeypatch):
     r = cmds.eq.get(strip=1, number=None)
     assert r.ok is False and r.verified == "skipped" and err.note in r.note
     assert surface.state.view.kind == "pan"
+
+
+def test_eq_set_that_inserts_and_is_already_there_reports_the_insert():   # 리팩토링 리뷰 C1: verdict의 already를 삽입 결과가 덮는다
+    cmds, surface, fake, logic = make()
+    assert logic.tracks[0].eq is None
+    r = cmds.eq.set(1, None, 1, "on", False)                                # 새 EQ의 밴드 1은 Off → already
+    assert r.ok and r.verified == "verified" and r.note == "Channel EQ 삽입됨. already"
+    assert logic.tracks[0].eq is not None and logic.tracks[0].eq[0][3].value == 0

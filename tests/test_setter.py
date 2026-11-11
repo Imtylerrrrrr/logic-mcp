@@ -257,7 +257,7 @@ def test_set_option_index_skips_numeric_parameter_without_table():
 
 def test_set_option_index_rewinds_with_or_without_table():
     d, logic, eq = eq_driver()
-    eq[0][3] = Param("CirTyp", "Circuit Type", "enum", options=CIRCUIT, value=2)
+    eq[0][3] = Param("CirTyp", "Circuit Type", "enum", options=CIRCUIT, value=0)   # 시작값 PltDig는 표에서 하나뿐
     logic.redraw()
     sent = recorded_ticks(d)
     out = set_option(d, 3, "#6", list(CIRCUIT), d.read_value(3))            # #n은 지금 위치가 하나뿐이어도 되감기

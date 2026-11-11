@@ -716,6 +716,7 @@ def test_set_enum_by_index_and_refuse_ambiguous_names(tmp_path):
     assert s.ok and s.verified == "verified" and cirtyp.value == 5 and s.after["text"] == "Vintag"
     s = cmds.plugin.set(1, None, 2, "CirTyp", "Studio")                    # 'Studio'가 #2·#3 둘 → 번호로 지정하라고 안내
     assert not s.ok and s.verified == "skipped" and "#2" in s.note and "#3" in s.note and cirtyp.value == 5
+    assert s.after is None                                                 # 틱 없이 거른 경우는 after 없음
     s = cmds.plugin.set(1, None, 2, "CirTyp", "Classc")                    # 표에서 하나뿐인 이름은 번호 경로
     assert s.ok and s.verified == "verified" and cirtyp.value == 3 and s.after["text"] == "Classc"
     assert surface.state.view.kind == "pan" and not surface.state.assignment.flip
@@ -756,7 +757,7 @@ def test_set_index_on_numeric_param_is_refused(tmp_path):
     logic.tracks[0].insert(2, "Compressor")
     n0 = len(fake.sent)
     s = cmds.plugin.set(1, None, 2, "Thrs", "#2")
-    assert not s.ok and s.verified == "skipped" and s.note == "#n은 enum 파라미터에만 쓸 수 있음"
+    assert not s.ok and s.verified == "skipped" and s.note == "#n은 enum 파라미터에만 쓸 수 있음" and s.after is None
     assert not turns(fake.sent[n0:]) and logic.tracks[0].params[2][1].value == -20.0
 
 
