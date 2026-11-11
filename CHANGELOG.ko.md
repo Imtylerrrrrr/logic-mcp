@@ -9,7 +9,15 @@
 - Logic 12.0.1 삽입 메뉴의 플러그인 67종 전부에 번들 파라미터 표(이전 10종). MCU로 보이는 메뉴 항목마다 표가 있고, 파라미터는 모두 1,064개. Space Designer(178)·EVOC 20 Filterbank(61)가 가장 크다.
 - `scripts/calibrate_batch.sh [strip] "이름" ...`: 여러 플러그인을 차례로 `calibrate_plugin.py --write --yes`로 수집한다. 번들에 이미 있는 이름은 건너뛰고, 플러그인마다 로그를 `~/.logic-mcp/calib-logs/`에 남긴다.
 
+### Changed
+- 내부 리팩토링(동작 변화 없음): Aux Plug-in Mixer 경로를 `plugin_mixer.py`로, `calibrate`/`scan`을 `plugins/calibrate.py`로, set 공통 로직(숫자/선택지 판별, `#n`·선택지 선택, 결과 판정)을 `setter.py`로 옮겨 `logic_plugin set`과 `logic_eq set`이 함께 쓴다.
+
 ### Fixed
+- 파라미터 하나를 LCD 두 칸에 걸쳐 그리는 구형 플러그인(Silver Compressor `Threshold`, Parametric EQ `Frequency` 등 14종)을 한 파라미터로 읽는다. 이름·값이 칸을 꽉 채우면 다음 칸과 잇는다. 이전에는 뒷칸이 유령 파라미터(`ld`, `cy`)가 되고 이름이 잘렸다. 번들 표 14개를 재수집했다. 남은 한계: set·프로빙 때 값은 여전히 한 칸만 읽어, Parametric EQ·Exciter·Low Pass Filter·High Pass Filter의 `Frequency`는 범위 map이 없고 숫자 set이 아직 안 된다.
+- `2.0  :1`처럼 단위 앞에 공백이 둘인 비율 값을 숫자로 읽어 Silver Compressor Ratio를 set할 수 있다.
+- 숫자 `set`의 목표가 캘리브레이션 범위 밖이면(GoldVerb Room Size 1500, 표는 10~200 m) 페이더를 끝까지 보내고 "LCD 반응 없음"이라 하는 대신 범위를 적어 skipped로 끝낸다.
+- `logic_plugin set`이 선택지가 정확히 Off/On인 파라미터에 0/1을 받는다(이전에는 "1"이 절대 맞지 않았다).
+- 선택지 텍스트를 16스텝 안에 못 찾으면 파라미터를 시작 위치로 되돌리고 그렇게 적는다(이전에는 멈춘 자리에 남겼다).
 - `logic_plugin` `insert`가 캐시 목록 이름이 오버레이 21칸에서 잘린 플러그인(`EVOC 20 TrackOscillat`)도 편집 뷰 헤더에 전체 이름이 보이면 받아들이고 전체 이름으로 보고한다. 이전에는 플러그인이 슬롯에 들어갔는데도 unverified로 끝났다.
 
 ## [0.1.2] - 2026-11-02

@@ -9,7 +9,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Bundled parameter tables for all 67 plug-ins in the Logic 12.0.1 insert menu (was 10): every entry of the menu as it appears over MCU now has a table, 1,064 parameters in total. Space Designer and EVOC 20 Filterbank have the largest tables (178 and 61 parameters).
 - `scripts/calibrate_batch.sh [strip] "Name" ...` runs `calibrate_plugin.py --write --yes` for several plug-ins in a row, skips names already in the bundle, and writes one log per plug-in to `~/.logic-mcp/calib-logs/`.
 
+### Changed
+- Internal refactor, no behaviour change: the Aux Plug-in Mixer path moved to `plugin_mixer.py`, `calibrate`/`scan` to `plugins/calibrate.py`, and the shared set logic (numeric-vs-option decision, `#n`/option selection, result verdict) to `setter.py`, used by both `logic_plugin set` and `logic_eq set`.
+
 ### Fixed
+- Legacy plug-ins that draw one parameter across two LCD columns (Silver Compressor `Threshold`, Parametric EQ `Frequency`, 14 plug-ins in all) are read as one parameter: the name and the value are joined when they fill their column. Previously the second column became a ghost parameter (`ld`, `cy`) and the name was cut. The 14 bundled tables were recollected. Known limitation: a two-column *value* is still read one column wide when a parameter is set or probed, so the `Frequency` of Parametric EQ, Exciter, Low Pass Filter and High Pass Filter has no range map and cannot be set numerically yet.
+- Ratio values such as `2.0  :1` (two spaces before the unit) are read as numbers, so Silver Compressor Ratio can be set.
+- A numeric `set` whose target is outside the calibrated range (GoldVerb Room Size 1500 with a 10–200 m map) is skipped with the range in the note instead of moving the fader to the end and reporting no LCD response.
+- `logic_plugin set` accepts 0/1 for a parameter whose options are exactly Off/On (previously "1" never matched).
+- When an option text is not found within 16 steps, the parameter is stepped back to where it started and the note says so (previously it was left wherever the search stopped).
 - `logic_plugin` `insert` accepts a plug-in whose cached list name was cut to the 21-character overlay (`EVOC 20 TrackOscillat`) when the edit view header shows the full name, and reports the full name. Previously the insert was reported unverified although the plug-in was in the slot.
 
 ## [0.1.2] - 2026-11-02

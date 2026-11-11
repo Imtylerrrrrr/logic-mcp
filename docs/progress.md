@@ -125,5 +125,12 @@ bank first   ok=True skipped    1049ms already
 - 맥이 덮개 닫힘·배터리로 유지 절전에 들어가면 수집이 60~84분씩 걸리고 서피스 상태가 깨진다(11/10). 긴 수집은 `caffeinate -i`로 감쌀 것.
 - 11/10 사용자 결정: "Logic은 MIDI만, UI 클릭·AX·포커스 뺏기 금지" 규칙 해제. 유지: MPK mini IV 서피스 항목 금지, 기본값 재형성 금지, 사용자 프로젝트 저장 금지, Logic 실행 금지.
 
+## 리팩토링 + 실기 검증 결함 수정 (2026-11-11, 브랜치 refactor-plugin, Opus 구현 2회 + Opus 리뷰 2회, 367 테스트)
+- 실기 검증(bundle_check.py, 트랙 1 슬롯 2, 저장 안 함): Silver Compressor·GoldVerb·Vocal Transformer 삽입→params/get/set→제거. 통과: 번들 이름 채움, GoldVerb Mix 페이더 1회 verified, Robotize On·Pitch Base `#3` verified. 결함: ① 구형 플러그인이 파라미터 하나를 LCD 두 칸에 그림(`Thresho`|`ld`, `Frequen`|`cy`) → 뒷칸이 유령 파라미터(14개 표) ② Ratio `2.0  :1`이 숫자로 안 읽힘 ③ 범위 밖 목표(Room Size 1500, 표 10~200 m)가 "틱 반응 없음"으로 끝남. 구현자가 찾은 기존 결함: ④ On/Off 파라미터에 0/1이 "1"로 바뀌어 절대 안 맞음 ⑤ 텍스트 경로 실패 시 파라미터가 최대 16틱 움직인 채 남음.
+- 리팩토링(동작 변화 없음): plugin.py 851 → 650줄. Aux Mixer 슬롯 1 경로 → `plugin_mixer.py`(AuxMixer), calibrate·scan → `plugins/calibrate.py`, set 공통 로직 → `setter.coerce/set_option/verdict`(plugin.set·eq.set 공용). 리뷰 1차: main·HEAD에 같은 시나리오 1,028개를 fake Logic으로 비교해 994개 동일, 나머지 34개는 손으로 망가뜨린 map에서만 차이 → `_map_from`을 관대하게(리뷰 A1), options 없는 enum map은 "표 없음"으로 간주(A2, 의도된 변경).
+- 결함 수정 5건 + 리뷰 2차 M1(값도 넘침 `12000 H`|`z`) → `pair_columns()`: 축약명이 7자로 칸을 채우면 다음 칸 이름을 잇고, 값이 7자로 칸을 채우면 다음 칸 값을 잇는다. 14개 표 재수집 23분 → 유령 24개 제거(1,064 → 1,040 파라미터), Threshold·Frequency·Distortion Type·Q-Factor 이름 복원.
+- 남은 한계: `read_value`·프로빙은 한 칸만 읽어 두 칸 값의 단위가 잘린다(`20000 H`) → Parametric EQ·Exciter·Low/High Pass Filter `Frequency`는 map 없음·숫자 set 불가. Tuner `Output`|`Mute`는 공백으로 갈려 6자라 병합 규칙에 안 걸림(유령 `Mute` 1개 잔존). 캘리브레이트는 기존 map을 다시 프로빙하지 않아 손으로 고친 map은 영구히 남는다.
+- 최적화 관찰: bundle_check의 삽입 3회가 모두 캐시 위치 불일치 → 이름 탐색(43·44·84틱). 프로젝트마다 메뉴 순서가 달라 매번 처음부터 훑는다.
+
 ## TODO
 - **속도 최적화(2026-11-10 기록, 보류)**: set 하나가 10초 안팎인 이유는 `settle_overlay` 2.5 s가 뷰 진입·Flip·페이더 이동(라운드마다)·PAN 복귀에서 4번 이상 들어가고, 호출이 파라미터 하나 단위라 진입·복귀가 매번 반복되기 때문(분석만, 코드 변경 없음). 후보: ① `logic_eq set`·`logic_plugin set`에 여러 파라미터 묶음(뷰 진입·Flip·복귀 1회, 중간 실패 시 멈추고 PAN 복귀) ② 매핑이 확실한 숫자는 라운드마다 읽지 않고 마지막에 한 번 확인 ③ 오버레이 마진 0.5 s는 10/28 경계 실패 전력이 있어 줄이지 않음.
