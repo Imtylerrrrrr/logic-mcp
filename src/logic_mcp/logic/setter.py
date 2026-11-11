@@ -152,7 +152,8 @@ def set_enum_index(d: ModeDriver, ch: int, n: int, options: list[str] | None, ma
 
 def coerce(value, before: Value, mapping: Mapping | None) -> tuple[bool, float | str]:
     """set 입력 → (숫자 경로인지, 값). bool은 "On"/"Off", 숫자·숫자로 읽히는 문자열은 숫자. 숫자여도 매핑이 enum이거나
-    매핑이 없고 지금 값(before)이 숫자가 아니면 선택지 텍스트로 돌린다(정수면 `3`, 아니면 `3.5`)."""
+    매핑이 없고 지금 값(before)이 숫자가 아니면 선택지 텍스트로 돌린다(정수면 `3`, 아니면 `3.5`).
+    선택지가 정확히 ("Off", "On")인 enum 매핑이면 0 → "Off", 1 → "On"(다른 숫자는 그대로)."""
     numeric = isinstance(value, (int, float)) and not isinstance(value, bool)
     if not numeric and isinstance(value, str):
         try:
@@ -162,6 +163,8 @@ def coerce(value, before: Value, mapping: Mapping | None) -> tuple[bool, float |
     if numeric and ((mapping is not None and mapping.type == "enum")
                     or (mapping is None and before.kind != "number")):
         numeric, value = False, str(int(value)) if float(value).is_integer() else str(value)   # 숫자 입력도 enum이면 선택지 경로(리뷰 I3·I4)
+        if mapping is not None and mapping.options == ("Off", "On") and value in ("0", "1"):
+            value = mapping.options[int(value)]                       # `1`은 `On`과 안 맞아 텍스트 경로가 끝까지 돌고 실패한다
     if numeric:
         return True, float(value)
     return False, ("On" if value else "Off") if isinstance(value, bool) else str(value)

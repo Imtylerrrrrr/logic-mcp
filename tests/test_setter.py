@@ -273,6 +273,16 @@ def test_coerce_falls_back_to_option_text_for_enum():
     assert coerce(1, OPT, Mapping("linear", 0.0, 10.0)) == (True, 1.0)       # 숫자 매핑이 있으면 지금 값 종류와 무관
 
 
+def test_coerce_maps_0_and_1_to_off_on_for_an_off_on_enum():                # 1이 `1`이 되어 `On`과 안 맞던 것
+    onoff = Mapping("enum", options=("Off", "On"))
+    assert coerce(0, OPT, onoff) == (False, "Off") and coerce(1, OPT, onoff) == (False, "On")
+    assert coerce("1", OPT, onoff) == (False, "On") and coerce(1.0, OPT, onoff) == (False, "On")
+    assert coerce(0.0, OPT, onoff) == (False, "Off") and coerce("0", OPT, onoff) == (False, "Off")
+    assert coerce(2, OPT, onoff) == (False, "2")                               # 다른 숫자는 그대로
+    other = Mapping("enum", options=("Off", "Max"))
+    assert coerce(1, OPT, other) == (False, "1") and coerce(0, OPT, other) == (False, "0")
+
+
 def test_set_option_index_skips_numeric_parameter_without_table():
     d, logic, eq = eq_driver()
     before = d.read_value(0)
