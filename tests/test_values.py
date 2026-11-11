@@ -84,6 +84,12 @@ def test_parse_value_allows_at_most_one_space_before_unit():                    
     assert v.kind == "number" and v.number == 0.0 and v.unit == "dB"
 
 
+@pytest.mark.parametrize("text,number", [("2.0  :1", 2.0), ("4.0 :1", 4.0), ("10.0:1", 10.0)])
+def test_parse_value_ratio_allows_two_spaces_before_colon_one(text, number):     # 실기 11/11: Silver Compressor Ratio `2.0  :1`
+    assert parse_value(text) == Value("number", number, ":1", text)
+    assert parse_value("1.00   High") == Value("enum", text="1.00   High")          # 다른 단위는 여전히 1칸까지
+
+
 def test_infer_mapping_requires_same_unit():                                       # 실측 2026-10-20 Space Designer Length: 1→'91.4 s', 16383→'183 ms'
     assert infer_mapping(parse_value("91.4 s"), parse_value("183 ms")) is None
     assert infer_mapping(parse_value("0.0 s"), parse_value("1.0 s")) == Mapping("linear", 0.0, 1.0)

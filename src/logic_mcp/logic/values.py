@@ -9,7 +9,8 @@ from ..mcu.protocol import MAX_FADER
 from .faders import FaderTable
 
 # 숫자·단위 사이 공백 1칸까지: 21칸 창에 이웃 열이 섞인 '1.00   High'를 숫자로 읽지 않게(실측 2026-10-20)
-_NUM_RE = re.compile(r"^\s*([+-]?\d+(?:\.\d+)?|-oo) ?([A-Za-z/%:0-9]*)\s*$")
+# 비율 단위 `:1`만 2칸까지: Silver Compressor Ratio `2.0  :1`(실기 11/11)
+_NUM_RE = re.compile(r"^\s*([+-]?\d+(?:\.\d+)?|-oo)( {0,2}:1| ?[A-Za-z/%:0-9]*)\s*$")
 _UNITS = {"": None, "hz": "Hz", "khz": "kHz", "db": "dB", "d": "dB", "db/oct": "dB/Oct",
           "db/o": "dB/Oct", "db/oc": "dB/Oct",        # 7자 열에서 잘린 `18 dB/O`(실측 R)
           "ms": "ms", "s": "s", "%": "%", "st": "st", "ct": "ct", "smp": "smp", ":1": ":1"}
@@ -32,7 +33,7 @@ def parse_value(text: str) -> Value:
     m = _NUM_RE.match(t)
     if m:
         # 앞 토큰이 숫자면 단위가 표에 없어도 숫자로 읽는다(단위 표는 정규화만 맡음, 실측 R)
-        num, raw_unit = m.group(1), m.group(2)
+        num, raw_unit = m.group(1), m.group(2).strip()
         unit = _UNITS[raw_unit.lower()] if raw_unit.lower() in _UNITS else raw_unit
         n = -math.inf if num == "-oo" else float(num)
         if unit == "kHz":
