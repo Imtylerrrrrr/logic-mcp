@@ -43,6 +43,26 @@ def _header_track(row1: str) -> int | None:
     return int(m.group(1)) if m else None
 
 
+def pair_columns(shorts: list[str], cols: list[str]) -> list[tuple[int, str, str]]:
+    """NAME 행 축약명(strip)과 VALUE 행 원문(7칸) → (열, 축약명, 값 텍스트). 두 열을 쓰는 파라미터(실기 11/11 Silver Compressor
+    `Thresho`|`ld`, Distortion II·Parametric EQ 값 `12000 H`|`z`)는 하나로 잇는다: 축약명이 열을 꽉 채우고(7자) 다음 열에
+    축약명이 있으면 이름을 잇고, 값이 열을 꽉 채우고(7자, 구분 공백 없음) 다음 열 값이 있으면 값도 잇는다(리뷰 M1).
+    값만 넘치고 다음 열 축약명이 비어 있을 때도 값은 잇는다. 뒤 열은 항목을 만들지 않는다."""
+    out, i = [], 0
+    while i < len(shorts):
+        short, text, width = shorts[i], cols[i], 1
+        nxt = i + 1 < len(shorts)
+        name_spills = len(short) == S.COL_W and nxt and shorts[i + 1] not in EMPTY_SHORTS
+        value_spills = len(cols[i].rstrip()) == S.COL_W and nxt and cols[i + 1].strip() != ""
+        if name_spills:
+            short, width = short + shorts[i + 1], 2
+        if value_spills and (name_spills or shorts[i + 1] in EMPTY_SHORTS):
+            text, width = cols[i] + cols[i + 1], 2
+        out.append((i, short, text))
+        i += width
+    return out
+
+
 def overlay_param_name(header: str, row: str, col: int) -> str:
     """편집 뷰 1행에서 파라미터 전체 이름만 떼어 낸다. header = 틱 전 1행(축약명), row = 틱 뒤 1행(오버레이를 덧쓴 상태).
     이름은 해당 열부터 2열(길면 3열) 폭으로만 덧쓰이고 나머지 칸은 축약명이 남는다(실기 10차). 창은 min(col*7, 56-21)부터
@@ -159,22 +179,15 @@ class PluginCommands:
             shorts = [c[1].strip() for c in d.view.columns]
             d.toggle_name_value()
             cols = [c[1] for c in d.view.columns]
-            values = [parse_value(t) for t in cols]
             d.toggle_name_value()
             pairs = [(sh, t.strip()) for sh, t in zip(shorts, cols)]
             skip = 0
             if page == pages and pages >= 2:     # 마지막 페이지는 오른쪽 정렬이라 앞 k열이 직전 페이지와 겹친다(실측 W)
                 skip = next((k for k in range(7, 0, -1) if prev[8 - k:] == pairs[:k]), 0)
-            i = 0
-            while i < len(shorts):
-                short, width = shorts[i], 1
-                if (len(short) == S.COL_W and i + 1 < len(shorts) and shorts[i + 1] not in EMPTY_SHORTS
-                        and not cols[i + 1].strip()):
-                    short, width = short + shorts[i + 1], 2
+            for i, short, text in pair_columns(shorts, cols):
                 if short not in EMPTY_SHORTS and i >= skip:
-                    items.append({"index": (page - 1) * 8 + i + 1, "short": short, "value": values[i].number,
-                                  "text": values[i].text})
-                i += width
+                    v = parse_value(text)
+                    items.append({"index": (page - 1) * 8 + i + 1, "short": short, "value": v.number, "text": v.text})
             prev = pairs
         return items
 

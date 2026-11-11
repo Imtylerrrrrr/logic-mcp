@@ -203,3 +203,21 @@ def test_overlay_param_name_cases():                                   # 실기 
         assert row[start:start + 21].strip() == seen, (col, seen)          # 관찰을 재현하는 행인지
         assert overlay_param_name(header, row, col) == want, (col, want)
     assert overlay_param_name(CMP, CMP, 2) == ""                        # 무변화
+
+
+def test_pair_columns_joins_wide_names_and_values():            # 실기 11/11 두 열 파라미터, 리뷰 M1(값도 넘침)
+    from logic_mcp.logic.plugin import pair_columns
+    col = lambda t: t.ljust(7)
+    shorts = ["Thresho", "ld", "Ratio", "", "Attack", "", "Release", ""]
+    cols = [col("-20.0"), col(""), "2.0  :1", col(""), col("0.0"), col(""), col("100.0"), col("")]
+    got = [(i, s, t.strip()) for i, s, t in pair_columns(shorts, cols) if s]
+    assert got == [(0, "Threshold", "-20.0"), (2, "Ratio", "2.0  :1"), (4, "Attack", "0.0"), (6, "Release", "100.0")]
+    # 이름과 값이 둘 다 넘침: `Frequen`|`cy`, `12000 H`|`z`
+    got = pair_columns(["Frequen", "cy", "Gain", ""], ["12000 H", col("z"), col("0.0 dB"), col("")])
+    assert [(i, s, t.strip()) for i, s, t in got if s] == [(0, "Frequency", "12000 Hz"), (2, "Gain", "0.0 dB")]
+    # 값만 넘치고 다음 열 축약명이 빈 경우도 값은 잇는다
+    got = pair_columns(["Freq", "", "Gain", ""], ["12000 H", col("z"), col("0.0 dB"), col("")])
+    assert [(i, s, t.strip()) for i, s, t in got if s] == [(0, "Freq", "12000 Hz"), (2, "Gain", "0.0 dB")]
+    # 좁은 파라미터의 7자 값(`-20.0 d`) 뒤에 진짜 파라미터가 오면 잇지 않는다
+    got = pair_columns(["Thrs", "Ratio"], ["-20.0 d", col("2.0")])
+    assert [(i, s, t.strip()) for i, s, t in got] == [(0, "Thrs", "-20.0 d"), (1, "Ratio", "2.0")]
