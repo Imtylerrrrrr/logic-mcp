@@ -16,26 +16,30 @@ Three steps, then you hand Logic whole jobs in plain language.
 
 2. Open a Logic project. Use a throwaway copy the first time: changes go straight into the open project. The server never saves, so closing without saving undoes everything. Logic picks up the server's "LogicMCP" port as a Mackie Control by itself. The first time, say "set up the Logic connection" and Claude runs `logic_session configure`.
 
-3. Hand it a whole job. A session looks roughly like this:
+3. Hand it a whole job. Describe the sound you want and let Claude pick the plug-ins, or name them yourself if you know them. A session looks roughly like this:
 
    ```
-   You:    Track 2 is a DI guitar. Build me a clean, spacious tone: gate, light compression,
-           amp, a touch of delay and a big reverb on buses.
-   Claude: Plan: Noise Gate → Compressor → Guitar Amp Pro → Channel EQ on track 2,
-           Tape Delay on Bus 1 and ChromaVerb on Bus 2 as sends.
-           Track 2 slots 1-4: Noise Gate, Compressor, Guitar Amp Pro, Channel EQ (verified).
-           Compressor: Threshold -18 dB, Ratio 2.5:1 (verified). EQ: high-pass 80 Hz (verified).
-           Send 1 → Bus 1 at -15 dB, send 2 → Bus 2 at -10 dB (verified). Logic created Aux 1
-           and Aux 2 for the buses; Tape Delay is on Aux 1, ChromaVerb on Aux 2 (verified).
-           13 steps, about three minutes. Nothing is saved; listen and tell me what to change.
+   You:    I recorded myself singing on track 1. I know nothing about mixing.
+           Make it sound like a finished pop vocal.
+   Claude: I'll do what a mix engineer does: clean up the low end, even out the volume,
+           tame the "s" sounds, add some space. You don't need any plug-in names.
+           Track 1 slots 1-3: Channel EQ, Compressor, DeEsser (verified).
+           EQ: cut below 90 Hz, +2 dB at 5 kHz for clarity (verified).
+           Compressor: Threshold -18 dB, Ratio 3:1, so loud and quiet words sit closer (verified).
+           Send 1 → Bus 1 at -14 dB; Logic created Aux 1 and I put ChromaVerb on it for room (verified).
+           Have a listen. Say "more space", "less harsh" or "that autotune thing" and I'll adjust.
 
-   You:    The vocal on track 1 needs that hard, obvious autotune. The song is in D major.
-   Claude: Pitch Correction inserted in track 1, slot 1 (verified).
-           Root → D, Scale → Major, Response → 0 ms (verified).
-           Notes now snap straight to D major.
+   You:    That autotune thing, yes. Make it obvious. The song is in D major.
+   Claude: Pitch Correction inserted in track 1, slot 4 (verified).
+           Root → D, Scale → Major, Response → 0 ms. Notes now snap straight to D major (verified).
 
    You:    Too robotic. Back it off a little.
    Claude: Response → 200 ms (verified).
+
+   You:    Track 2 is a DI guitar. Gate, light compression, amp, a touch of delay, big reverb on a bus.
+   Claude: Track 2 slots 1-4: Noise Gate, Compressor, Guitar Amp Pro, Channel EQ (verified).
+           Send 1 → Bus 2 at -12 dB, Tape Delay on Aux 2 (verified).
+           Reverb: send 2 → Bus 1, the ChromaVerb Aux from before (verified).
    ```
 
 What you will notice:

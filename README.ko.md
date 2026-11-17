@@ -16,26 +16,30 @@ Claude Code가 Logic Pro를 조작하는 MCP 서버. Logic이 공식 지원하�
 
 2. Logic에서 프로젝트를 연다. 처음엔 버려도 되는 복사본으로. 변경은 열린 프로젝트에 바로 들어가지만 서버는 저장을 하지 않으니, 저장 안 하고 닫으면 원래대로다. 서버의 "LogicMCP" 포트는 Logic이 알아서 Mackie Control로 잡는다. 처음 한 번 "Logic 연결 설정해줘"라고 하면 Claude가 `logic_session configure`를 돌린다.
 
-3. 일을 통째로 맡긴다. 대략 이런 식이다:
+3. 일을 통째로 맡긴다. 원하는 소리를 말로 묘사하면 Claude가 플러그인을 고르고, 용어를 알면 직접 말해도 된다. 대략 이런 식이다:
 
    ```
-   나:      2번 트랙이 기타 DI야. 깔끔하고 넓은 톤 만들어줘. 게이트, 살짝 컴프, 앰프,
-            딜레이 조금, 리버브는 버스로 크게.
-   Claude:  계획: 2번 트랙에 Noise Gate → Compressor → Guitar Amp Pro → Channel EQ,
-            센드로 Bus 1에 Tape Delay, Bus 2에 ChromaVerb.
-            2번 트랙 슬롯 1~4: Noise Gate, Compressor, Guitar Amp Pro, Channel EQ(verified).
-            Compressor: Threshold -18 dB, Ratio 2.5:1(verified). EQ: 하이패스 80 Hz(verified).
-            센드 1 → Bus 1 -15 dB, 센드 2 → Bus 2 -10 dB(verified). 버스 때문에 Logic이
-            Aux 1·2를 만들었고, Aux 1에 Tape Delay, Aux 2에 ChromaVerb 넣었어요(verified).
-            13단계, 3분쯤 걸렸어요. 저장은 안 했으니 들어 보고 고칠 곳 말해 주세요.
+   나:      1번 트랙에 내 노래 녹음했어. 믹싱은 하나도 몰라.
+            그냥 완성된 팝 보컬처럼 들리게 해줘.
+   Claude:  믹싱 엔지니어가 하는 걸 할게요. 저음 지저분한 것 걷고, 소리 크기 고르게,
+            "스" 소리 눌러 주고, 공간 조금. 플러그인 이름은 몰라도 돼요.
+            1번 트랙 슬롯 1~3: Channel EQ, Compressor, DeEsser(verified).
+            EQ: 90 Hz 아래 컷, 선명하게 5 kHz +2 dB(verified).
+            Compressor: Threshold -18 dB, Ratio 3:1. 큰 소리와 작은 소리 차이가 줄어요(verified).
+            센드 1 → Bus 1 -14 dB. Logic이 Aux 1을 만들어서 거기에 ChromaVerb 넣었어요(verified).
+            들어 보고 "공간 더", "덜 날카롭게", "그 오토튠 느낌" 같은 말로 시키면 고칠게요.
 
-   나:      1번 트랙 보컬에 티 나는 오토튠 걸어줘. 곡은 D 메이저야.
-   Claude:  1번 트랙 슬롯 1에 Pitch Correction 넣었어요(verified).
-            Root → D, Scale → Major, Response → 0 ms(verified).
-            이제 음이 D 메이저로 바로 붙습니다.
+   나:      그 오토튠 느낌 맞아. 티 나게. 곡은 D 메이저야.
+   Claude:  1번 트랙 슬롯 4에 Pitch Correction 넣었어요(verified).
+            Root → D, Scale → Major, Response → 0 ms. 음이 D 메이저로 바로 붙어요(verified).
 
    나:      너무 로봇 같아. 조금만 풀어줘.
    Claude:  Response → 200 ms(verified).
+
+   나:      2번 트랙은 기타 DI. 게이트, 살짝 컴프, 앰프, 딜레이 조금, 리버브는 버스로 크게.
+   Claude:  2번 트랙 슬롯 1~4: Noise Gate, Compressor, Guitar Amp Pro, Channel EQ(verified).
+            센드 1 → Bus 2 -12 dB, Aux 2에 Tape Delay(verified).
+            리버브는 센드 2 → Bus 1, 아까 그 ChromaVerb Aux(verified).
    ```
 
 쓰면서 느낄 것:
