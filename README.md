@@ -134,8 +134,10 @@ Side effects: EQ, plugin and send commands change Logic's track selection; if a 
 - Creating a new bus send makes Logic create an Aux track and shifts the numbers of the tracks behind it. Afterwards, check the numbers again with `logic_bank show` or `plugin list`.
 - `logic_plugin calibrate` and `scripts/calibrate_plugin.py` insert a plugin into the open project, move its values, and do not put them back. Use them only in a test project and do not save.
 - It does not touch any other control surface you already use. This server opens only its own port, "LogicMCP".
+- What the server touches: it talks to the MCP client over stdio and makes no network connections, and it asks for no macOS privacy permissions (Accessibility, Screen Recording, Automation). It writes only to `~/.logic-mcp/` (the plug-in cache), reads Logic's `Info.plist` for the version, and runs one external command, `pgrep`, to see whether Logic is running. It has three dependencies: `mcp`, `python-rtmidi`, `pydantic`.
+- To remove it: run `claude mcp remove logic` (or delete the entry from the Claude Desktop config), delete the Mackie Control device that uses the LogicMCP port in Logic Pro > Settings > Control Surfaces > Setup…, and delete `~/.logic-mcp/`.
 
-If something goes wrong, work through [docs/troubleshooting.md](docs/troubleshooting.md) from top to bottom.
+If something goes wrong, work through [docs/troubleshooting.md](docs/troubleshooting.md) from top to bottom. To report a security problem, see [SECURITY.md](SECURITY.md).
 
 ## Development
 

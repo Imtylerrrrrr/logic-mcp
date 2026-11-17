@@ -7,6 +7,7 @@
 ## [Unreleased]
 ### Added
 - Logic 12.0.1 삽입 메뉴의 플러그인 67종 전부에 번들 파라미터 표(이전 10종). MCU로 보이는 메뉴 항목마다 표가 있고, 파라미터는 모두 1,064개. Space Designer(178)·EVOC 20 Filterbank(61)가 가장 크다.
+- `SECURITY.md`(취약점 제보 방법, 서버가 건드리는 것), Python 의존성과 GitHub Actions용 Dependabot 설정, 신뢰 게시로 PyPI에 올리는 수동 `publish` 워크플로. README 주의 섹션에 서버가 건드리는 것과 제거 방법을 적었다.
 - `scripts/calibrate_batch.sh [strip] "이름" ...`: 여러 플러그인을 차례로 `calibrate_plugin.py --write --yes`로 수집한다. 번들에 이미 있는 이름은 건너뛰고, 플러그인마다 로그를 `~/.logic-mcp/calib-logs/`에 남긴다.
 
 ### Changed

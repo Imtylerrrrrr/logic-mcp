@@ -7,6 +7,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 ### Added
 - Bundled parameter tables for all 67 plug-ins in the Logic 12.0.1 insert menu (was 10): every entry of the menu as it appears over MCU now has a table, 1,064 parameters in total. Space Designer and EVOC 20 Filterbank have the largest tables (178 and 61 parameters).
+- `SECURITY.md` (how to report a vulnerability, what the server touches), a Dependabot configuration for the Python dependencies and the GitHub Actions, and a manual `publish` workflow that uploads to PyPI with trusted publishing. The README Cautions section now states what the server touches and how to remove it.
 - `scripts/calibrate_batch.sh [strip] "Name" ...` runs `calibrate_plugin.py --write --yes` for several plug-ins in a row, skips names already in the bundle, and writes one log per plug-in to `~/.logic-mcp/calib-logs/`.
 
 ### Changed

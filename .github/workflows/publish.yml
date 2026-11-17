@@ -1,0 +1,21 @@
+name: publish
+# Builds the package and publishes it to PyPI with trusted publishing (no API token; the
+# upload carries a provenance attestation). Manual for now: run it from the release tag.
+# One-time setup on pypi.org: add a trusted publisher for project "logic-mcp" with
+# owner Imtylerrrrrr, repository logic-mcp, workflow publish.yml, environment pypi.
+on:
+  workflow_dispatch:
+jobs:
+  pypi:
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv build
+      - uses: pypa/gh-action-pypi-publish@release/v1

@@ -132,8 +132,10 @@ logic_mixer {"action": "set_volume", "strip": 3, "db": -6.0}
 - 버스 센드를 새로 만들면 Logic이 Aux 트랙을 만들어 뒤쪽 트랙 번호가 밀린다. 그 뒤에는 `logic_bank show`나 `plugin list`로 번호를 다시 확인하라.
 - `logic_plugin calibrate`와 `scripts/calibrate_plugin.py`는 열린 프로젝트에 플러그인을 넣고 값을 움직인 뒤 되돌리지 않는다. 테스트 프로젝트에서만 쓰고 저장하지 마라.
 - 사용자가 이미 쓰는 다른 컨트롤 서피스는 건드리지 않는다. 이 서버는 자기 포트 "LogicMCP"만 연다.
+- 서버가 건드리는 것: MCP 클라이언트와 stdio로만 통신하고 네트워크 연결을 하지 않으며, macOS 개인정보 보호 권한(접근성, 화면 기록, 자동화)을 요구하지 않는다. `~/.logic-mcp/`(플러그인 캐시)에만 쓰고, 버전 확인용으로 Logic의 `Info.plist`를 읽고, Logic이 켜져 있는지 보려고 외부 명령 `pgrep` 하나를 실행한다. 의존성은 `mcp`, `python-rtmidi`, `pydantic` 세 개다.
+- 제거하려면: `claude mcp remove logic`을 실행하고(Claude Desktop은 설정 파일에서 항목 삭제), Logic > 설정 > 컨트롤 서피스 > 설정에서 LogicMCP 포트를 쓰는 Mackie Control 장치를 삭제하고, `~/.logic-mcp/`를 지운다.
 
-문제가 생기면 [docs/troubleshooting.md](docs/troubleshooting.ko.md)를 위에서 아래 순서로 확인하라.
+문제가 생기면 [docs/troubleshooting.md](docs/troubleshooting.ko.md)를 위에서 아래 순서로 확인하라. 보안 문제 제보는 [SECURITY.ko.md](SECURITY.ko.md)를 보라.
 
 ## 개발
 
