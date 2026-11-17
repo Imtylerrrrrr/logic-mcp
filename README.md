@@ -6,7 +6,7 @@ An MCP server that lets Claude Code operate Logic Pro. It emulates the Mackie Co
 
 ## Quick start
 
-Three steps, then you talk to Logic in plain language.
+Three steps, then you hand Logic whole jobs in plain language.
 
 1. Add the server to Claude Code (other clients: see [Installation](#installation-macos-logic-pro-1112)).
 
@@ -16,27 +16,31 @@ Three steps, then you talk to Logic in plain language.
 
 2. Open a Logic project. Use a throwaway copy the first time: changes go straight into the open project. The server never saves, so closing without saving undoes everything. Logic picks up the server's "LogicMCP" port as a Mackie Control by itself. The first time, say "set up the Logic connection" and Claude runs `logic_session configure`.
 
-3. Say what you want. A session looks roughly like this:
+3. Hand it a whole job. A session looks roughly like this:
 
    ```
-   You:    Put a compressor on the vocal track and pull the threshold down to -20.
-   Claude: Compressor inserted in track 1, slot 2 (verified).
-           Threshold → -20.0 dB (verified).
+   You:    Track 2 is a DI guitar. Build me a clean, spacious tone: gate, light compression,
+           amp, a touch of delay and a big reverb on buses.
+   Claude: Plan: Noise Gate → Compressor → Guitar Amp Pro → Channel EQ on track 2,
+           Tape Delay on Bus 1 and ChromaVerb on Bus 2 as sends.
+           Track 2 slots 1-4: Noise Gate, Compressor, Guitar Amp Pro, Channel EQ (verified).
+           Compressor: Threshold -18 dB, Ratio 2.5:1 (verified). EQ: high-pass 80 Hz (verified).
+           Send 1 → Bus 1 at -15 dB, send 2 → Bus 2 at -10 dB (verified). Logic created Aux 1
+           and Aux 2 for the buses; Tape Delay is on Aux 1, ChromaVerb on Aux 2 (verified).
+           13 steps, about three minutes. Nothing is saved; listen and tell me what to change.
 
-   You:    Cut everything below 100 Hz on that track.
-   Claude: Track 1 had no Channel EQ, so I inserted one.
-           Band 1 (high-pass): 100 Hz, 24 dB/oct, on (verified).
+   You:    The vocal on track 1 needs that hard, obvious autotune. The song is in D major.
+   Claude: Pitch Correction inserted in track 1, slot 1 (verified).
+           Root → D, Scale → Major, Response → 0 ms (verified).
+           Notes now snap straight to D major.
 
-   You:    Send it to the reverb bus at -12.
-   Claude: Send 1 → Bus 2, -12.0 dB, Post Pan (verified).
-
-   You:    Mute it and play from the top.
-   Claude: Track 1 muted, rewound, playing (verified).
+   You:    Too robotic. Back it off a little.
+   Claude: Response → 200 ms (verified).
    ```
 
 What you will notice:
 
-- Each step takes a few seconds. Claude is not guessing: it moves a fader or knob on a virtual control surface, then waits for Logic's own display to show the new value before it answers.
+- A big request turns into a dozen small steps, each a few seconds: Claude moves a fader or knob on a virtual control surface, then waits for Logic's own display to show the new value before it moves on. A whole tone takes a few minutes.
 - Every answer carries `verified`, `skipped` (already in that state) or `unverified` (sent, but Logic did not confirm). An `unverified` reply says why.
 - Tracks are the 8 in the current bank of the virtual surface. "Track 3" means the third strip; "track number 12" means Logic's own number in the track header. Claude moves the bank when it has to.
 

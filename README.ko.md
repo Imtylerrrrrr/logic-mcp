@@ -6,7 +6,7 @@ Claude Code가 Logic Pro를 조작하는 MCP 서버. Logic이 공식 지원하�
 
 ## 빠른 사용법
 
-세 단계면 준비가 끝나고, 그 뒤로는 Logic에 말로 시킨다.
+세 단계면 준비가 끝나고, 그 뒤로는 Logic에 할 일을 말로 통째로 맡긴다.
 
 1. Claude Code에 서버를 추가한다(다른 클라이언트는 [설치](#설치-macos-logic-pro-1112) 참고).
 
@@ -16,27 +16,31 @@ Claude Code가 Logic Pro를 조작하는 MCP 서버. Logic이 공식 지원하�
 
 2. Logic에서 프로젝트를 연다. 처음엔 버려도 되는 복사본으로. 변경은 열린 프로젝트에 바로 들어가지만 서버는 저장을 하지 않으니, 저장 안 하고 닫으면 원래대로다. 서버의 "LogicMCP" 포트는 Logic이 알아서 Mackie Control로 잡는다. 처음 한 번 "Logic 연결 설정해줘"라고 하면 Claude가 `logic_session configure`를 돌린다.
 
-3. 하고 싶은 걸 말한다. 대략 이런 식이다:
+3. 일을 통째로 맡긴다. 대략 이런 식이다:
 
    ```
-   나:      보컬 트랙에 컴프 걸고 스레시홀드 -20까지 내려줘
-   Claude:  1번 트랙 슬롯 2에 Compressor 넣었어요(verified).
-            Threshold → -20.0 dB(verified).
+   나:      2번 트랙이 기타 DI야. 깔끔하고 넓은 톤 만들어줘. 게이트, 살짝 컴프, 앰프,
+            딜레이 조금, 리버브는 버스로 크게.
+   Claude:  계획: 2번 트랙에 Noise Gate → Compressor → Guitar Amp Pro → Channel EQ,
+            센드로 Bus 1에 Tape Delay, Bus 2에 ChromaVerb.
+            2번 트랙 슬롯 1~4: Noise Gate, Compressor, Guitar Amp Pro, Channel EQ(verified).
+            Compressor: Threshold -18 dB, Ratio 2.5:1(verified). EQ: 하이패스 80 Hz(verified).
+            센드 1 → Bus 1 -15 dB, 센드 2 → Bus 2 -10 dB(verified). 버스 때문에 Logic이
+            Aux 1·2를 만들었고, Aux 1에 Tape Delay, Aux 2에 ChromaVerb 넣었어요(verified).
+            13단계, 3분쯤 걸렸어요. 저장은 안 했으니 들어 보고 고칠 곳 말해 주세요.
 
-   나:      그 트랙 100 Hz 아래는 다 잘라
-   Claude:  1번 트랙에 Channel EQ가 없어서 넣었어요.
-            밴드 1(하이패스): 100 Hz, 24 dB/oct, 켬(verified).
+   나:      1번 트랙 보컬에 티 나는 오토튠 걸어줘. 곡은 D 메이저야.
+   Claude:  1번 트랙 슬롯 1에 Pitch Correction 넣었어요(verified).
+            Root → D, Scale → Major, Response → 0 ms(verified).
+            이제 음이 D 메이저로 바로 붙습니다.
 
-   나:      리버브 버스로 -12 보내
-   Claude:  센드 1 → Bus 2, -12.0 dB, Post Pan(verified).
-
-   나:      뮤트하고 처음부터 재생
-   Claude:  1번 트랙 뮤트, 되감기, 재생 중(verified).
+   나:      너무 로봇 같아. 조금만 풀어줘.
+   Claude:  Response → 200 ms(verified).
    ```
 
 쓰면서 느낄 것:
 
-- 한 단계에 몇 초 걸린다. Claude가 짐작으로 답하는 게 아니라, 가상 콘솔의 페이더·노브를 움직인 뒤 Logic 전광판에 새 값이 뜨는 걸 확인하고 답하기 때문이다.
+- 큰 요청 하나가 작은 단계 열몇 개로 쪼개지고, 단계마다 몇 초 걸린다. Claude가 가상 콘솔의 페이더·노브를 움직인 뒤 Logic 전광판에 새 값이 뜨는 걸 확인하고 다음으로 넘어가기 때문이다. 톤 하나에 몇 분쯤 든다.
 - 모든 답에 `verified`, `skipped`(이미 그 상태), `unverified`(보냈지만 Logic이 확인해 주지 않음) 중 하나가 붙는다. `unverified`면 이유도 같이 말한다.
 - 트랙은 가상 콘솔의 현재 뱅크 8개 기준이다. "3번 트랙"은 세 번째 스트립, "트랙 번호 12"는 Logic 트랙 헤더의 번호. 필요하면 Claude가 뱅크를 옮긴다.
 
