@@ -4,6 +4,42 @@
 
 An MCP server that lets Claude Code operate Logic Pro. It emulates the Mackie Control (MCU) protocol, which Logic officially supports, over a CoreMIDI virtual port, and verifies every command against the LED, fader and LCD feedback that Logic sends back to the surface. It does not click on the screen or use accessibility APIs. Only MIDI goes back and forth.
 
+## Quick start
+
+Three steps, then you talk to Logic in plain language.
+
+1. Add the server to Claude Code (other clients: see [Installation](#installation-macos-logic-pro-1112)).
+
+   ```
+   claude mcp add logic -- uvx --python 3.12 --from git+https://github.com/Imtylerrrrrr/logic-mcp logic-mcp
+   ```
+
+2. Open a Logic project. Use a throwaway copy the first time: changes go straight into the open project. The server never saves, so closing without saving undoes everything. Logic picks up the server's "LogicMCP" port as a Mackie Control by itself. The first time, say "set up the Logic connection" and Claude runs `logic_session configure`.
+
+3. Say what you want. A session looks roughly like this:
+
+   ```
+   You:    Put a compressor on the vocal track and pull the threshold down to -20.
+   Claude: Compressor inserted in track 1, slot 2 (verified).
+           Threshold → -20.0 dB (verified).
+
+   You:    Cut everything below 100 Hz on that track.
+   Claude: Track 1 had no Channel EQ, so I inserted one.
+           Band 1 (high-pass): 100 Hz, 24 dB/oct, on (verified).
+
+   You:    Send it to the reverb bus at -12.
+   Claude: Send 1 → Bus 2, -12.0 dB, Post Pan (verified).
+
+   You:    Mute it and play from the top.
+   Claude: Track 1 muted, rewound, playing (verified).
+   ```
+
+What you will notice:
+
+- Each step takes a few seconds. Claude is not guessing: it moves a fader or knob on a virtual control surface, then waits for Logic's own display to show the new value before it answers.
+- Every answer carries `verified`, `skipped` (already in that state) or `unverified` (sent, but Logic did not confirm). An `unverified` reply says why.
+- Tracks are the 8 in the current bank of the virtual surface. "Track 3" means the third strip; "track number 12" means Logic's own number in the track header. Claude moves the bank when it has to.
+
 ## What it can do
 
 - Transport: play, stop, record, cycle, rewind, fast-forward
@@ -55,30 +91,6 @@ Add this to `~/Library/Application Support/Claude/claude_desktop_config.json`. U
 
 When you open a project in Logic, the "LogicMCP" port is installed automatically as a Mackie Control. Call `logic_session configure` once the first time (track number display, value display mode, Beats clock).
 
-## Quick start
-
-Just talk to Claude Code in natural language. If you installed the skill from installation A, Claude first reads the order of operations and the pitfalls of the EQ, plugin and send commands.
-
-```
-Mute track 1
-Set track 3 volume to -6 dB
-Set track 2 Channel EQ band 3 to 1 kHz, +3 dB
-Insert a Compressor in track 1 insert slot 2
-Set that Compressor's Threshold to -20 dB
-Show the plugin list for the current bank
-Route track 1 send 1 to Bus 2 at -12 dB
-```
-
-A track is addressed by either `strip` (1-8 in the current bank) or `number` (the Logic track number shown on the LCD). Calling a tool directly looks like this.
-
-```json
-logic_mixer {"action": "set_volume", "strip": 3, "db": -6.0}
-→ {"ok": true, "verified": "verified", "action": "set_volume",
-   "target": {...}, "before": {...}, "after": {...}, "elapsed_ms": 176, "note": ""}
-```
-
-If `ok` is false, or `verified` is `unverified` or `timeout`, `note` holds the reason (Flip is on, no LCD change, etc.).
-
 ## Tools
 
 | Tool | Description |
@@ -94,6 +106,16 @@ If `ok` is false, or `verified` is `unverified` or `timeout`, `note` holds the r
 
 Resources: `logic://status`, `logic://transport`, `logic://strips`, `logic://lcd`, `logic://plugins`, `logic://inserts`, `logic://view`.
 
+Calling a tool directly looks like this. A track is addressed by either `strip` (1-8 in the current bank) or `number` (the Logic track number shown on the LCD).
+
+```json
+logic_mixer {"action": "set_volume", "strip": 3, "db": -6.0}
+→ {"ok": true, "verified": "verified", "action": "set_volume",
+   "target": {...}, "before": {...}, "after": {...}, "elapsed_ms": 176, "note": ""}
+```
+
+If `ok` is false, or `verified` is `unverified` or `timeout`, `note` holds the reason (Flip is on, no LCD change, etc.).
+
 Only insert slots 1-8 and sends 1-8 are supported. The output (Stereo Out) and Master strips do not accept EQ channel, plugin or send commands (Logic's channel view does not follow those strips; see Z4 in [docs/mcu-protocol.md](docs/mcu-protocol.md) (Korean)).
 
 The plugin list consists of the bundle (built into Logic 12.0.1) plus `logic_plugin scan` (user cache `~/.logic-mcp/plugins-<version>.json`). The bundled parameter tables are built with `uv run python scripts/calibrate_plugin.py "<plugin>" [strip] --write` (in a test project).
@@ -108,7 +130,7 @@ Side effects: EQ, plugin and send commands change Logic's track selection; if a 
 | Channel EQ, insert plugins | Done (live round 9, 17/17) |
 | Output and Master strip guard | Done (live round 10, skipped on the Stereo Out strip) |
 | Sends (`logic_send`) | Done (live round 10, 9/9) |
-| Bundled plugin parameter tables | 67 plugins, every entry of the Logic 12.0.1 insert menu as seen over MCU (collected live 10/19-11/11; 1,064 parameters, 119 without a map). Parameters without a map are probed when written. Most map-less parameters are action parameters, minimum values such as Mute, and unit changes (Space Designer 22, ChromaVerb 11) |
+| Bundled plugin parameter tables | 67 plugins, every entry of the Logic 12.0.1 insert menu as seen over MCU (collected live 10/19-11/11, two-column tables recollected 11/11; 1,040 parameters, 96 without a map). Parameters without a map are probed when written. Most map-less parameters are action parameters, minimum values such as Mute, and unit changes (Space Designer 22, ChromaVerb 11) |
 | Calibration and scan correction (10/19) | Done (the 163 one-tick scan results matched the diagnosis, 0 enum misjudgments in the re-collected tables; search near the insert is unverified) |
 
 ## Cautions

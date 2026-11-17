@@ -4,6 +4,42 @@
 
 Claude Code가 Logic Pro를 조작하는 MCP 서버. Logic이 공식 지원하는 Mackie Control(MCU) 프로토콜을 CoreMIDI 가상 포트로 에뮬레이션하고, 모든 명령을 Logic이 서피스로 돌려보내는 LED·페이더·LCD 피드백으로 검증한다. 화면을 클릭하거나 접근성 API를 쓰지 않는다. 오가는 것은 MIDI만이다.
 
+## 빠른 사용법
+
+세 단계면 준비가 끝나고, 그 뒤로는 Logic에 말로 시킨다.
+
+1. Claude Code에 서버를 추가한다(다른 클라이언트는 [설치](#설치-macos-logic-pro-1112) 참고).
+
+   ```
+   claude mcp add logic -- uvx --python 3.12 --from git+https://github.com/Imtylerrrrrr/logic-mcp logic-mcp
+   ```
+
+2. Logic에서 프로젝트를 연다. 처음엔 버려도 되는 복사본으로. 변경은 열린 프로젝트에 바로 들어가지만 서버는 저장을 하지 않으니, 저장 안 하고 닫으면 원래대로다. 서버의 "LogicMCP" 포트는 Logic이 알아서 Mackie Control로 잡는다. 처음 한 번 "Logic 연결 설정해줘"라고 하면 Claude가 `logic_session configure`를 돌린다.
+
+3. 하고 싶은 걸 말한다. 대략 이런 식이다:
+
+   ```
+   나:      보컬 트랙에 컴프 걸고 스레시홀드 -20까지 내려줘
+   Claude:  1번 트랙 슬롯 2에 Compressor 넣었어요(verified).
+            Threshold → -20.0 dB(verified).
+
+   나:      그 트랙 100 Hz 아래는 다 잘라
+   Claude:  1번 트랙에 Channel EQ가 없어서 넣었어요.
+            밴드 1(하이패스): 100 Hz, 24 dB/oct, 켬(verified).
+
+   나:      리버브 버스로 -12 보내
+   Claude:  센드 1 → Bus 2, -12.0 dB, Post Pan(verified).
+
+   나:      뮤트하고 처음부터 재생
+   Claude:  1번 트랙 뮤트, 되감기, 재생 중(verified).
+   ```
+
+쓰면서 느낄 것:
+
+- 한 단계에 몇 초 걸린다. Claude가 짐작으로 답하는 게 아니라, 가상 콘솔의 페이더·노브를 움직인 뒤 Logic 전광판에 새 값이 뜨는 걸 확인하고 답하기 때문이다.
+- 모든 답에 `verified`, `skipped`(이미 그 상태), `unverified`(보냈지만 Logic이 확인해 주지 않음) 중 하나가 붙는다. `unverified`면 이유도 같이 말한다.
+- 트랙은 가상 콘솔의 현재 뱅크 8개 기준이다. "3번 트랙"은 세 번째 스트립, "트랙 번호 12"는 Logic 트랙 헤더의 번호. 필요하면 Claude가 뱅크를 옮긴다.
+
 ## 할 수 있는 것
 
 - 트랜스포트: 재생·정지·녹음·사이클·되감기·빨리감기
@@ -53,30 +89,6 @@ git clone https://github.com/Imtylerrrrrr/logic-mcp.git && cp -R logic-mcp/skill
 
 Logic에서 프로젝트를 열면 "LogicMCP" 포트가 Mackie Control로 자동 설치된다. 처음 한 번 `logic_session configure`를 호출한다(트랙 번호 표시, 값 표시 모드, Beats 클락).
 
-## 빠른 사용법
-
-Claude Code에 자연어로 말하면 된다. 설치 A의 스킬을 넣어 두면 Claude가 EQ·플러그인·센드 명령의 순서와 함정을 먼저 읽는다.
-
-```
-1번 트랙 뮤트해
-3번 트랙 볼륨 -6 dB로 맞춰
-2번 트랙 Channel EQ 밴드 3을 1 kHz, +3 dB로
-1번 트랙 인서트 슬롯 2에 Compressor 넣어줘
-그 Compressor의 Threshold를 -20 dB로
-현재 뱅크 플러그인 목록 보여줘
-1번 트랙 센드 1을 Bus 2로 보내고 레벨 -12 dB
-```
-
-트랙은 `strip`(현재 뱅크의 1~8) 또는 `number`(LCD에 찍히는 Logic 트랙 번호) 둘 중 하나로 가리킨다. 툴을 직접 부르면 이런 모양이다.
-
-```json
-logic_mixer {"action": "set_volume", "strip": 3, "db": -6.0}
-→ {"ok": true, "verified": "verified", "action": "set_volume",
-   "target": {...}, "before": {...}, "after": {...}, "elapsed_ms": 176, "note": ""}
-```
-
-`ok`가 false이거나 `verified`가 `unverified`·`timeout`이면 `note`에 이유가 들어 있다(Flip이 켜져 있음, LCD 변화 없음 등).
-
 ## 툴
 
 | 툴 | 설명 |
@@ -92,6 +104,16 @@ logic_mixer {"action": "set_volume", "strip": 3, "db": -6.0}
 
 리소스: `logic://status`, `logic://transport`, `logic://strips`, `logic://lcd`, `logic://plugins`, `logic://inserts`, `logic://view`.
 
+툴을 직접 부르면 이런 모양이다. 트랙은 `strip`(현재 뱅크의 1~8) 또는 `number`(LCD에 찍히는 Logic 트랙 번호) 둘 중 하나로 가리킨다.
+
+```json
+logic_mixer {"action": "set_volume", "strip": 3, "db": -6.0}
+→ {"ok": true, "verified": "verified", "action": "set_volume",
+   "target": {...}, "before": {...}, "after": {...}, "elapsed_ms": 176, "note": ""}
+```
+
+`ok`가 false이거나 `verified`가 `unverified`·`timeout`이면 `note`에 이유가 들어 있다(Flip이 켜져 있음, LCD 변화 없음 등).
+
 인서트 슬롯은 1~8, 센드는 1~8만 지원한다. 출력(Stereo Out)·Master 스트립은 EQ 채널·플러그인·센드 명령을 받지 않는다(Logic의 채널 뷰가 그 스트립을 따라가지 않음, `docs/mcu-protocol.md` Z4).
 
 플러그인 목록은 번들(Logic 12.0.1 내장) + `logic_plugin scan`(사용자 캐시 `~/.logic-mcp/plugins-<버전>.json`)으로 이뤄진다. 번들 파라미터 표는 `uv run python scripts/calibrate_plugin.py "<플러그인>" [strip] --write`로 만든다(테스트 프로젝트에서).
@@ -106,7 +128,7 @@ logic_mixer {"action": "set_volume", "strip": 3, "db": -6.0}
 | Channel EQ·인서트 플러그인 | 완료 (실기 9차 17/17) |
 | 출력·Master 스트립 가드 | 완료 (실기 10차, Stereo Out 스트립에서 skipped) |
 | 센드(`logic_send`) | 완료 (실기 10차 9/9) |
-| 플러그인 파라미터 번들 표 | 67종, MCU로 보이는 Logic 12.0.1 삽입 메뉴 전체(10/19~11/11 실기 수집, 1,064 파라미터, map 없음 119개). map 없는 파라미터는 쓸 때 프로빙. map 없는 것은 대부분 동작 파라미터·Mute 같은 최소값·단위 변화(Space Designer 22, ChromaVerb 11) |
+| 플러그인 파라미터 번들 표 | 67종, MCU로 보이는 Logic 12.0.1 삽입 메뉴 전체(10/19~11/11 실기 수집, 두 칸 표 14개는 11/11 재수집, 1,040 파라미터, map 없음 96개). map 없는 파라미터는 쓸 때 프로빙. map 없는 것은 대부분 동작 파라미터·Mute 같은 최소값·단위 변화(Space Designer 22, ChromaVerb 11) |
 | 캘리브레이션·스캔 보정(10/19) | 완료 (1틱 스캔 163개가 진단과 일치, 재수집 표에 enum 오판 0건; insert 근처 탐색은 미확인) |
 
 ## 주의
