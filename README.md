@@ -6,43 +6,29 @@ An MCP server that lets Claude Code operate Logic Pro. It emulates the Mackie Co
 
 ## Quick start
 
-Three steps, then you hand Logic whole jobs in plain language.
-
 1. Add the server to Claude Code (other clients: see [Installation](#installation-macos-logic-pro-1112)).
 
    ```
    claude mcp add logic -- uvx --python 3.12 --from git+https://github.com/Imtylerrrrrr/logic-mcp logic-mcp
    ```
 
-2. Open a Logic project. Use a throwaway copy the first time: changes go straight into the open project. The server never saves, so closing without saving undoes everything. Logic picks up the server's "LogicMCP" port as a Mackie Control by itself. The first time, say "set up the Logic connection" and Claude runs `logic_session configure`.
+2. Open a project in Logic. Use a throwaway copy the first time: changes go straight into the open project, and the server never saves it.
+3. Tell Claude "set up the Logic connection" once (it runs `logic_session configure`), then ask for what you want.
 
-3. Hand it a whole job. Describe the sound you want and let Claude pick the plug-ins, or name them yourself if you know them. A session looks roughly like this:
+## What to ask
 
-   ```
-   You:    I recorded myself singing on track 1. I know nothing about mixing.
-           Make it sound like a finished pop vocal.
-   Claude: I'll do what a mix engineer does: clean up the low end, even out the volume,
-           tame the "s" sounds, add some space. You don't need any plug-in names.
-           Track 1 slots 1-3: Channel EQ, Compressor, DeEsser (verified).
-           EQ: cut below 90 Hz, +2 dB at 5 kHz for clarity (verified).
-           Compressor: Threshold -18 dB, Ratio 3:1, so loud and quiet words sit closer (verified).
-           Send 1 → Bus 1 at -14 dB; Logic created Aux 1 and I put ChromaVerb on it for room (verified).
-           Have a listen. Say "more space", "less harsh" or "that autotune thing" and I'll adjust.
+You don't need to know the plug-in names. Describe the sound:
 
-   You:    That autotune thing, yes. Make it obvious. The song is in D major.
-   Claude: Pitch Correction inserted in track 1, slot 4 (verified).
-           Root → D, Scale → Major, Response → 0 ms. Notes now snap straight to D major (verified).
+- *"I recorded myself singing on track 1. Make it sound like a finished pop vocal."*
+- *"Put that obvious autotune on the vocal. The song is in D major."*
+- *"The guitar sounds boxed in. Make it wide and clean."*
 
-   You:    Too robotic. Back it off a little.
-   Claude: Response → 200 ms (verified).
+If you know the terms, be as specific as you like:
 
-   You:    Track 2 is a DI guitar. Gate, light compression, amp, a touch of delay, big reverb on a bus.
-   Claude: Track 2 slots 1-4: Noise Gate, Compressor, Guitar Amp Pro, Channel EQ (verified).
-           Send 1 → Bus 2 at -12 dB, Tape Delay on Aux 2 (verified).
-           Reverb: send 2 → Bus 1, the ChromaVerb Aux from before (verified).
-   ```
+- *"Track 2: gate, light compression, an amp, a touch of delay, and a big reverb on a bus."*
+- *"Set track 1 Channel EQ band 3 to 1 kHz, +3 dB."*
 
-What you will notice:
+## What to expect
 
 - A big request turns into a dozen small steps, each a few seconds: Claude moves a fader or knob on a virtual control surface, then waits for Logic's own display to show the new value before it moves on. A whole tone takes a few minutes.
 - Every answer carries `verified`, `skipped` (already in that state) or `unverified` (sent, but Logic did not confirm). An `unverified` reply says why.

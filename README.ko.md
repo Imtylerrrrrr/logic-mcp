@@ -6,43 +6,29 @@ Claude Code가 Logic Pro를 조작하는 MCP 서버. Logic이 공식 지원하�
 
 ## 빠른 사용법
 
-세 단계면 준비가 끝나고, 그 뒤로는 Logic에 할 일을 말로 통째로 맡긴다.
-
 1. Claude Code에 서버를 추가한다(다른 클라이언트는 [설치](#설치-macos-logic-pro-1112) 참고).
 
    ```
    claude mcp add logic -- uvx --python 3.12 --from git+https://github.com/Imtylerrrrrr/logic-mcp logic-mcp
    ```
 
-2. Logic에서 프로젝트를 연다. 처음엔 버려도 되는 복사본으로. 변경은 열린 프로젝트에 바로 들어가지만 서버는 저장을 하지 않으니, 저장 안 하고 닫으면 원래대로다. 서버의 "LogicMCP" 포트는 Logic이 알아서 Mackie Control로 잡는다. 처음 한 번 "Logic 연결 설정해줘"라고 하면 Claude가 `logic_session configure`를 돌린다.
+2. Logic에서 프로젝트를 연다. 처음엔 버려도 되는 복사본으로. 변경은 열린 프로젝트에 바로 들어가고, 서버는 저장을 하지 않는다.
+3. Claude에게 "Logic 연결 설정해줘"라고 한 번 말하고(`logic_session configure`가 돈다), 그다음 하고 싶은 걸 말한다.
 
-3. 일을 통째로 맡긴다. 원하는 소리를 말로 묘사하면 Claude가 플러그인을 고르고, 용어를 알면 직접 말해도 된다. 대략 이런 식이다:
+## 이렇게 시키면 된다
 
-   ```
-   나:      1번 트랙에 내 노래 녹음했어. 믹싱은 하나도 몰라.
-            그냥 완성된 팝 보컬처럼 들리게 해줘.
-   Claude:  믹싱 엔지니어가 하는 걸 할게요. 저음 지저분한 것 걷고, 소리 크기 고르게,
-            "스" 소리 눌러 주고, 공간 조금. 플러그인 이름은 몰라도 돼요.
-            1번 트랙 슬롯 1~3: Channel EQ, Compressor, DeEsser(verified).
-            EQ: 90 Hz 아래 컷, 선명하게 5 kHz +2 dB(verified).
-            Compressor: Threshold -18 dB, Ratio 3:1. 큰 소리와 작은 소리 차이가 줄어요(verified).
-            센드 1 → Bus 1 -14 dB. Logic이 Aux 1을 만들어서 거기에 ChromaVerb 넣었어요(verified).
-            들어 보고 "공간 더", "덜 날카롭게", "그 오토튠 느낌" 같은 말로 시키면 고칠게요.
+플러그인 이름을 몰라도 된다. 원하는 소리를 말로 묘사한다:
 
-   나:      그 오토튠 느낌 맞아. 티 나게. 곡은 D 메이저야.
-   Claude:  1번 트랙 슬롯 4에 Pitch Correction 넣었어요(verified).
-            Root → D, Scale → Major, Response → 0 ms. 음이 D 메이저로 바로 붙어요(verified).
+- *"1번 트랙에 내 노래 녹음했어. 완성된 팝 보컬처럼 들리게 해줘"*
+- *"보컬에 티 나는 오토튠 걸어줘. 곡은 D 메이저야"*
+- *"기타가 너무 답답해. 넓고 깔끔하게 만들어줘"*
 
-   나:      너무 로봇 같아. 조금만 풀어줘.
-   Claude:  Response → 200 ms(verified).
+용어를 알면 원하는 만큼 구체적으로 말한다:
 
-   나:      2번 트랙은 기타 DI. 게이트, 살짝 컴프, 앰프, 딜레이 조금, 리버브는 버스로 크게.
-   Claude:  2번 트랙 슬롯 1~4: Noise Gate, Compressor, Guitar Amp Pro, Channel EQ(verified).
-            센드 1 → Bus 2 -12 dB, Aux 2에 Tape Delay(verified).
-            리버브는 센드 2 → Bus 1, 아까 그 ChromaVerb Aux(verified).
-   ```
+- *"2번 트랙에 게이트, 살짝 컴프, 앰프, 딜레이 조금, 리버브는 버스로 크게"*
+- *"1번 트랙 Channel EQ 밴드 3을 1 kHz, +3 dB로"*
 
-쓰면서 느낄 것:
+## 쓰면서 느낄 것
 
 - 큰 요청 하나가 작은 단계 열몇 개로 쪼개지고, 단계마다 몇 초 걸린다. Claude가 가상 콘솔의 페이더·노브를 움직인 뒤 Logic 전광판에 새 값이 뜨는 걸 확인하고 다음으로 넘어가기 때문이다. 톤 하나에 몇 분쯤 든다.
 - 모든 답에 `verified`, `skipped`(이미 그 상태), `unverified`(보냈지만 Logic이 확인해 주지 않음) 중 하나가 붙는다. `unverified`면 이유도 같이 말한다.
