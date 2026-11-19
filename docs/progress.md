@@ -135,3 +135,15 @@ bank first   ok=True skipped    1049ms already
 ## TODO
 - **설치 신뢰(2026-11-17 기록)**: 유명 MCP 레포 6곳 조사 결과에 맞춰 ① README 주의 섹션에 건드리는 범위·제거 방법 ② SECURITY.md·Dependabot(월 1회, 묶음) 추가 완료. 남은 것: ③ **PyPI 신뢰 게시** — `logic-mcp` 이름은 11/17 기준 비어 있음. 사용자 몫: pypi.org 계정 → Publishing에서 pending trusted publisher 추가(project `logic-mcp`, owner `Imtylerrrrrr`, repo `logic-mcp`, workflow `publish.yml`, environment `pypi`) → 릴리스 태그에서 Actions `publish`를 수동 실행. 성공하면 README 설치 명령을 `uvx logic-mcp`로 바꾸고 트리거를 `release: published`로 전환. `publish.yml`은 실행해 본 적 없음(미검증). ④ **읽기 전용 모드**(환경 변수로 모든 쓰기 명령 거부, github-mcp-server·supabase·playwright에 있음)는 최적화 설계 때 같이. ⑤ GitHub 비공개 취약점 제보는 11/17에 켰다(API로 `enabled: true` 확인). ⑥ Dependabot PR #1(actions/checkout v7·setup-uv v7)·#2(pydantic·pytest·anyio)는 11/17 머지, main 261c53a에서 367 테스트·CI 통과.
 - **속도 최적화(2026-11-10 기록, 보류)**: set 하나가 10초 안팎인 이유는 `settle_overlay` 2.5 s가 뷰 진입·Flip·페이더 이동(라운드마다)·PAN 복귀에서 4번 이상 들어가고, 호출이 파라미터 하나 단위라 진입·복귀가 매번 반복되기 때문(분석만, 코드 변경 없음). 후보: ① `logic_eq set`·`logic_plugin set`에 여러 파라미터 묶음(뷰 진입·Flip·복귀 1회, 중간 실패 시 멈추고 PAN 복귀) ② 매핑이 확실한 숫자는 라운드마다 읽지 않고 마지막에 한 번 확인 ③ 오버레이 마진 0.5 s는 10/28 경계 실패 전력이 있어 줄이지 않음.
+- **삽입 자리 기억 계획(2026-11-19 정리, 승인 대기, 미구현)**: 속도 최적화 후보 ③.
+  - 문제: 삽입 목록은 Logic 버전당 한 벌(`~/.logic-mcp/plugins-<버전>.json`의 `list`)인데 실제 메뉴 순서가 다르면 `seek_by_name`이 `--`부터 1틱씩 읽는다(틱마다 최소 `TICK_QUIET_S` 0.4 s). 기록된 탐색 길이는 43·44·75·84틱. 저장된 목록에서 Channel EQ는 58번째, 실제 메뉴에서는 38번째(75틱)였다.
+  - 원인은 미확정: 위 11/11 메모의 "프로젝트마다 순서가 다르다"는 추측이다. 10/27에는 서로 다른 두 프로젝트(guitartone·무제 2)에서 Channel EQ가 같은 75틱에 있었고, 모노 트랙 메뉴는 163개·스테레오는 126개였다. 서버는 MIDI로 프로젝트 이름을 알 수 없다. → 원인을 몰라도 되는 방식으로 간다.
+  - 방식: 목록 한 벌 대신 플러그인 이름마다 "실제로 본 항목 번호"를 최근 3개까지 기억한다. 기억한 번호로 바로 가서 이름을 읽고, 맞을 때만 확정한다. 틀리면 지금 흐름으로 넘어가고 기억을 고친다.
+  - 변경 ① `plugins/cache.py`: `PluginCache.spots: dict[str, list[int]]`(키 = 접미를 뗀 오버레이 이름, 값 = 항목 번호 `(틱+1)//2`, 최근 것이 앞, 최대 3개), `learn_spots(trail: dict[str, int])`, 사용자 파일 키 `"spots"`(없는 옛 파일은 빈 dict).
+  - 변경 ② `plugins/scan.py`: `seek_by_name`이 지나온 이름 → 항목 번호 `trail`을 넷째 값으로 돌려준다(호출 3곳 수정).
+  - 변경 ③ `plugin.py` `_insert_body`: 되감은 뒤 spots 후보를 차례로(상대 이동 `2·(i−현재)`) 가서 `_shown`으로 이름 확인 → 맞으면 기존 확정·헤더 검증으로. 전부 틀리면 기존 흐름(목록 위치 → 근처 보정 3회 → 이름 탐색) 그대로. 이름 탐색이 끝나면 찾았든 못 찾았든 `learn_spots(trail)` 후 저장. spots·목록 위치로 맞힌 번호는 맨 앞으로 올린다. 목록에 없는 이름은 기억한 이름들에서 `find`가 하나로 정할 때만 그 spots를 쓴다. 결과 note는 `spot:<번호>`.
+  - 변경 ④ `plugin_mixer.py` `AuxMixer.insert`: 같은 순서(spots → 이름 탐색). 변경 ⑤ `plugins/calibrate.py` `scan`: 수집한 목록의 순번을 `learn_spots`로 넘긴다(새 종류의 트랙에서 scan 한 번이면 그 메뉴 전체가 기억됨).
+  - 지킬 것: 확정 누름은 오버레이 이름이 맞을 때만(지금과 같음). 기억이 틀려도 엉뚱한 플러그인은 들어가지 않는다. 한 번에 `2·i`틱 점프가 i번째에 선다는 가정은 기존 목록 위치 경로와 같다.
+  - 테스트(가짜 Logic, `tests/test_assign_plugin.py`·`test_plugins.py`): 순서가 다른 메뉴에서 1회차 `name_scan:` → 2회차 같은 플러그인은 `spot:`이고 보낸 V-Pot 메시지가 줄어듦 / 1회차에 지나친 다른 플러그인도 바로 감 / 메뉴가 바뀌면 누르지 않고 이름 탐색으로 넘어가 새 번호가 앞·옛 번호가 뒤 / 4번째 번호가 오면 가장 오래된 것 탈락 / 저장·재로드와 `spots` 없는 옛 파일 / 목록에 없는 이름의 조회 / Aux 슬롯 1 경로.
+  - 실기 확인(사용자가 Logic을 켠 뒤, 빈 테스트 프로젝트, 저장 안 함): 같은 플러그인 삽입·제거 2회 + 1회차에 지나친 플러그인 1회, note와 걸린 시간 기록. 모노·스테레오 트랙에서 각각 해서 순서 차이의 원인도 같이 본다.
+  - 범위 밖: 틱당 대기 줄이기, 트랙 종류·프로젝트별로 목록 나누기. 한계: 한 번도 지나친 적 없는 플러그인은 처음에 여전히 훑는다. 효과(초)는 실측 전.
