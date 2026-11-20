@@ -60,6 +60,7 @@ class ModeDriver:
         self._name_mode = False
         self._cs_dirty = False        # TRACK 홀드 메뉴에서 Volume 아닌 항목을 눌렀고 아직 되돌리지 않음
         self.last_leave_error = ""
+        self.guard: Callable[[], None] | None = None   # fader·tick이 보내기 직전에 부른다(편집 뷰 페이지 확인, 틀리면 ModeError). leave()가 지운다
 
     # ---------- 기본 ----------
     @property
@@ -180,7 +181,8 @@ class ModeDriver:
 
     def page_to(self, page: int) -> None:
         """Cursor ◀▶로 페이지 이동. 편집 뷰 NAME 모드는 헤더 `Page n/N`, 그 밖은 드라이버가 센 힌트로.
-        커서 무응답이면 늦은 응답을 CURSOR_LATE_S 더 기다린 뒤에만 1회 더 누른다(바로 재누르면 늦게 처리된 누름과 겹쳐 두 페이지가 넘어가고, 헤더 토큰은 2초 뒤 사라진다): NAME 모드는 헤더로 현재 페이지를 다시 읽어 첫 누름이 처리됐어도 루프가 바로잡는다(실측 2026-10-20: 4→5 ▶ 1회 무응답, 재현 46회는 모두 35 ms 응답)."""
+        커서 무응답이면 늦은 응답을 CURSOR_LATE_S 더 기다린 뒤에만 1회 더 누른다(바로 재누르면 늦게 처리된 누름과 겹쳐 두 페이지가 넘어가고, 헤더 토큰은 2초 뒤 사라진다): NAME 모드는 헤더로 현재 페이지를 다시 읽어 첫 누름이 처리됐어도 루프가 바로잡는다(실측 2026-10-20: 4→5 ▶ 1회 무응답, 재현 46회는 모두 35 ms 응답).
+        이동 판정은 토큰이 다른 페이지 번호를 보이거나 2행이 바뀐 것: 1행만 바뀐 것은 이전 누름 토큰의 만기라 늦은 누름을 처리된 것으로 세게 된다(실측 Z16, 실전 2026-11-19)."""
         start = self.view.page[0] if self.view.page else self._page_hint
         steps = 0
         while True:
@@ -191,16 +193,18 @@ class ModeDriver:
             if steps >= (total + 1 if total else 16):
                 raise ModeError("page_to", f"page {page}", f"페이지 {start}에서 {steps}회 눌러 {cur}, 총 {total or '?'}페이지")
             forward = cur < page
-            cols_before = self.view.columns
+            row2_before = self.surface.state.lcd[1]
+
+            def moved(s: S.SurfaceState) -> bool:      # 1행만 바뀐 것(토큰 ≈2.07초 만기, Z16)은 이동이 아니다
+                return (s.view.page is not None and s.view.page[0] != cur) or s.lcd[1] != row2_before
             self._mark()
             self._press(P.Note.CURSOR_RIGHT if forward else P.Note.CURSOR_LEFT)
             steps += 1
-            if not (self.surface.wait_for(lambda s: s.view.columns != cols_before, MODE_TIMEOUT)
-                    or self.surface.wait_for(lambda s: s.view.columns != cols_before, CURSOR_LATE_S)):
+            if not (self.surface.wait_for(moved, MODE_TIMEOUT) or self.surface.wait_for(moved, CURSOR_LATE_S)):
                 self._mark()
                 self._press(P.Note.CURSOR_RIGHT if forward else P.Note.CURSOR_LEFT)
                 steps += 1
-                if not self.surface.wait_for(lambda s: s.view.columns != cols_before, MODE_TIMEOUT):
+                if not self.surface.wait_for(moved, MODE_TIMEOUT):
                     raise ModeError("page_to", f"page {page}", f"페이지 {cur}에서 커서 반응 없음")
             self._page_hint = cur + (1 if forward else -1)
             self.settle_smart()
@@ -219,17 +223,23 @@ class ModeDriver:
             self.settle_smart()
         return pred(self.view)
 
-    def probe_pages(self) -> int:
+    def probe_pages(self, expect: int | None = None) -> int:
         """편집 뷰 NAME 모드 1페이지에서 페이지 수. 헤더에 `Page n/N`이 보이면 N. 긴 헤더는 1페이지에서 잘리므로(실측 L)
-        Cursor ▶로 2페이지에 가서 `Page 2/N`을 읽고 ◀로 돌아온다. ▶로도 토큰이 안 보이면 ◀를 눌러 본다. ▶·◀ 모두 LCD가 안 바뀌면 1페이지."""
+        Cursor ▶로 2페이지에 가서 `Page 2/N`을 읽고 ◀로 돌아온다. ▶로도 토큰이 안 보이면 ◀를 눌러 본다.
+        누름마다 MODE_TIMEOUT 안에 LCD가 안 바뀌면 늦은 처리를 CURSOR_LATE_S 더 기다린다(늦은 ▶가 다음 단계 뒤에 2페이지로 옮겨
+        Rel 쓰기가 Dist에 들어감, 실전 2026-11-19·실측 Z16·Z17 3.8초). expect = 캐시 표의 페이지 수(모르면 None):
+        1이면 누르지 않고 1, ▶·◀ 모두 LCD가 안 바뀌면 None은 1페이지, 2 이상은 ModeError(여러 페이지 플러그인은 반응해야 한다)."""
         if self.view.page:
             return self.view.page[1]
+        if expect == 1:
+            return 1
         changed = False
         for note in (P.Note.CURSOR_RIGHT, P.Note.CURSOR_LEFT):      # 마지막 페이지에서 열렸으면 ▶는 페이지를 안 바꾸고 토큰 없는 헤더만 다시 그린다(실측 2026-10-20)
             lcd_before = self.surface.state.lcd
             self._mark()
             self._press(note)
-            if self.surface.wait_for(lambda s: s.lcd != lcd_before, MODE_TIMEOUT):
+            if (self.surface.wait_for(lambda s: s.lcd != lcd_before, MODE_TIMEOUT)
+                    or self.surface.wait_for(lambda s: s.lcd != lcd_before, CURSOR_LATE_S)):
                 changed = True
                 self.settle_smart()
             else:
@@ -237,8 +247,10 @@ class ModeDriver:
             if self.view.page:
                 break
         if not self.view.page:
-            if not changed:
+            if not changed and expect is None:
                 return 1
+            if not changed:
+                raise ModeError("pages", f"{expect}페이지 플러그인의 커서 반응", "▶·◀ 모두 LCD 변화 없음")
             raise ModeError("pages", "2페이지 헤더 `Page 2/N`", self.surface.state.lcd[0].strip()[:40] or "빈 헤더")
         pages = self.view.page[1]
         self._page_hint = self.view.page[0]
@@ -266,6 +278,8 @@ class ModeDriver:
         목표 틱의 오버레이를 읽기 전에 끝나지 않도록, 마지막 LCD 쓰기 뒤 TICK_QUIET_S 조용해질 때까지 기다린다(실측 S)."""
         if steps == 0:
             return True
+        if self.guard:
+            self.guard()
         self._mark()
         for msg in P.vpot_turn_messages(ch, steps):
             self.surface.send(msg)
@@ -295,6 +309,8 @@ class ModeDriver:
         for _ in range(2):                    # 에코도 LCD도 없으면 이동이 통째로 무시된 것: 한 번 더 보낸다(실측 Z1)
             if not self.surface.state.assignment.flip:
                 raise ModeError("fader", "flip on", "Flip 꺼짐 — 볼륨을 움직일 수 있어 보내지 않음")
+            if self.guard:
+                self.guard()
             self._mark()
             for msg in P.fader_move(ch, raw):
                 self.surface.send(msg)
@@ -409,6 +425,7 @@ class ModeDriver:
     def leave(self, keep_select: bool = False) -> None:
         """NAME 모드 복원 → Flip 해제 → PAN → (선택 복원). 모든 명령의 finally에서 호출.
         한 단계가 실패해도 나머지를 모두 시도하고, 실패는 모아 마지막에 ModeError 하나로 던진다(리뷰 I2)."""
+        self.guard = None
         errors: list[str] = []
         steps: list[tuple[str, Callable[[], None]]] = [("name", self._leave_name), ("flip off", self._leave_flip),
                                                        ("pan", self._leave_pan)]

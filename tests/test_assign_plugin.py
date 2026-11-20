@@ -2,6 +2,7 @@ import pytest
 
 from logic_mcp.logic.commands import Commands
 from logic_mcp.logic.faders import FaderTable
+from logic_mcp.logic.modes import ModeError
 from logic_mcp.logic.plugins.cache import PluginCache
 from logic_mcp.mcu import protocol as P
 from tests.fake_assign import PLUGIN_LIST, Param, Track, make_assign_logic
@@ -820,3 +821,114 @@ def test_insert_accepts_a_list_name_truncated_to_the_overlay(tmp_path):   # 실�
     r = cmds.plugin.insert(1, None, 2, "EVOC 20 TrackOscillator")
     assert r.verified == "verified" and logic.tracks[0].inserts[2] == "EVOC 20 TrackOscillator"
     assert r.after["plugin"] == "EVOC 20 TrackOscillator"            # 헤더의 전체 이름을 쓴다
+
+
+# ---------- 늦은 커서와 페이지 확인 가드(실전 2026-11-19: Rel 쓰기가 2페이지 Dist에 들어감, 실측 Z13·Z16·Z17) ----------
+def _late_cursor_press(fake, logic, k: int, lag: float) -> None:
+    """k번째 커서 ◀▶ 누름 하나만 lag초 늦게 처리되게 한다."""
+    n = {"c": 0}
+    orig = logic.replies
+
+    def replies(data: bytes):
+        if data[0] & 0xF0 == 0x90 and data[1] in (P.Note.CURSOR_RIGHT, P.Note.CURSOR_LEFT) and data[2]:
+            n["c"] += 1
+            logic.cursor_lag_s = lag if n["c"] == k else 0.0
+        return orig(data)
+    fake.replies = replies
+
+
+def _compressor_with_table(tmp_path):
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Compressor")
+    assert cmds.plugin.params(1, None, 2).ok                     # 표를 먼저(번들 플러그인과 같은 조건)
+    return cmds, surface, fake, logic, cache
+
+
+def _faders(msgs: list[bytes]) -> list[bytes]:
+    return [m for m in msgs if m[0] & 0xF0 == 0xE0]
+
+
+@pytest.mark.parametrize("lag", [0.8, 1.6, 2.4, 3.2])
+def test_set_with_late_first_cursor_press_writes_the_right_param(tmp_path, lag):
+    cmds, surface, fake, logic, cache = _compressor_with_table(tmp_path)
+    logic.open_header_without_page = True                        # 실측 10/20: 열린 직후 헤더에 Page 토큰 없음
+    params = logic.tracks[0].params[2]
+    before = [p.value for p in params]
+    _late_cursor_press(fake, logic, 1, lag)
+    r = cmds.plugin.set(1, None, 2, "Rel", 100.0)
+    assert r.ok and r.verified == "verified", r.note
+    assert params[4].value == pytest.approx(100.0, abs=5.0)
+    assert [p.value for i, p in enumerate(params) if i != 4] == [v for i, v in enumerate(before) if i != 4]
+
+
+def test_set_with_very_late_first_cursor_press_refuses(tmp_path):
+    cmds, surface, fake, logic, cache = _compressor_with_table(tmp_path)
+    logic.open_header_without_page = True
+    params = logic.tracks[0].params[2]
+    before = [p.value for p in params]
+    _late_cursor_press(fake, logic, 1, 4.5)
+    r = cmds.plugin.set(1, None, 2, "Rel", 100.0)
+    assert not r.ok, r.note
+    assert [p.value for p in params] == before
+
+
+def test_guard_refuses_fader_when_page_moved_behind_the_driver(tmp_path):
+    cmds, surface, fake, logic, cache = _compressor_with_table(tmp_path)
+    pc, d = cmds.plugin, cmds.modes
+    params = logic.tracks[0].params[2]
+    full, _abbrev, pages = pc._open_edit(0, 2)
+    item = pc._locate(full, pages, "Rel")
+    col = pc._goto_param(item, pc._table(full, pages)["items"])
+    assert col == 4
+    d.flip(True)
+    before = [p.value for p in params]
+    logic.page = 2                                               # 늦은 ▶가 드라이버 모르게 2페이지로 옮김
+    logic.redraw()
+    n0 = len(fake.sent)
+    with pytest.raises(ModeError) as e:
+        d.fader(col, 8000)
+    assert e.value.step == "guard"
+    assert params[12].value == 0 and [p.value for p in params] == before    # Distortion Off 그대로
+    assert not _faders(fake.sent[n0:])                                       # 페이더 메시지 없음
+    d.leave()
+
+
+def test_guard_passes_numeric_set_on_small_last_page(tmp_path):
+    cmds, surface, fake, logic, cache = _compressor_with_table(tmp_path)
+    params = logic.tracks[0].params[2]
+    before = [p.value for p in params]
+    n0 = len(fake.sent)
+    r = cmds.plugin.set(1, None, 2, "Q", 2.0)                    # 3페이지 열 7(index 23), map 없음 → 프로빙 + 쓰기
+    assert r.ok and r.verified == "verified", r.note
+    assert r.after["index"] == 23 and params[18].value == pytest.approx(2.0, abs=0.1)
+    assert len(_faders(fake.sent[n0:])) > 1
+    assert [p.value for i, p in enumerate(params) if i != 18] == [v for i, v in enumerate(before) if i != 18]
+
+
+def test_one_page_plugin_with_known_table_never_presses_cursor(tmp_path):
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Limiter")
+    assert cmds.plugin.params(1, None, 2).after["pages"] == 1
+    n0 = len(fake.sent)
+    g = cmds.plugin.get(1, None, 2, "Drive")
+    assert g.ok and g.verified == "verified" and g.after["value"] == 10.0
+    s = cmds.plugin.set(1, None, 2, "Tone", 500.0)
+    assert s.ok and s.verified == "verified", s.note
+    assert logic.tracks[0].params[2][1].value == pytest.approx(500.0, abs=10.0)
+    cursor = (P.button_down(P.Note.CURSOR_RIGHT), P.button_down(P.Note.CURSOR_LEFT))
+    assert not [m for m in fake.sent[n0:] if m in cursor]
+
+
+def test_guard_refuses_when_table_says_one_page_but_view_is_on_another(tmp_path):
+    cmds, surface, fake, logic, cache = _compressor_with_table(tmp_path)
+    table = cache.params["Compressor"]
+    table["pages"], table["items"] = 1, [it for it in table["items"] if it["index"] <= 8]   # 틀린 표: 1페이지
+    logic.edit_open_page = 2
+    logic.open_header_without_page = True
+    params = logic.tracks[0].params[2]
+    before = [p.value for p in params]
+    n0 = len(fake.sent)
+    r = cmds.plugin.set(1, None, 2, "Rel", 100.0)
+    assert not r.ok and r.verified == "unverified" and r.note.startswith("guard:"), r.note
+    assert [p.value for p in params] == before
+    assert not _faders(fake.sent[n0:]) and not turns(fake.sent[n0:])

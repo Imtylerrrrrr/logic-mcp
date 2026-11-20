@@ -39,7 +39,7 @@ def calibrate(pc: "PluginCommands", strip: int | None, number: int | None, slot:
             table = pc._table(full, pages)
             probed = enums = 0
             for item in table["items"]:
-                col = pc._goto_param(item)                                     # VALUE 모드
+                col = pc._goto_param(item, table["items"])                     # VALUE 모드
                 v = d.read_column(col)[1]
                 header = d.surface.state.lcd[0]                                # 틱 전 1행(축약명). 이름은 틱 뒤 바뀐 칸에서만 뗀다
                 name: str | None = None

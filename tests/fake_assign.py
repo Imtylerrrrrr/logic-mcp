@@ -12,6 +12,7 @@ drop_all_flips는 FLIP 누름을 항상, drop_all_name_value는 NAME/VALUE 누�
 drop_next_cursor(실측 2026-10-20)는 커서 ◀▶ 누름을 그 횟수만큼 무시한다.
 cursor_lag_s(실측 2026-10-20)는 0보다 크면 커서 ◀▶의 페이지 이동과 LCD 재묘사를 그 초만큼 늦춘다(timers로 예약).
 open_header_without_page(실측 2026-10-20)는 편집 뷰가 열린 직후 헤더에 `Page n/N`이 없다가 페이지가 바뀌는 커서 누름 뒤에야 보이게 한다.
+page_token_ttl_s(실측 Z16)는 0보다 크면 그 토큰이 페이지 변경 뒤 그 초만 보이고 다시 사라지게 한다(기본 0 = 사라지지 않음).
 name_value_lag(실기 10차)는 NAME/VALUE 누름의 1행 쓰기는 바로 보내고 2행 쓰기는 lagged에 쌓는다(lcd_lag와 같은 도착 규칙).
 value_row_partial(재수집 근사)은 VALUE 전환의 2행 중 열 0만 바로 쓰고 열 1~7은 lagged에 쌓는다: 토글의 2행 변화 판정은 참이 되지만
 대상 열은 아직 축약명이다. stale_value_cols의 열은 VALUE 전환 뒤에도 2행에 축약명이 남아 다음 재묘사(틱 등)에서야 값이 된다.
@@ -356,6 +357,8 @@ class FakeLogic:
         self.drop_all_name_value = False               # True면 NAME/VALUE 누름을 항상 무시
         self.open_header_without_page = False          # True면 편집 뷰 헤더가 열린 직후 토큰 없음, 페이지가 바뀐 뒤 토큰 있음(실측 2026-10-20)
         self.header_no_page = False
+        self.page_token_ttl_s = 0.0                    # 0보다 크면 페이지를 바꾼 커서 누름 뒤 헤더 `Page n/N`이 그 초만 보이고 토큰 없이 다시 그림(실측 Z16 ≈2.07 s)
+        self._token_gen = 0
         self.drop_next_cursor = 0                      # 0보다 크면 커서 ◀▶ 누름을 그 횟수만큼 무시(실측 2026-10-20)
         self.cursor_lag_s = 0.0                        # 0보다 크면 커서 ◀▶의 페이지 이동·LCD 재묘사가 그 초만큼 늦게 처리(실측 2026-10-20)
         self.name_value_lag = False                    # True면 NAME/VALUE 누름의 2행 쓰기가 늦게 도착(lagged, 실기 10차)
@@ -549,7 +552,7 @@ class FakeLogic:
         full = prefix + f'{t.inserts[self.slot]} (s/s)"'
         page = f"Page {self.page}/{self._edit_pages()}"
         if self.header_no_page:
-            return full[:56]
+            return full[:56].ljust(56)
         if len(full) <= 48:
             return full.ljust(56 - len(page)) + page          # 두 자리 페이지(`Page 20/23`)도 56칸 안
         if self.page == 1:
@@ -766,6 +769,16 @@ class FakeLogic:
         elif self.view == "plugin_edit":
             self.page = max(1, min(self._edit_pages(), self.page + delta))
             self.header_no_page = self.header_no_page and self.page == old     # 마지막 페이지 ▶는 토큰 없는 헤더를 다시 그림
+            if self.page_token_ttl_s > 0 and self.page != old:
+                self._token_gen += 1
+                gen = self._token_gen
+
+                def expire() -> None:                                          # 마지막 페이지 변경의 토큰만 지운다
+                    if gen == self._token_gen and self.view == "plugin_edit":
+                        self.header_no_page = True
+                        if self.name_mode:
+                            self.redraw()
+                self.timers.append((self.clock() + self.page_token_ttl_s, expire))
         elif self.view == "send_channel":
             self.page = max(1, min(4, self.page + delta))
             if self.page == old:

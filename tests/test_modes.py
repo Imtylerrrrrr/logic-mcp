@@ -199,7 +199,21 @@ def test_page_to_raises_when_cursor_ignored_twice():
     assert "커서 반응 없음" in str(e.value)
 
 
-def test_probe_pages_when_opened_on_last_page():                     # 실측 2026-10-20: 마지막 페이지에서 열리면 ▶는 헤더만 토큰 없이 다시 그림
+def test_page_to_ignores_page_token_expiry_and_waits_for_late_press():   # 실측 Z16: 토큰은 ≈2.07초 뒤 사라져 1행만 바뀐다
+    d, surface, fake, logic = _open_compressor_edit()
+    logic.page_token_ttl_s = 2.07
+    d.page_to(2)
+    assert logic.page == 2 and surface.state.view.page == (2, 3)
+    d.pause(1.6)                    # 토큰 만기가 ◀ 뒤 첫 대기(MODE_TIMEOUT) 안에 오도록
+    logic.cursor_lag_s = 3.0
+    fake.sent.clear()
+    d.page_to(1)
+    assert logic.page == 1          # 토큰 만기(1행만 변화)를 이동으로 세면 2페이지에 남은 채 돌아온다
+    assert fake.sent.count(P.button_down(P.Note.CURSOR_LEFT)) == 1
+    assert fake.sent.count(P.button_down(P.Note.CURSOR_RIGHT)) == 0
+
+
+def test_probe_pages_when_opened_on_last_page():                    # 실측 2026-10-20: 마지막 페이지에서 열리면 ▶는 헤더만 토큰 없이 다시 그림
     d, surface, fake, logic = make()
     logic.tracks[0].insert(2, "Space Designer")
     logic.edit_open_page = 23

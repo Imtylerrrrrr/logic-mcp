@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from ..mcu import protocol as P
 from ..mcu import state as S
-from .modes import CONFIRM_S, EDIT_OPEN_S, OVERLAY_WIDTH, ModeError
+from .modes import CONFIRM_S, CURSOR_LATE_S, EDIT_OPEN_S, OVERLAY_WIDTH, ModeError
 from .plugins.cache import PluginCache
 from .plugins.scan import ITEM_TICKS, rewind_to_empty, seek_by_name
 from .plugins.match import find, normalize, strip_suffix
@@ -164,7 +164,8 @@ class PluginCommands:
         cached = self.cache.abbrev.get(key)                 # 잘린 헤더: 축약 캐시는 헤더 이름과 접두가 맞을 때만 믿는다(실전 F6 오학습)
         full = name if complete else (cached if cached and normalize(cached).startswith(normalize(name)) else self._complete(name))
         self.cache.learn_abbrev(key, full)
-        pages = d.probe_pages()
+        known = self.cache.params.get(full)                # 표가 있으면 페이지 수를 안다: 1페이지면 누르지 않고, 여러 페이지인데 무반응이면 실패
+        pages = d.probe_pages(known["pages"] if known and known.get("items") else None)
         return full, abbrev, pages
 
     def _read_pages(self, pages: int) -> list[dict]:
@@ -247,15 +248,61 @@ class PluginCommands:
             raise ParamNotFound(f"{param!r}에 맞는 파라미터 없음. 축약명: {shorts}")
         raise ParamNotFound(f"{param!r}가 여럿에 맞음: {[x['short'] for x in found]}")
 
-    def _goto_param(self, item: dict) -> int:
-        """NAME 모드에서 해당 페이지로 가고 VALUE 모드로 바꾼 뒤 열 번호를 돌려준다."""
+    def _goto_param(self, item: dict, items: list[dict]) -> int:
+        """NAME 모드에서 해당 페이지로 가고 VALUE 모드로 바꾼 뒤 열 번호를 돌려준다. items(표 항목)로 그 페이지의
+        페이지 확인 가드를 d.guard에 걸고 한 번 확인한다(get도 덮음, 틀리면 ModeError)."""
         page = (item["index"] - 1) // 8 + 1
         self.d.page_to(page)
         self.d.toggle_name_value()
         col = (item["index"] - 1) % 8
         self.d.surface.wait_for(lambda s: s.lcd[1][col * S.COL_W:(col + 1) * S.COL_W].strip() != item["short"][:S.COL_W],
                                 VALUE_ROW_S)                         # 시간 초과면 그대로 진행(값이 축약명과 같은 파라미터). 두 열 축약명은 앞 7자만 이 열에 보인다
+        self.d.guard = self._page_guard(items, page, col)
+        self.d.guard()
         return col
+
+    def _page_guard(self, items: list[dict], page: int, col: int):
+        """LCD가 page를 보일 때만 col을 읽고 쓰게 하는 확인(늦은 커서 누름이 페이지를 몰래 옮김, 실전 2026-11-19·실측 Z16·Z17).
+        VALUE 모드 1행 = 그 페이지 7자 축약명(실측 `CirTyp Thrs   Ratio  Attack Rel    AutRel` + 토큰). 7자보다 긴 축약명은 다음 열로 넘친다.
+        가려질 수 있는 열은 비교하지 않는다: 대상 열 오버레이 3칸(내 마지막 쓰기의 긴 이름이 ≈2초 남음), 토큰이 보이면 7·8열(≈2초).
+        토큰이 보이면 그 번호가 page여야 한다. 기대 이름이 있는 열만 비교하고, 불일치 없음 + 근거(비교한 열 또는 맞는 토큰) 하나 이상이면 통과.
+        근거가 없으면(작은 페이지가 오버레이에 다 가림) 대상 열에 제 축약명이 보이면 통과, 아니면 오버레이가 걷힌 뒤 모든 열로 다시.
+        실패면 늦은 누름이 맞는 페이지를 가져올 수 있어 CURSOR_LATE_S까지 기다린 뒤 ModeError("guard")."""
+        d, w = self.d, S.COL_W
+        want = [""] * 8
+        for it in items:
+            if (it["index"] - 1) // 8 + 1 == page:
+                c = (it["index"] - 1) % 8
+                want[c] = it["short"][:w]
+                if len(it["short"]) > w and c < 7:
+                    want[c + 1] = it["short"][w:2 * w]
+        first = min(col * w, P.LCD_WIDTH - OVERLAY_WIDTH) // w
+        overlay = set(range(first, first + OVERLAY_WIDTH // w))
+
+        def check(full: bool) -> bool | None:
+            st = d.surface.state
+            token = st.view.page
+            if token and token[0] != page:
+                return False
+            skip = (set() if full else overlay) | ({6, 7} if token else set())
+            compared = [c for c in range(8) if want[c] and c not in skip]
+            if any(st.lcd[0][c * w:(c + 1) * w].strip() != want[c] for c in compared):
+                return False
+            return True if compared or token else None
+
+        def guard() -> None:
+            full = False
+            ok = check(full)
+            if ok is None:
+                if d.surface.state.lcd[0][col * w:(col + 1) * w].strip() == want[col]:
+                    return
+                d.settle_overlay()
+                full = True
+                ok = check(full)
+            if ok or d.wait_view(lambda _v: bool(check(full)), CURSOR_LATE_S):
+                return
+            raise ModeError("guard", f"{page}페이지 축약명 {want}", d.surface.state.lcd[0].rstrip() or "빈 1행")
+        return guard
 
     def _param_dict(self, full: str, slot: int, item: dict, v: Value) -> dict:
         return {"plugin": full, "slot": slot, "index": item["index"], "short": item["short"],
@@ -385,7 +432,7 @@ class PluginCommands:
                 self.b._fresh()
                 full, _abbrev, pages = self._open_edit(ch, slot)
                 item = self._locate(full, pages, param)
-                col = self._goto_param(item)
+                col = self._goto_param(item, self._table(full, pages)["items"])
                 v = d.read_column(col)[1]
                 return b._result(action, True, "verified", t0, target=target, after=self._param_dict(full, slot, item, v))
             return b._guarded(action, t0, target, body)
@@ -407,7 +454,7 @@ class PluginCommands:
                 self.b._fresh()
                 full, _abbrev, pages = self._open_edit(ch, slot)
                 item = self._locate(full, pages, param)
-                col = self._goto_param(item)
+                col = self._goto_param(item, self._table(full, pages)["items"])
                 before_v = d.read_column(col)[1]
                 before = self._param_dict(full, slot, item, before_v)
                 mapping = _map_from(item.get("map"))
