@@ -149,6 +149,15 @@ bank first   ok=True skipped    1049ms already
   - 막을 방법의 근거(LCD 덤프): 편집 뷰 VALUE 모드에서 1행은 축약명이다(`CirTyp Thrs   Ratio  Attack Rel    AutRel      Page 1/3`, 7·8열은 토큰이 ≈2 s 가림). 값을 보내기 직전에 그 열의 1행 이름을 확인할 수 있고, 보낸 뒤에는 오버레이 1행의 이름(`read_overlay_name`)으로 실제로 바뀐 파라미터를 확인할 수 있다(뒤쪽은 코드 근거, 이번에 직접 덤프하지 않음).
 - **무효 구간(14:48:15 이후)**: 맥 덮개가 닫혀(배터리) `Clamshell Sleep` 뒤 약 45초마다 잠들었다 깨기를 반복(`pmset -g log`). 이 구간의 현상 — `focus: SELECT LED 변화 없음`이 한 번 걸러 한 번, 묶음 1회가 끝난 뒤 2분 정지(14:52:34~14:54:34 절전과 일치) — 은 Logic·서버 탓으로 볼 수 없다. 14:46~14:48의 focus 실패 1회는 덮개 전후가 불분명해 판정 보류. **실기 측정 전에 `pmset -g log`·`ioreg -r -k AppleClamshellState`로 절전 여부를 먼저 본다.**
 - **남긴 상태**: 프로젝트(저장 안 함)에 시험용 Compressor 2개(트랙 2 슬롯 1: 값 바뀜, 트랙 4 슬롯 1: 기본값)와 선택 트랙 변경이 남아 있다. 절전 중에는 조작이 위험해 제거하지 않았다. 사용자 캐시 `~/.logic-mcp/plugins-12.0.1.json`에 생긴 Compressor 항목(Ratio·Attack map = null)은 지워 측정 전 상태로 되돌림.
+- **잘못된 프로젝트에 돌린 실행(15:09:16~15:11, 절전은 없었지만 측정으로는 무효)**: 덮개를 다시 연 뒤 열린 프로젝트를 확인하지 않고 낱장 시간 측정 스크립트를 돌렸다. 그 사이 사용자가 "testForMcp_1"을 닫고 실제 작업 프로젝트(guitartone)를 열어 두었다. 14회 전부 트랙 2 슬롯 1(그 프로젝트에서는 Tuner) 편집 뷰 진입에서 `edit: 기대 plugin_edit 슬롯 1, 관측 empty_edit 1`로 실패했고 값은 하나도 보내지 않았다(첫 호출 체감 22.3 s, 이후 7.0 s). 선택 트랙은 바뀌었을 수 있다. 부수 관측: Tuner가 든 슬롯은 편집 뷰가 빈 슬롯처럼 보인다(1개 프로젝트, 원인 미확인). **실기 전에 Logic 창 제목(열린 프로젝트)과 대상 스트립 이름을 매번 확인한다**(절전 점검과 같이).
+
+## 실전 사용 (2026-11-19 15:16~15:31, guitartone 트랙 2, 톤 조정, 저장 안 함, 코드 변경 없음)
+- **한 일**: 사용자 요청 3건(EQ, 공간계, 노이즈 게이트)을 제품 경로(`commands.eq.set`, `commands.plugin.set`·`bypass`, `commands.send.set_level`)만으로 처리. 스크래치 스크립트가 `build()`로 만든 `commands`를 직접 호출했다(MCP 도구와 같은 코드, 모델 왕복만 없음).
+- **결과**: 쓰기 17회 전부 verified(Channel EQ 값 6, Tape Delay 값 4 + 바이패스 해제 1, 센드 레벨 1, Noise Gate 값 5). 읽기 7회 중 1회 실패: 센드 읽기 직후 `plugin.params` 슬롯 8이 `edit: 기대 plugin_edit 슬롯 8, 관측 pan`, 바로 다시 하니 성공(1회 관측, 원인 미확인).
+- **묶음 크기**: 실제 요청은 플러그인 하나에 값 4~6개씩이었다. 묶음 set 계획이 줄이려는 경우와 같은 모양이다.
+- **단계 폭(위 결함 ①과 같은 현상, 허용 오차 안이라 verified)**: EQ Frequency 목표 1000 → 990 Hz, Noise Gate Release 목표 400 → 397.4 ms.
+- **시간(1회)**: Noise Gate 숫자 5개를 한 프로세스에서 낱장 5번 = 15:29:50~15:30:57(≈67 s, 프로세스 시작과 첫 호출의 스트립 판정 포함).
+- **쓰지 않은 것**: 노이즈 게이트 Threshold를 실제 잡음 크기를 재지 않고 정했다(사용자가 듣고 고쳐야 한다). 서버는 MCU 미터 메시지(4비트 값 0~15, `strips[ch].meter`, 스트립 상태의 `meter`)를 이미 받고 있는데 쓰지 않았다. 이 값이 dB로 얼마인지, 게이트 문턱을 잡을 만큼 촘촘한지는 미확인.
 
 ## TODO
 - **설치 신뢰(2026-11-17 기록)**: 유명 MCP 레포 6곳 조사 결과에 맞춰 ① README 주의 섹션에 건드리는 범위·제거 방법 ② SECURITY.md·Dependabot(월 1회, 묶음) 추가 완료. 남은 것: ③ **PyPI 신뢰 게시** — `logic-mcp` 이름은 11/17 기준 비어 있음. 사용자 몫: pypi.org 계정 → Publishing에서 pending trusted publisher 추가(project `logic-mcp`, owner `Imtylerrrrrr`, repo `logic-mcp`, workflow `publish.yml`, environment `pypi`) → 릴리스 태그에서 Actions `publish`를 수동 실행. 성공하면 README 설치 명령을 `uvx logic-mcp`로 바꾸고 트리거를 `release: published`로 전환. `publish.yml`은 실행해 본 적 없음(미검증). ④ **읽기 전용 모드**(환경 변수로 모든 쓰기 명령 거부, github-mcp-server·supabase·playwright에 있음)는 최적화 설계 때 같이. ⑤ GitHub 비공개 취약점 제보는 11/17에 켰다(API로 `enabled: true` 확인). ⑥ Dependabot PR #1(actions/checkout v7·setup-uv v7)·#2(pydantic·pytest·anyio)는 11/17 머지, main 261c53a에서 367 테스트·CI 통과.
@@ -159,6 +168,7 @@ bank first   ok=True skipped    1049ms already
   - ② 쓰기 가드: 값을 보내기 직전 그 열의 1행 이름(또는 `Page n/N` 토큰의 페이지)이 기대와 다르면 보내지 않는다. 보낸 뒤 오버레이 이름이 기대 파라미터가 아니면 즉시 멈춘다. 먼저 이벤트 로그로 결함 ②의 원인을 확인한다.
   - ③ `elapsed_ms`에 PAN 복귀 시간 포함 여부.
   - ④ 남은 측정(덮개를 연 상태에서): 6~8개 묶음 2회 이상, EQ 숫자 8개 낱장 대 묶음, 숫자 + 선택지 섞기, 오버레이 타임라인, 시험용 Compressor 제거.
+  - ⑤ 레벨 읽기 활용(11/19 실전 사용에서 나옴): 게이트·컴프레서 Threshold를 근거 있게 잡으려면 트랙 레벨이 필요하다. 서버는 MCU 미터(4비트)를 이미 받아 스트립 상태에 `meter`로 내보낸다. 이 값의 dB 대응과 해상도를 실측해야 쓸 수 있는지 알 수 있다(미확인).
 - **묶음 set 계획(2026-11-19 정리, 승인 대기, 미구현)**: 속도 최적화 후보 ①. 구현 계획은 `docs/superpowers/plans/2026-11-19-batch-set.md`(사용자 결정: 실패 시 멈춤). 아래 요약과 다르면 계획 문서가 맞다(항목 사이 `settle_overlay` 대기, 결과 키 `done`, 최대 32개).
   - 문제: set 1회의 서버 대기 6.2 s 중 5.1 s가 뷰 진입 + PAN 복귀다(위 정정의 가짜 시계 측정). 값 8개를 바꾸면 이 5.1 s와 모델 왕복이 8번 반복된다.
   - 방식: 한 호출에 같은 트랙·같은 슬롯(EQ는 그 트랙의 Channel EQ)의 값 여러 개를 받는다. 뷰 진입 1번 → 항목마다 [찾기 → 맞추기 → 읽어 확인] → PAN 복귀 1번. 항목은 받은 순서대로 처리한다.
