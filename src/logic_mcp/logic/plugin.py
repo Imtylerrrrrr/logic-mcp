@@ -273,9 +273,9 @@ class PluginCommands:
         for it in items:
             if (it["index"] - 1) // 8 + 1 == page:
                 c = (it["index"] - 1) % 8
-                want[c] = it["short"][:w]
+                want[c] = it["short"][:w].strip()               # LCD 쪽도 strip해서 비교: 칸 경계의 공백(`Lo Cut `|`Freq`)
                 if len(it["short"]) > w and c < 7:
-                    want[c + 1] = it["short"][w:2 * w]
+                    want[c + 1] = it["short"][w:2 * w].strip()
         first = min(col * w, P.LCD_WIDTH - OVERLAY_WIDTH) // w
         overlay = set(range(first, first + OVERLAY_WIDTH // w))
 

@@ -5,7 +5,7 @@ from logic_mcp.logic.faders import FaderTable
 from logic_mcp.logic.modes import ModeError
 from logic_mcp.logic.plugins.cache import PluginCache
 from logic_mcp.mcu import protocol as P
-from tests.fake_assign import PLUGIN_LIST, Param, Track, make_assign_logic
+from tests.fake_assign import PLUGIN_LIST, Param, Track, make_assign_logic, wide
 
 
 def make(tmp_path, tracks=None):
@@ -932,3 +932,16 @@ def test_guard_refuses_when_table_says_one_page_but_view_is_on_another(tmp_path)
     assert not r.ok and r.verified == "unverified" and r.note.startswith("guard:"), r.note
     assert [p.value for p in params] == before
     assert not _faders(fake.sent[n0:]) and not turns(fake.sent[n0:])
+
+
+def test_guard_passes_two_cell_short_with_a_space_at_the_cell_edge(tmp_path):
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Chorus")
+    names = ("Mix", "Rate", "Depth", "Lo Cut Freq")              # 1행 열 7·8 = `Lo Cut `(끝 공백)·`Freq`
+    logic.tracks[0].params[2] = wide([Param(n, n, "linear", 0.0, 100.0, 50.0, unit="%", step=1.0) for n in names])
+    cache.params["Chorus"] = {"pages": 1, "items": [{"index": 2 * i + 1, "short": n, "name": None, "map": None}
+                                                    for i, n in enumerate(names)]}
+    r = cmds.plugin.get(1, None, 2, "Mix")                       # 열 1의 오버레이 3칸 밖이라 열 7·8을 비교한다
+    assert r.ok and r.verified == "verified", r.note
+    s = cmds.plugin.set(1, None, 2, "Mix", 40.0)
+    assert s.ok and s.verified == "verified", s.note
