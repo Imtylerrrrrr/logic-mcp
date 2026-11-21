@@ -124,8 +124,9 @@ class ModeDriver:
         """오버레이(21칸, 단위 포함)가 숫자로 읽히면 그것을, 아니면 열 값을 돌려준다."""
         lcd = self.surface.state.lcd
         last = P.LCD_WIDTH - S.COL_W          # 마지막 열 시작(49)
-        if ch * S.COL_W == last and not lcd[0][last - S.COL_W:last].strip():
-            # 마지막 열 오버레이는 54칸에 오른쪽 정렬로 끝나 열 7로 넘치며 열 7 1행을 비운다: 21칸 창은 열 6 값이 섞여 앞이 잘린다(실기 2026-11-21)
+        if ch * S.COL_W == last:
+            # 마지막 열 오버레이는 54칸에 오른쪽 정렬로 끝나 6자를 넘으면 열 7로 넘친다: 21칸 창은 열 6 값이 섞여 숫자가 아니고 열 칸은 앞이 잘린다
+            # (실기 2026-11-21 Compressor Gain `-24.0 dB` → `4.0 dB`). 열 7에 제 값이 있으면 두 토큰이라 숫자로 안 읽혀 아래 경로로 간다
             tail = parse_value(lcd[1][last - S.COL_W:])
             if tail.kind == "number":
                 return tail

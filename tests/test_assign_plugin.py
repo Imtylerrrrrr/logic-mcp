@@ -5,7 +5,7 @@ from logic_mcp.logic.faders import FaderTable
 from logic_mcp.logic.modes import ModeDriver, ModeError
 from logic_mcp.logic.plugins.cache import PluginCache
 from logic_mcp.mcu import protocol as P
-from tests.fake_assign import PLUGIN_LIST, Param, Track, make_assign_logic, wide
+from tests.fake_assign import PLUGIN_LIST, Param, Track, lcd_write, make_assign_logic, wide
 
 
 def make(tmp_path, tracks=None):
@@ -998,6 +998,12 @@ def test_last_column_overlay_layout_and_read_value(tmp_path):         # 실기 2
         assert row[55 - len(text):55] == text and row[55] == " ", repr(row)
         assert (row[42:55 - len(text)].strip() == "") is blanked          # 열 7에서 값 앞쪽 칸(나머지는 값이 덮음)
         assert d.read_value(7).number == value
+    r1 = "Distrt Mix    SiChDe State  Mode   Freq       Auto Gain "      # 1행 이름 오버레이가 열 7에 걸쳐도(열 8 `Auto Gain`은 46~54칸, 실측 10차) 2행만 보고 읽는다
+    r2 = "Soft   50.0 % Max    Off    LP     7040.0      -23.5 dB "
+    logic._emit([lcd_write(0, r1 + r2)])
+    assert surface.state.lcd[0][42:49].strip() and d.read_value(7).number == -23.5
+    logic._emit([lcd_write(0, r1[:42] + "Q      Gain   " + r2[:42] + "1.00   0.0 dB ")])   # 정착: 열 7 값이 따로 있으면 제 칸만
+    assert d.read_value(7).number == 0.0
 
 
 def test_column_7_param_is_set_as_before(tmp_path):                   # 열 7(Q)은 기존대로
