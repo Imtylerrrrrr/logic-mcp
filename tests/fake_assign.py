@@ -528,6 +528,8 @@ class FakeLogic:
             return r1, r2, "PL"
         if self.view == "plugin_edit":
             ps = self._edit_page()
+            if self.page > self._edit_pages() and not self.name_mode:    # 직전 플러그인의 페이지로 열림: VALUE는 빈 슬롯과 같은 화면, 커서 ◀로 마지막 페이지(실기 2026-11-21)
+                return "-      " * 8, " " * 56, self._slot_digits()
             names = edit_row(ps, lambda p: p.short)
             if self.name_mode:
                 return self._header(self._edit_track()), names, self._slot_digits()

@@ -150,7 +150,15 @@ class PluginCommands:
         abbrev = self._slot_text(slot)
         if abbrev in EMPTY_TEXTS:
             raise SlotEmpty(slot)
-        if not d.press_vpot_until(slot - 1, lambda v: v.kind == "plugin_edit" and v.index == slot, EDIT_OPEN_S):
+        opened = lambda v: v.kind == "plugin_edit" and v.index == slot
+        ok = d.press_vpot_until(slot - 1, lambda v: opened(v) or (v.kind == "empty_edit" and v.index == slot), EDIT_OPEN_S)
+        if ok and d.view.kind == "empty_edit":
+            # 차 있는 슬롯인데 빈 화면: Logic이 직전 플러그인의 페이지 위치로 열어 마지막 페이지 너머를 보인다(VALUE는 1행 전부 `-`,
+            # 2행 공백 — 빈 슬롯과 같은 화면). Cursor ◀ 한 번이면 마지막 페이지로 온다(실기 2026-11-21 Compressor 3페이지 뒤 Chorus).
+            d._mark()
+            d._press(P.Note.CURSOR_LEFT)
+            ok = d.wait_view(opened, EDIT_OPEN_S) or d.wait_view(opened, CURSOR_LATE_S)
+        if not ok:
             raise ModeError("edit", f"plugin_edit 슬롯 {slot}", f"{d.view.kind} {d.view.index or ''}".strip())
         d.settle_smart()
         d.toggle_name_value()                           # NAME 모드: 1행 헤더(1페이지에 전체 이름), 2행 축약명

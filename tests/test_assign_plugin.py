@@ -919,6 +919,30 @@ def test_one_page_plugin_with_known_table_never_presses_cursor(tmp_path):
     assert not [m for m in fake.sent[n0:] if m in cursor]
 
 
+def test_edit_opens_past_last_page_after_longer_plugin(tmp_path):    # 실기 2026-11-21: Compressor 3페이지 뒤 Chorus가 빈 슬롯처럼 열림
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Limiter")
+    assert cmds.plugin.params(1, None, 2).after["pages"] == 1
+    logic.edit_open_page = 3                                     # Logic이 직전 플러그인의 페이지 위치를 그대로 씀
+    g = cmds.plugin.get(1, None, 2, "Drive")
+    assert g.ok and g.verified == "verified" and g.after["value"] == 10.0, g.note
+    s = cmds.plugin.set(1, None, 2, "Tone", 500.0)
+    assert s.ok and s.verified == "verified", s.note
+    assert logic.tracks[0].params[2][1].value == pytest.approx(500.0, abs=10.0)
+
+
+def test_edit_past_last_page_is_refused_when_cursor_does_not_recover(tmp_path):
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Limiter")
+    assert cmds.plugin.params(1, None, 2).after["pages"] == 1
+    logic.edit_open_page = 3
+    logic.drop_next_cursor = 1                                   # ◀가 무시되면 빈 화면 그대로: 값을 보내지 않고 실패
+    n0 = len(fake.sent)
+    r = cmds.plugin.get(1, None, 2, "Drive")
+    assert not r.ok and "empty_edit" in r.note, r.note
+    assert not turns(fake.sent[n0:])
+
+
 def test_guard_refuses_when_table_says_one_page_but_view_is_on_another(tmp_path):
     cmds, surface, fake, logic, cache = _compressor_with_table(tmp_path)
     table = cache.params["Compressor"]
