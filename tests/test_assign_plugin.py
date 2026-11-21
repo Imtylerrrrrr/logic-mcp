@@ -2,7 +2,7 @@ import pytest
 
 from logic_mcp.logic.commands import Commands
 from logic_mcp.logic.faders import FaderTable
-from logic_mcp.logic.modes import ModeError
+from logic_mcp.logic.modes import ModeDriver, ModeError
 from logic_mcp.logic.plugins.cache import PluginCache
 from logic_mcp.mcu import protocol as P
 from tests.fake_assign import PLUGIN_LIST, Param, Track, make_assign_logic, wide
@@ -969,3 +969,39 @@ def test_guard_passes_two_cell_short_with_a_space_at_the_cell_edge(tmp_path):
     assert r.ok and r.verified == "verified", r.note
     s = cmds.plugin.set(1, None, 2, "Mix", 40.0)
     assert s.ok and s.verified == "verified", s.note
+
+
+def gain_item(cache):
+    return [it for it in cache.param_table("Compressor")["items"] if it["index"] == 24][0]
+
+
+def test_last_column_long_overlay_probes_and_sets_right(tmp_path):    # 실기 2026-11-21 Compressor 페이지 3 Gain(열 8): 오버레이가 열 7로 넘친다
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Compressor")
+    gain = logic.tracks[0].params[2][19]
+    s = cmds.plugin.set(1, None, 2, "Gain", 3.0)
+    assert s.ok and s.verified == "verified" and abs(gain.value - 3.0) <= 0.5
+    assert gain_item(cache)["map"] == {"type": "linear", "lo": -24.0, "hi": 24.0}   # 이전엔 0.0~4.0으로 학습
+
+
+def test_last_column_overlay_layout_and_read_value(tmp_path):         # 실기 2026-11-21: 값은 54칸에 오른쪽 정렬, 6자 넘을 때만 열 7 2행을 비운다
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Compressor")
+    cmds.plugin.get(1, None, 2, 20)
+    logic.view, logic.slot, logic.page, logic.pl_track, logic.name_mode = "plugin_edit", 2, 3, 0, False
+    gain = logic.tracks[0].params[2][19]
+    d = ModeDriver(surface, sleep=logic.sleep)
+    for value, text, blanked in ((-23.5, "-23.5 dB", True), (12.0, "12.0 dB", True), (0.0, "0.0 dB", False)):
+        gain.value = value
+        logic.redraw(overlay=(7, gain.name, gain.full()), remember=True)
+        row = surface.state.lcd[1]
+        assert row[55 - len(text):55] == text and row[55] == " ", repr(row)
+        assert (row[42:55 - len(text)].strip() == "") is blanked          # 열 7에서 값 앞쪽 칸(나머지는 값이 덮음)
+        assert d.read_value(7).number == value
+
+
+def test_column_7_param_is_set_as_before(tmp_path):                   # 열 7(Q)은 기존대로
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Compressor")
+    s = cmds.plugin.set(1, None, 2, "Q", 2.0)
+    assert s.ok and s.verified == "verified" and abs(logic.tracks[0].params[2][18].value - 2.0) <= 0.05

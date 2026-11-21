@@ -122,8 +122,15 @@ class ModeDriver:
 
     def read_value(self, ch: int) -> Value:
         """오버레이(21칸, 단위 포함)가 숫자로 읽히면 그것을, 아니면 열 값을 돌려준다."""
+        lcd = self.surface.state.lcd
+        last = P.LCD_WIDTH - S.COL_W          # 마지막 열 시작(49)
+        if ch * S.COL_W == last and not lcd[0][last - S.COL_W:last].strip():
+            # 마지막 열 오버레이는 54칸에 오른쪽 정렬로 끝나 열 7로 넘치며 열 7 1행을 비운다: 21칸 창은 열 6 값이 섞여 앞이 잘린다(실기 2026-11-21)
+            tail = parse_value(lcd[1][last - S.COL_W:])
+            if tail.kind == "number":
+                return tail
         start = min(ch * S.COL_W, P.LCD_WIDTH - OVERLAY_WIDTH)
-        wide = parse_value(self.surface.state.lcd[1][start:start + OVERLAY_WIDTH])
+        wide = parse_value(lcd[1][start:start + OVERLAY_WIDTH])
         if wide.kind == "number":
             return wide
         return self.read_column(ch)[1]

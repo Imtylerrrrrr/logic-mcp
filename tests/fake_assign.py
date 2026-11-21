@@ -588,6 +588,16 @@ class FakeLogic:
             else:
                 o1 = o1[:start] + fit(name) + o1[start + 21:]
             o2 = r2[:start] + fit(value) + r2[start + 21:]
+            if ch == 7 and self.view == "plugin_edit" and not self.name_mode and len(value.lstrip("+")) <= 14:
+                # 실기 2026-11-21 Compressor 페이지 3 Gain: 값만 54칸에 끝나게 오른쪽 정렬(55칸은 공백), +부호 없음.
+                # 6자 넘으면 열 7의 1·2행 칸을 비운다(1행은 실측대로 이름 오버레이 없이 축약명 + 열 7 공백; 6자 이하면 기존 이름 오버레이
+                # 모형 그대로 — calibrate 이름 읽기가 쓴다). 14자 넘는 값·다른 뷰는 미측정이라 위 21칸 모형 그대로
+                v = value.lstrip("+")
+                blank = len(v) > 6
+                o2 = r2[:42] + " " * 7 + r2[49:55] + " " if blank else r2[:55] + " "
+                o2 = o2[:55 - len(v)] + v + o2[55:]
+                if blank and not narrow_name:
+                    o1 = r1[:42] + " " * 7 + r1[49:]
             self._kept_overlay = (start, o1[start:start + 21], o2[start:start + 21]) if remember else None
         self._emit([lcd_write(0, o1[:56] + o2[:56])] + digits(d))
         self.pending = [self.clock() + OVERLAY_S]           # 새 오버레이가 이전 만기를 대체한다(마지막 쓰기 뒤 2.0초)
