@@ -157,6 +157,18 @@ def test_set_uses_known_mapping_without_probe(tmp_path):
     assert len([m for m in fake.sent[n0:] if m[0] & 0xF0 == 0xE0]) == 1   # 프로빙(2회) 없이 페이더 1회
 
 
+def test_set_between_steps_settles_on_nearer_step_and_keeps_map(tmp_path):   # 실기: 단계 사이 목표(Release 300은 290·310 사이)
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Compressor")
+    att = logic.tracks[0].params[2][3]
+    att.grid, att.step = 7.0, 7.0
+    s = cmds.plugin.set(1, None, 2, "Attack", 30.0)
+    assert s.ok is True and s.verified == "verified" and att.value == 28.0 and s.after["value"] == 28.0
+    assert "닿는 단계 없음" in s.note
+    item = next(it for it in cache.param_table("Compressor")["items"] if it["short"] == "Attack")
+    assert item.get("map") is not None and surface.state.view.kind == "pan"
+
+
 def test_param_missing_or_ambiguous(tmp_path):
     cmds, surface, fake, logic, cache = make(tmp_path)
     logic.tracks[0].insert(2, "Compressor")

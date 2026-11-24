@@ -43,10 +43,42 @@ def test_set_numeric_without_mapping_ticks_linear():
     assert out.ok and out.rounds == 2 and eq[1][1].value == -3.0
 
 
-def test_set_numeric_gives_up_after_ten_rounds():
+def _vpot_msgs(logic, n0):
+    return [m for m in logic.fake.sent[n0:] if m[0] == 0xB0 and 0x10 <= m[1] < 0x18]
+
+
+def test_set_numeric_between_steps_settles_on_the_nearer_step():          # 목표가 두 단계 사이: 가까운 쪽으로 맞추고 성공
     d, logic, eq = eq_driver()
-    eq[1][1].step = 7.0                              # 틱이 너무 거칠어 0.1 안에 못 들어감
+    eq[1][1].step = 7.0
+    n0 = len(logic.fake.sent)
     out = set_numeric(d, 5, -3.0, None, tolerance=0.1)
+    assert out.ok and eq[1][1].value == 0.0 and out.rounds == 2
+    assert "닿는 단계 없음" in out.note and "-7.0 dB" in out.note and "0.0 dB" in out.note
+    assert len(_vpot_msgs(logic, n0)) == 2
+    assert verdict(out) == (True, "verified", out.note)
+
+
+def test_set_numeric_between_steps_stays_when_the_new_step_is_nearer():
+    d, logic, eq = eq_driver()
+    eq[1][1].step = 7.0
+    n0 = len(logic.fake.sent)
+    out = set_numeric(d, 5, -4.0, None, tolerance=0.1)
+    assert out.ok and eq[1][1].value == -7.0 and out.rounds == 1 and "닿는 단계 없음" in out.note
+    assert len(_vpot_msgs(logic, n0)) == 1
+
+
+def test_set_numeric_between_steps_tie_stays_put():
+    d, logic, eq = eq_driver()
+    eq[1][1].step = 7.0
+    out = set_numeric(d, 5, -3.5, None, tolerance=0.1)
+    assert out.ok and eq[1][1].value == -7.0 and out.rounds == 1
+
+
+def test_set_numeric_gives_up_after_ten_rounds(monkeypatch):
+    d, logic, eq = eq_driver()
+    p = eq[1][1]
+    monkeypatch.setattr(p, "tick", lambda n: setattr(p, "value", round(p.value + (-3.0 - p.value) * 0.1, 2)))
+    out = set_numeric(d, 5, -3.0, None, tolerance=0.001)                  # 건너뛰지도 닿지도 않는 틱
     assert out.ok is False and out.rounds == 10 and "못 맞춤" in out.note and "10회" in out.note
 
 
@@ -92,9 +124,9 @@ def test_tolerance_argument_overrides_default(tmp_path):                 # Revie
         logic.drop_all_faders = True                   # 틱(0.5 dB)으로만 맞춘다: 3.1에는 3.0이 가장 가깝다
         return cmds.plugin.set(1, None, 2, "MakeUp", 3.1, tolerance), logic.tracks[0].params[2][6]
     r, p = run(None)
-    assert r.ok and r.verified == "verified" and p.value == 3.0     # 기본 0.2 dB 안
-    r, p = run(0.05)
-    assert not r.ok and r.verified == "unverified" and "허용 오차 0.05" in r.note
+    assert r.ok and r.verified == "verified" and p.value == 3.0 and "닿는 단계 없음" not in r.note     # 기본 0.2 dB 안: 그냥 도착
+    r, p = run(0.05)                                  # 3.0은 0.05 밖: 닿는 단계가 없어 가까운 단계로 맞춤
+    assert r.ok and r.verified == "verified" and p.value == 3.0 and "닿는 단계 없음" in r.note
 
 
 def test_set_enum_forward_and_reverse():

@@ -89,9 +89,22 @@ def set_numeric(d: ModeDriver, ch: int, target: float, mapping: Mapping | None, 
         nn, n = _num(new), _num(cur)
         if nn is not None and n is not None and nn != n and not (log_domain and (nn <= 0 or n <= 0)):
             per_tick = (dom(nn) - dom(n)) / ticks
-        cur = new
+        prev, cur = cur, new
         if (n := _num(cur)) is not None and within(n, target, tolerance):
             return SetOutcome(True, cur, rounds, "")
+        # 틱 한 번에 목표를 사이에 두고 건너뛰었다면 그 사이에 닿는 단계가 없다: 가까운 쪽으로 맞추고 끝낸다
+        a, b = _num(prev), _num(cur)
+        if abs(ticks) == 1 and a is not None and b is not None and (a - target) * (b - target) < 0:
+            low, high = sorted((prev, cur), key=lambda v: v.number)
+            if abs(abs(a - target) - abs(b - target)) > 1e-9 * max(1.0, abs(target)) and abs(a - target) < abs(b - target):
+                if not d.tick(ch, -ticks):
+                    return SetOutcome(False, cur, rounds + 1, "V-Pot 틱에 LCD 반응 없음")
+                rounds += 1
+                back = d.read_value(ch)
+                cur = back
+                if _num(back) != a:
+                    continue                              # 되돌아오지 못했다: 성공으로 치지 않고 루프를 이어 간다
+            return SetOutcome(True, cur, rounds, f"목표 {target:g}에 닿는 단계 없음({low.text} 다음이 {high.text}): 가까운 {cur.text}로 맞춤")
     return SetOutcome(False, cur, rounds, f"{MAX_ROUNDS}회 안에 허용 오차 {tolerance} 안으로 못 맞춤 (마지막 {cur.text!r})")
 
 

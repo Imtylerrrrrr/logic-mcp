@@ -100,6 +100,7 @@ class Param:
     ends: tuple[str, str] | None = None   # 양 끝 값의 표시 텍스트(예: Min/Max). 숫자가 아닌 끝을 가진 파라미터 흉내(리뷰 I4)
     digits: int = 1             # log 값 반올림 자릿수(Q는 실측 T처럼 3자리 유효숫자에 가깝게 3)
     labels: tuple[str, ...] = ()   # enum 오버레이 전체 텍스트(정착 열은 options의 6자 축약). 실측 2026-10-28 Circuit Type 'Vintage Opto'/'VinOpt'
+    grid: float = 0.0           # >0이면 값이 lo + k*grid 단계에만 놓인다(실기 Compressor Release: 페이더도 틱과 같은 격자로 붙는다)
     span: int = 1               # 편집 뷰 열 폭. 2면 이름·값을 두 열(14자)에 왼쪽 정렬로 이어 쓰고, 0은 앞 파라미터가 덮은 자리(wide())
 
     def text(self) -> str:
@@ -154,6 +155,7 @@ class Param:
             self.value = round(self.lo * (self.hi / self.lo) ** f, self.digits)
         else:
             self.value = round(self.lo + f * (self.hi - self.lo), 2)
+        self._snap()
         return self.value != before
 
     def tick(self, n: int) -> None:
@@ -163,6 +165,11 @@ class Param:
             self.value = round(max(self.lo, min(self.hi, self.value * self.step ** n)), self.digits)
         else:
             self.value = round(max(self.lo, min(self.hi, self.value + self.step * n)), 2)
+        self._snap()
+
+    def _snap(self) -> None:
+        if self.grid > 0 and self.kind == "linear":
+            self.value = min(self.hi, round(self.lo + round((self.value - self.lo) / self.grid) * self.grid, 2))
 
 
 _EQ_BANDS = [  # (이름, (freq, gain|slope, q, on) 축약, 기본 freq, 기본 gain|slope, 기본 q, 기본 on, 슬로프 밴드?)
