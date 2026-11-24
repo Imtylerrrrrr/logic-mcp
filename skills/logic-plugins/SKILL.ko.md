@@ -14,9 +14,11 @@
 - `params`를 먼저 읽고 `short`(축약명)나 `index`로 `get`/`set`. 마지막 페이지는 index가 건너뛸 수 있으니 params가 준 index를 그대로 쓴다.
 - 서드파티가 이름 없이 `Control #N`(0~1000)만 주면 index로 다루고 값은 0~1000 정수.
 - 인서트 슬롯은 1~8만.
+- 한 플러그인의 값 여러 개는 `set` 한 호출에 `changes`로 보낸다(받은 순서대로 적용). 첫 실패에서 멈추므로 `after.remaining`을 고쳐 다시 보낸다.
 
 ## EQ
 - `logic_eq get`은 삽입하지 않는다. `set`은 EQ가 없으면 `allow_insert`(기본 true)에 따라 Channel EQ를 넣는다. 밴드 1·8은 gain 대신 slope(6/12/18/24/36/48).
+- 한 EQ의 값 여러 개는 `set` 한 호출에 `changes`로 보낸다. 첫 실패에서 멈추므로 `after.remaining`을 고쳐 다시 보낸다.
 
 ## 센드
 - `logic_send set_dest`의 dest는 버스 번호("Bus 3", "3", 3) 또는 "--"(제거). 버스 센드를 새로 만들면 Logic이 Aux 트랙을 자동 생성해 **뒤 트랙 번호가 바뀐다** → 이어서 number로 부르기 전에 `logic://strips`를 다시 읽는다.

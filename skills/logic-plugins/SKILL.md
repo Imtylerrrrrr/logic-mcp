@@ -18,9 +18,11 @@ description: Order of operations and pitfalls when using Logic Pro MCP (logic-mc
 - If a numeric `set` target falls between two steps of the control (no step within the tolerance), it stops at the nearer step and still returns ok: `after` holds the value actually set and `note` names both steps.
 - If a third-party plug-in gives only unnamed `Control #N` (0-1000), address it by index; values are integers 0-1000.
 - Insert slots are 1-8 only.
+- To set several values of one plug-in, send them in one `set` call with `changes` (applied in order). It stops at the first failure, so fix `after.remaining` and send it again.
 
 ## EQ
 - `logic_eq get` does not insert anything. `set` inserts a Channel EQ if there is none, depending on `allow_insert` (default true). Bands 1 and 8 take slope (6/12/18/24/36/48) instead of gain.
+- Several values of one EQ go in one `set` call with `changes`. It stops at the first failure, so fix `after.remaining` and send it again.
 
 ## Sends
 - The dest of `logic_send set_dest` is a bus number ("Bus 3", "3", 3) or "--" (remove). Creating a new bus send makes Logic auto-create an Aux track, so **the numbers of later tracks shift** → re-read `logic://strips` before addressing tracks by number again.

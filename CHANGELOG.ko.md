@@ -9,6 +9,7 @@
 - Logic 12.0.1 삽입 메뉴의 플러그인 67종 전부에 번들 파라미터 표(이전 10종). MCU로 보이는 메뉴 항목마다 표가 있고, 파라미터는 모두 1,064개. Space Designer(178)·EVOC 20 Filterbank(61)가 가장 크다.
 - `SECURITY.md`(취약점 제보 방법, 서버가 건드리는 것), Python 의존성과 GitHub Actions용 Dependabot 설정, 신뢰 게시로 PyPI에 올리는 수동 `publish` 워크플로. README 주의 섹션에 서버가 건드리는 것과 제거 방법을 적었다.
 - `scripts/calibrate_batch.sh [strip] "이름" ...`: 여러 플러그인을 차례로 `calibrate_plugin.py --write --yes`로 수집한다. 번들에 이미 있는 이름은 건너뛰고, 플러그인마다 로그를 `~/.logic-mcp/calib-logs/`에 남긴다.
+- `logic_plugin set`과 `logic_eq set`의 `changes=[...]`: 같은 플러그인(또는 Channel EQ)의 값을 최대 32개까지 한 호출, 편집 뷰 한 번 진입으로 맞춘다. 항목은 받은 순서대로 적용하고, 보내기 전에 전부 검사하며, 첫 실패에서 멈추고 `after.results`·`after.remaining`을 돌려준다. 이미 맞춘 값은 그대로 둔다. 한 개짜리 `set`은 달라지지 않는다.
 
 ### Changed
 - 숫자 `set`은 목표가 컨트롤 서피스의 두 단계 사이에 있으면 가까운 단계에 맞추고 ok로 돌려준다. 이전에는 두 단계 사이를 10회 오가다 실패했다(예: Compressor Release 300은 290과 310 사이). `note`에 두 단계가 적힌다.

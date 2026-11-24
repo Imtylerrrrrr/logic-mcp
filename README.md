@@ -94,8 +94,8 @@ When you open a project in Logic, the "LogicMCP" port is installed automatically
 | `logic_mixer` | Volume (dB), pan |
 | `logic_bank` | Move banks and channels, find the bank that shows a given track number |
 | `logic_session` | Connection status, wait for surface installation, configure |
-| `logic_eq` | Read and write frequency, gain, Q, slope and on/off for all 8 Channel EQ bands |
-| `logic_plugin` | List, insert, remove and bypass for insert slots 1-8, read and write parameters, plugin scan, parameter table collection (calibrate, requires force) |
+| `logic_eq` | Read and write frequency, gain, Q, slope and on/off for all 8 Channel EQ bands, several values in one call (`changes`) |
+| `logic_plugin` | List, insert, remove and bypass for insert slots 1-8, read and write parameters (several values in one call with `changes`), plugin scan, parameter table collection (calibrate, requires force) |
 | `logic_send` | Read and write destination (bus), level, position and mute for sends 1-8 |
 
 Resources: `logic://status`, `logic://transport`, `logic://strips`, `logic://lcd`, `logic://plugins`, `logic://inserts`, `logic://view`.
