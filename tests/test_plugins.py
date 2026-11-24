@@ -16,6 +16,12 @@ def test_bundled_known_json_shape():
     assert data["complete"] is False
 
 
+def test_bundled_compressor_ratio_is_logarithmic():                     # 실측 2026-11-19: 페이더 raw 1~16383 → 1.0, 1.6, 2.3, 3.6, 5.6, 8.3, 13, 19, 30
+    items = json.loads(BUNDLED.read_text())["params"]["Compressor"]["items"]
+    ratio = next(i for i in items if i["short"] == "Ratio")
+    assert ratio["map"] == {"type": "log", "lo": 1.0, "hi": 30.0}
+
+
 def test_logic_version_reads_plist(tmp_path):
     import plistlib
     p = tmp_path / "Info.plist"

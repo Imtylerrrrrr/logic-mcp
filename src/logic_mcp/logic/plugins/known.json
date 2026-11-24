@@ -546,7 +546,7 @@
           "short": "Ratio",
           "name": "Ratio",
           "map": {
-            "type": "linear",
+            "type": "log",
             "lo": 1.0,
             "hi": 30.0
           }
