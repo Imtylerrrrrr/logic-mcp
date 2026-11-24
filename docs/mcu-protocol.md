@@ -158,12 +158,29 @@
     4/5 |IntDel Spread RvbTim Densit LoRato Crssvr Hi Cut LoFLev |
     5/5 |LoRato Crssvr Hi Cut LoFLev Diffso ERScal Dry    Wet    |
     ```
-    같은 18개 묶음이 두 번 이어진 36개이고 마지막 페이지만 끝맞춤(W)이다. 두 번째 묶음은 별개의 파라미터다: 3페이지 3열 `Mix`를 20 → 25 %로 돌려도 1페이지 `Mix`는 20 %였고, 기본값도 다르다(첫 묶음 Dry/Wet `80 %`/`20 %`, 둘째 `75 %`/`25 %`). 둘째 묶음이 무엇인지(좌·우 채널인지)는 미확인. Guitar Amp Pro도 `Page n/6`(표 3페이지·22개 → 44개), 3페이지 `FX Dep FXSyMd FXSped RvbEnb Rvb Md RvbLev Gain EQ Low`(2회).
+    같은 18개 묶음이 두 번 이어진 36개이고 마지막 페이지만 끝맞춤(W)이다. 두 번째 묶음은 별개의 파라미터다: 3페이지 3열 `Mix`를 20 → 25 %로 돌려도 1페이지 `Mix`는 20 %였다. (정정 2026-11-25 Z25: 여기 적었던 "기본값도 다르다(둘째 묶음 Dry/Wet `75 %`/`25 %`)"는 오독이다. 그 실행이 먼저 둘째 묶음 `Mix`를 25 %로 올렸고 `Mix`가 같은 묶음의 Dry/Wet을 움직인 결과였다. 새 인스턴스의 기본값은 두 묶음이 같다.) 둘째 묶음이 무엇인지는 Z25 참고. Guitar Amp Pro도 `Page n/6`(표 3페이지·22개 → 44개), 3페이지 `FX Dep FXSyMd FXSped RvbEnb Rvb Md RvbLev Gain EQ Low`(2회).
   - Modulation Delay는 배치가 표와 같고(3페이지) 파라미터 이름만 다르다: 틱 오버레이의 전체 이름이 `Rate LFO 1 L`·`Rate LFO 1 R`·`Rate LFO 2 L`·`Rate LFO 2 R`(표는 `Rate LFO 1`·`Rate LFO 2`), 축약명 `RatO1L`·`RatO2L`(표 `RateO1`·`RateO2`). `Stereo`(index 23)를 `Link` ↔ `Free`로 바꿔도 이름은 그대로(2회).
   - 전수 대조(값 변경 없음: 삽입 → 페이지 수와 모든 페이지 축약명 읽기 → 제거): 67종 중 66종 삽입(Tuner는 이름 탐색 317틱 뒤에도 못 찾아 실패, 30분 전에는 들어갔다), **51종은 표와 같고 15종이 다르다**.
     - 묶음이 두 벌(13종): DeEsser 6 → 12개, Expander 9 → 18(3페이지), PlatinumVerb 18 → 36(5페이지), Fat EQ 25 → 50(7페이지), DJ EQ 5 → 10(2페이지), Guitar Amp Pro 22 → 44(6페이지), Parametric EQ·Low Pass Filter·High Pass Filter 3 → 6, Low Shelving EQ·High Shelving EQ 2 → 4, High Cut·Low Cut 1 → 2.
     - 좌·우 파라미터(2종): Modulation Delay(위), Scanner Vibrato `Type Depth Rate` → `Type Depth LefRat RigRat St Ph`.
     - 한 페이지의 파라미터가 4개를 넘으면 두 칸 이름이 한 칸 이름으로 바뀐다(관찰 3종): Parametric EQ `Gain`|`Frequency`|`Q-Factor`(1·3·5열) → `Gain Freq Q Gain Freq Q`(1~6열), Low/High Pass Filter `Frequency`|`Order`|`Smoothing` → `Freq Order Smothn` ×2. 파라미터가 4개 이하로 남는 Low/High Shelving EQ·High/Low Cut은 두 칸 이름 그대로 뒤에 둘째 묶음이 붙는다(`Gain`|`Frequency`|`Gain`|`Frequency`).
     - 표가 1페이지라 서버가 커서를 누르지 않는 플러그인이 실제로는 2페이지면, 직전 플러그인의 페이지 위치로 열린 화면(Z23)을 1페이지로 읽는다: DeEsser가 Space Designer(23페이지) 뒤에 `Page 2`로 열려 `Smothn Monitr Suprss Sensvt SuponF Detr-F Smothn Monitr`(12개의 끝맞춤 2페이지)를 보였다(1회).
-  - 해석(추정): 번들 표는 묶음이 한 벌인 형식(모노 인스턴스로 보임)에서 수집됐다. 11/10~11 수집 트랙의 형식은 기록이 없고, 테스트 프로젝트의 쓸 수 있는 트랙은 전부 스테레오라 모노 인스턴스로 확인하지 못했다.
+  - 해석(추정): 번들 표는 묶음이 한 벌인 형식(모노 인스턴스로 보임)에서 수집됐다. 11/10~11 수집 트랙의 형식은 기록이 없고, 테스트 프로젝트의 쓸 수 있는 트랙은 전부 스테레오라 모노 인스턴스로 확인하지 못했다. → Z25에서 모노 트랙으로 확인했다.
   - 서버 동작: 편집 뷰 조작은 표의 index로 페이지·열을 계산한다. 가드가 없는 main은 이 15종의 스테레오 인스턴스에서 표와 어긋난 자리의 파라미터를 읽고 쓰게 된다(예: PlatinumVerb `Wet` = 표 index 24 → 3페이지 8열 = 둘째 묶음 `BalR/R`. 배치에서 따진 것이고 main에서 실행해 보지는 않았다). 페이지 가드는 그 페이지 이름이 표와 다르면 거부한다: 이름이 표와 같은 페이지(첫 묶음의 꽉 찬 페이지, Low/High Shelving EQ·High/Low Cut 전체)는 통과하고, 표의 마지막 페이지(Expander `OutClp`, PlatinumVerb `Dry`·`Wet`, Fat EQ 4페이지, Guitar Amp Pro 3페이지)·이름이 바뀐 페이지(Parametric EQ, Low/High Pass Filter, Scanner Vibrato, Modulation Delay 1페이지)는 `guard`로 실패한다. 표에 형식별 변형을 두는 것은 미구현.
+- **Z25. 모노 인스턴스 대조와 스테레오 둘째 묶음(2026-11-25 04:31~06:16, 트랙 6 "오디오 6" 슬롯 1 = 모노 오디오 트랙 `(m/m)`, 트랙 5 슬롯 1 = 스테레오 소프트웨어 악기 트랙 `(s/s)`, 임시 인스턴스).**
+  - 모노 전수 대조(값 변경 없음, Z24와 같은 방법): 67종 모두 삽입됐고 헤더 접미는 `(m/m)` 65종, `(m/s)` 2종(EVOC 20 Filterbank·EVOC 20 TrackOscillator, 표와 같음). **65종이 번들 표와 같고 2종이 다르다**: Space Designer(표 23페이지·178개, 모노 12페이지·89개. 표가 스테레오의 두 벌 배치다), Level Meter(표 7개, 모노 5개: index 5가 `R` 대신 `MargnL`, 6·7 없음). 스테레오에서 표와 달랐던 15종(Z24)은 모노에서 전부 표와 같고, 스테레오에서 실패했던 Tuner도 모노에서는 들어갔고 표와 같다. 종합: 두 형식 모두 표와 같은 것 49종, 스테레오에서만 다른 것 15종, 모노에서만 다른 것 2종(Space Designer·Level Meter), Tuner는 스테레오 미확인. 즉 번들 표는 플러그인마다 수집된 형식이 다르다(대부분 한 벌 = 모노 배치, Space Designer·Level Meter는 스테레오 배치).
+  - 스테레오의 둘째 묶음은 첫 묶음과 이름·기본값·묶음 안 연동이 같고 값만 따로 가진다(Opus 실기 6회, 모두 유효).
+    - 경계: PlatinumVerb 36개는 [1~18]과 [19~36]이고 각각 모노 18개와 같은 순서다. 3/5페이지 1·2열 `Dry`·`Wet`은 첫 묶음의 끝이고 둘째 묶음은 3열 `Mix`부터다. 1/5페이지 `Mix`를 20 → 30 %로 올리면 3/5페이지 `Dry`·`Wet`이 `80 %`·`20 %` → `70 %`·`30 %`로 같이 바뀌고(첫 묶음 안 연동), 3/5페이지 3열 `Mix`를 내려도 그 `Dry`·`Wet`은 그대로였다.
+    - 기본값(새 인스턴스, 아무것도 건드리지 않음): 3/5 `Dry Wet Mix Predly RooSiz RooShp` = `80 % 20 % 20 % 10 ms 10 m 5`, 5/5 끝 `Dry Wet` = `80 % 20 %`. 두 묶음이 같다(Z24의 `75 %`/`25 %`는 오독).
+    - 긴 이름(틱 오버레이): 둘째 묶음 `Diffusion`·`Low Ratio`·`Initial Delay`·`Crossover`, 첫 묶음 `Diffusion`·`Low Freq Level`·`Stereo Base`. L·R 같은 접미가 없다.
+    - 모노 PlatinumVerb(트랙 6): 18개, 기본값 같음(`Mix` 20 %, `Dry`/`Wet` 80/20), `Mix` 20 → 30이면 `Dry`/`Wet` 70/30. 스테레오의 첫 묶음과 같다.
+    - Parametric EQ 스테레오: `Gain Freq Q Gain Freq Q` = `0.0 dB 1000Hz 0.74` 두 번. 열마다 따로 움직인다(마지막 `+1.5dB 1100Hz 0.86 -1.0dB 1100Hz 0.86`). 긴 이름은 2·5열 `Frequency`, 3·6열 `Q-Factor`. 모노는 `Gain`|`Frequency`|`Q-Factor` 한 벌.
+    - DeEsser 스테레오(12개): 두 묶음 기본값 같음(`0.0 dB 50.0 % 5994Hz 6000Hz 10.0ms Off`), 첫 묶음 `Suprss`를 −1.0 dB로 내려도 둘째는 0.0 dB.
+  - 못 정한 것: (1) 플러그인 자체(창·소리)가 어느 묶음을 쓰는지. 편집 뷰에 들어가도 Logic 창 목록(CGWindowList, 다른 Space 포함)에 새 창이 생기지 않았다(5회). 플러그인 창을 열어 둔 상태에서 묶음별로 틱을 보내고 창을 찍으면 정해진다. (2) 두 벌이 "스테레오"라서인지 "소프트웨어 악기 트랙"이라서인지. 테스트 프로젝트의 오디오 트랙은 확인한 두 개(트랙 6·11)가 모노라 스테레오 오디오 트랙에서는 못 봤다(트랙 11 "오디오 1"의 PlatinumVerb도 `(m/m)`·3페이지, 1회).
+- **Z26. V-Pot 틱 한 칸이 표시 단위보다 작으면 LCD가 바뀌지 않는다(2026-11-25 05:11, 트랙 4 Compressor `Ratio`, main 06d4236 코드, `diag_ticks.py`).** VALUE 모드에서 오버레이 만기를 기다리지 않고 +1틱을 12번 보냈다(set의 틱 루프와 같은 조건).
+  ```
+  틱:   1    2      3    4    5      6    7    8      9    10   11   12
+  값:   1.4  1.4    1.5  1.6  1.6    1.7  1.8  1.8    1.9  2.0  2.1  2.1
+  반응: O    X      O    O    X      O    O    X      O    O    O    O(값 표시는 그대로)
+  ```
+  시작 값 `1.3:1`. 반응 = `ModeDriver.tick`의 판정(틱 뒤 0.6초 안의 LCD 변화). 2·5·8번째 틱은 LCD 쓰기가 없었고(무반응 틱은 0.61초, 반응 틱은 0.43초), 끝에 −12틱 한 번으로 정착 값이 `1.3:1`로 돌아왔다. → 무반응 틱에서도 값은 한 칸 움직인다(표시가 소수 1자리라 안 보일 뿐). 12번째처럼 LCD는 바뀌었는데 값 표시는 같은 틱도 있다. 한 번의 실행이다(같은 날 실기 확인 1·2회차에서 Ratio 2.0·3.0 set이 이 무반응 때문에 4회 중 4회 실패한 것과 맞는다). 서버 대응: `set_numeric`이 무반응이면 같은 방향으로 한 틱씩 더 보내고 한 라운드 6틱까지 무반응일 때만 실패로 본다(`SILENT_TICKS`).
