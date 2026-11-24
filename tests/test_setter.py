@@ -1,8 +1,8 @@
 import pytest
 
-from logic_mcp.logic.modes import OVERLAY_S, ModeDriver
+from logic_mcp.logic.modes import OVERLAY_S, ModeDriver, ModeError
 from logic_mcp.logic.setter import (SetOutcome, coerce, enum_matches, probe_mapping, set_enum, set_enum_index,
-                                    set_numeric, set_option, verdict)
+                                    set_numeric, set_option, verdict, batch_verdict, run_changes)
 from logic_mcp.logic.values import Mapping, parse_value
 from tests.fake_assign import Param, make_assign_logic
 
@@ -400,3 +400,51 @@ def test_verdict_maps_each_outcome():
     assert verdict(SetOutcome(False, v, 0, "skip:#n은 enum 파라미터에만 쓸 수 있음")) == (False, "skipped", "#n은 enum 파라미터에만 쓸 수 있음")
     assert verdict(SetOutcome(True, v, 1, "fader")) == (True, "verified", "fader")
     assert verdict(SetOutcome(False, v, 10, "못 맞춤")) == (False, "unverified", "못 맞춤")
+
+
+def _ok(v="verified"):
+    return {"ok": True, "verified": v, "note": "", "before": None, "after": None}
+
+
+def test_run_changes_stops_at_first_failure():
+    calls, betweens = [], []
+    seq = [_ok(), {**_ok(), "ok": False, "verified": "skipped", "note": "x"}, _ok()]
+
+    def one(k):
+        calls.append(k)
+        return seq[k]
+    res = run_changes([{"i": 0}, {"i": 1}, {"i": 2}], one, lambda: betweens.append(1))
+    assert len(res) == 2 and calls == [0, 1] and len(betweens) == 1
+    assert res[0]["i"] == 0 and res[1]["ok"] is False
+
+
+def test_run_changes_turns_mode_error_into_failed_item():
+    def one(k):
+        if k == 1:
+            raise ModeError("flip", "Flip 켜짐", "무응답")
+        return _ok()
+    res = run_changes([{}, {}, {}], one, lambda: None)
+    assert len(res) == 2 and res[0]["ok"]
+    assert res[1]["verified"] == "unverified" and "flip" in res[1]["note"]
+    assert res[1]["before"] is None and res[1]["after"] is None
+
+    def between():
+        raise ModeError("overlay", "a", "b")
+    res = run_changes([{}, {}], lambda k: _ok(), between)
+    assert len(res) == 2 and res[1]["verified"] == "unverified" and "overlay" in res[1]["note"]
+
+    def bad(k):
+        raise ValueError("나쁨")
+    res = run_changes([{}], bad, lambda: None)
+    assert res[0]["verified"] == "skipped" and res[0]["note"] == "값 오류: 나쁨"
+
+
+def test_batch_verdict_rules():
+    name = lambda r: r["n"]  # noqa: E731
+    v = [{**_ok(), "n": "A"} for _ in range(3)]
+    assert batch_verdict(3, v, name) == (True, "verified", "3개 완료")
+    assert batch_verdict(2, [_ok("skipped"), _ok("skipped")], name)[1] == "skipped"
+    assert batch_verdict(3, [_ok(), _ok("unverified"), _ok()], name)[1] == "unverified"
+    fail = {**_ok(), "ok": False, "verified": "skipped", "note": "범위 밖: 1~30", "n": "Ratio"}
+    assert batch_verdict(3, [{**_ok(), "n": "A"}, fail], name) == (
+        False, "skipped", "3개 중 1개 완료, 2번째 Ratio 실패: 범위 밖: 1~30. 남은 1개는 보내지 않음")

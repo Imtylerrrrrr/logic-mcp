@@ -3,11 +3,12 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from ..mcu.protocol import MAX_FADER
 from .faders import FaderTable
-from .modes import ModeDriver
+from .modes import ModeDriver, ModeError
 from .values import Mapping, Value, infer_mapping, raw_for, within
 
 MAX_ROUNDS = 10        # 실전 F4: fader+보정 경로에서 6회가 소진되는 일이 잦았다
@@ -218,3 +219,38 @@ def verdict(out: SetOutcome) -> tuple[bool, str, str]:
     if out.note.startswith("skip:"):
         return False, "skipped", out.note[5:]
     return out.ok, "verified" if out.ok else "unverified", out.note
+
+
+def _failed(ok_verified: str, note: str) -> dict:
+    return {"ok": False, "verified": ok_verified, "note": note, "before": None, "after": None}
+
+
+def run_changes(heads: list[dict], one: Callable[[int], dict], between: Callable[[], None]) -> list[dict]:
+    """묶음 실행: 받은 순서대로 항목을 맞추고 첫 실패에서 멈춘다. 둘째부터는 먼저 between()으로 직전 오버레이를 기다리고 NAME 상태로 돌린다.
+    항목 실행 중 ModeError·ValueError는 그 항목의 실패로 기록한다(앞 항목 결과를 잃지 않는다. Commands._guarded와 같은 대응)."""
+    results: list[dict] = []
+    for k, head in enumerate(heads):
+        try:
+            if k > 0:
+                between()
+            r = one(k)
+        except ModeError as e:
+            r = _failed("unverified", str(e))
+        except ValueError as e:
+            r = _failed("skipped", f"값 오류: {e}")
+        results.append({**head, **r})
+        if not r["ok"]:
+            break
+    return results
+
+
+def batch_verdict(total: int, results: list[dict], name: Callable[[dict], str]) -> tuple[bool, str, str]:
+    """묶음 결과 → 최상위 (ok, verified, note). 실패로 멈췄으면 그 항목의 verified."""
+    done = sum(1 for r in results if r["ok"])
+    if results and not results[-1]["ok"]:
+        bad = results[-1]
+        return (False, bad["verified"],
+                f"{total}개 중 {done}개 완료, {len(results)}번째 {name(bad)} 실패: {bad['note']}. 남은 {total - len(results)}개는 보내지 않음")
+    kinds = {r["verified"] for r in results}
+    verified = "unverified" if "unverified" in kinds else "verified" if "verified" in kinds else "skipped"
+    return True, verified, f"{done}개 완료"
