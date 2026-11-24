@@ -12,6 +12,7 @@ from .modes import ModeDriver, ModeError
 from .values import Mapping, Value, infer_mapping, raw_for, within
 
 MAX_ROUNDS = 10        # 실전 F4: fader+보정 경로에서 6회가 소진되는 일이 잦았다
+SILENT_TICKS = 6       # 한 라운드에서 LCD가 안 바뀌어도 이어 보내는 최대 틱 수(실기 2026-11-25 Compressor Ratio: 틱이 표시 단위보다 작아 12틱 중 3틱이 무반응)
 
 
 @dataclass
@@ -84,12 +85,16 @@ def set_numeric(d: ModeDriver, ch: int, target: float, mapping: Mapping | None, 
                 ticks = 1 if err > 0 else -1
             else:
                 ticks = max(-63, min(63, round(err / per_tick))) or (1 if err > 0 else -1)
-        if not d.tick(ch, ticks):
+        ok, sent = d.tick(ch, ticks), ticks
+        while not ok and abs(sent) < SILENT_TICKS:        # 틱이 표시 단위보다 작아 LCD가 안 바뀐 것일 수 있다: 같은 방향으로 한 틱씩 더
+            step = 1 if ticks > 0 else -1
+            ok, sent = d.tick(ch, step), sent + step
+        if not ok:
             return SetOutcome(False, cur, rounds, "V-Pot 틱에 LCD 반응 없음")
         new = d.read_value(ch)
         nn, n = _num(new), _num(cur)
         if nn is not None and n is not None and nn != n and not (log_domain and (nn <= 0 or n <= 0)):
-            per_tick = (dom(nn) - dom(n)) / ticks
+            per_tick = (dom(nn) - dom(n)) / sent
         prev, cur = cur, new
         if (n := _num(cur)) is not None and within(n, target, tolerance):
             return SetOutcome(True, cur, rounds, "")
@@ -98,7 +103,7 @@ def set_numeric(d: ModeDriver, ch: int, target: float, mapping: Mapping | None, 
         if abs(ticks) == 1 and a is not None and b is not None and (a - target) * (b - target) < 0:
             low, high = sorted((prev, cur), key=lambda v: v.number)
             if abs(abs(a - target) - abs(b - target)) > 1e-9 * max(1.0, abs(target)) and abs(a - target) < abs(b - target):
-                if not d.tick(ch, -ticks):
+                if not d.tick(ch, -sent):
                     return SetOutcome(False, cur, rounds + 1, "V-Pot 틱에 LCD 반응 없음")
                 rounds += 1
                 back = d.read_value(ch)

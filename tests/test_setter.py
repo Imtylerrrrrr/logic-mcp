@@ -1,7 +1,7 @@
 import pytest
 
 from logic_mcp.logic.modes import OVERLAY_S, ModeDriver, ModeError
-from logic_mcp.logic.setter import (SetOutcome, coerce, enum_matches, probe_mapping, set_enum, set_enum_index,
+from logic_mcp.logic.setter import (SILENT_TICKS, SetOutcome, coerce, enum_matches, probe_mapping, set_enum, set_enum_index,
                                     set_numeric, set_option, verdict, batch_verdict, run_changes)
 from logic_mcp.logic.values import Mapping, parse_value
 from tests.fake_assign import Param, make_assign_logic
@@ -72,6 +72,33 @@ def test_set_numeric_between_steps_tie_stays_put():
     eq[1][1].step = 7.0
     out = set_numeric(d, 5, -3.5, None, tolerance=0.1)
     assert out.ok and eq[1][1].value == -7.0 and out.rounds == 1
+
+
+def test_set_numeric_ticks_through_steps_smaller_than_the_display():      # 실기 2026-11-25 Compressor Ratio: 틱 3번 중 1번은 LCD가 안 바뀐다
+    d, logic, eq = eq_driver()
+    logic.no_overlay_on_nochange = True                                     # 표시 텍스트가 같은 틱은 LCD 메시지 없음
+    eq[1][1].step = 0.04                                                    # 표시는 0.1 단위라 틱이 표시 단계보다 작다
+    out = set_numeric(d, 5, 0.4, None, tolerance=0.05)
+    assert out.ok, out.note
+    assert abs(eq[1][1].value - 0.4) <= 0.05
+
+
+def test_set_numeric_between_display_steps_turns_back_all_silent_ticks():
+    d, logic, eq = eq_driver()
+    logic.no_overlay_on_nochange = True
+    eq[1][1].step = 0.04                                                    # 0.0 -> (0.04 무반응) -> 0.08 = 표시 0.1
+    out = set_numeric(d, 5, 0.04, None, tolerance=0.01)
+    assert out.ok and "닿는 단계 없음" in out.note, out.note
+    assert eq[1][1].value == 0.0                                            # 무반응 틱까지 전부 되돌렸다
+
+
+def test_set_numeric_reports_no_reaction_after_silent_ticks():
+    d, logic, eq = eq_driver()
+    logic.drop_all_vpots = True
+    n0 = len(logic.fake.sent)
+    out = set_numeric(d, 5, -3.0, None, tolerance=0.1)
+    assert out.ok is False and out.note == "V-Pot 틱에 LCD 반응 없음"
+    assert len(_vpot_msgs(logic, n0)) == SILENT_TICKS
 
 
 def test_set_numeric_gives_up_after_ten_rounds(monkeypatch):

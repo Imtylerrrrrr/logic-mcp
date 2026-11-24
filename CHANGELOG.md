@@ -25,6 +25,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `logic_plugin set` accepts 0/1 for a parameter whose options are exactly Off/On (previously "1" never matched).
 - When an option text is not found within 16 steps, the parameter is stepped back to where it started and the note says so (previously it was left wherever the search stopped).
 - `logic_plugin` `insert` accepts a plug-in whose cached list name was cut to the 21-character overlay (`EVOC 20 TrackOscillat`) when the edit view header shows the full name, and reports the full name. Previously the insert was reported unverified although the plug-in was in the slot.
+- A numeric `set` no longer fails with "V-Pot 틱에 LCD 반응 없음" when one V-Pot tick is smaller than what the display shows (e.g. Compressor Ratio at 1.4, 1.6, 1.8): it keeps ticking, up to 6 ticks, before concluding there is no reaction. The bundled Compressor Ratio range is now logarithmic.
 
 ## [0.1.2] - 2026-11-02
 ### Added
