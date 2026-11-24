@@ -2,7 +2,7 @@ import pytest
 
 from logic_mcp.logic.commands import Commands
 from logic_mcp.logic.faders import FaderTable
-from logic_mcp.logic.modes import ModeDriver, ModeError
+from logic_mcp.logic.modes import OVERLAY_MARGIN_S, OVERLAY_S, ModeDriver, ModeError
 from logic_mcp.logic.plugins.cache import PluginCache
 from logic_mcp.mcu import protocol as P
 from tests.fake_assign import PLUGIN_LIST, Param, Track, lcd_write, make_assign_logic, wide
@@ -1071,9 +1071,19 @@ def test_set_many_neighbor_columns_wait_out_the_overlay(tmp_path):
     cmds, surface, fake, logic, cache = make(tmp_path)
     logic.tracks[0].insert(2, "Compressor")
     logic.overlay_survives_toggle = True
+    d, events = cmds.plugin.d, []
+    for name in ("fader", "tick", "read_column"):                # 가상 시계로 쓰기와 읽기의 간격을 잰다
+        def wrap(*a, _real=getattr(d, name), _name=name, **kw):
+            events.append((_name, surface.clock()))
+            return _real(*a, **kw)
+        setattr(d, name, wrap)
     r = cmds.plugin.set_many(1, None, 2, [{"param": 2, "value": -30.0}, {"param": 3, "value": 4.0}])
     assert r.ok and [x["verified"] for x in r.after["results"]] == ["verified", "verified"], r.note
     assert r.after["results"][1]["before"]["value"] == 2.1
+    first_write = next(i for i, e in enumerate(events) if e[0] != "read_column")
+    next_read = next(i for i in range(first_write, len(events)) if events[i][0] == "read_column")
+    last_write = max(i for i in range(first_write, next_read) if events[i][0] != "read_column")
+    assert events[next_read][1] - events[last_write][1] >= OVERLAY_S + OVERLAY_MARGIN_S   # 둘째 항목은 오버레이가 걷힌 뒤에 읽는다
     assert _vals(logic, [2, 3]) == [-30.0, 4.0]
 
 
