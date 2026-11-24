@@ -30,3 +30,10 @@ Logic 재시작 뒤 이 버튼들(과 PAN·TRACK)에 메시지가 없을 수 있
 ## 6. 연속 `set` 직후 값이 빈 칸이거나 이전 값
 
 편집 뷰에서 페이더로 값을 움직이면 Logic이 값 오버레이를 약 2초 동안 남긴다(Z15). 2초 뒤 다시 읽는다. `set` 경로에는 아직 자동 대기가 없다.
+
+## 7. `logic_plugin` `get`/`set`이 `guard: …`로 실패
+
+서버는 페이더·V-Pot을 보내기 직전마다 LCD의 파라미터 이름을 표의 그 페이지와 비교하고, 다르면 보내지 않는다. note가 `guard:`로 시작하고 기대한 이름과 본 이름이 들어 있다. 알려진 원인 둘:
+
+- Logic이 Cursor 누름을 늦게 처리해 화면이 다른 페이지에 있다. 같은 명령을 다시 실행한다.
+- 인스턴스의 배치가 번들 표와 다르다. 번들 표에는 플러그인마다 배치가 하나뿐이다. Logic 12.0.1에서 확인한 66종 가운데 15종은 스테레오(`s/s`) 인스턴스에서 다르다: 13종은 파라미터 묶음이 두 번 나오고(DeEsser, Expander, PlatinumVerb, Parametric EQ, Low/High Pass Filter, Low/High Shelving EQ, Fat EQ, DJ EQ, High/Low Cut, Guitar Amp Pro) 2종은 좌·우 파라미터가 따로 있다(Modulation Delay, Scanner Vibrato). 이름이 표와 같은 페이지는 동작하고, 나머지는 엉뚱한 파라미터에 쓰는 대신 거부한다. 형식별 표는 아직 지원하지 않는다(Z24).

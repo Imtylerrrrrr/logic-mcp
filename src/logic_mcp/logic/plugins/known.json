@@ -315,7 +315,11 @@
           "index": 24,
           "short": "HiCutQ",
           "name": "High Cut Q-Factor",
-          "map": null
+          "map": {
+            "type": "log",
+            "lo": 0.1,
+            "hi": 100.0
+          }
         },
         {
           "index": 25,
@@ -499,7 +503,11 @@
           "index": 48,
           "short": "MasGai",
           "name": "Master  Gain",
-          "map": null
+          "map": {
+            "type": "linear",
+            "lo": -24.0,
+            "hi": 24.0
+          }
         }
       ]
     },
@@ -725,8 +733,8 @@
           "name": null,
           "map": {
             "type": "linear",
-            "lo": 0.0,
-            "hi": 4.0
+            "lo": -24.0,
+            "hi": 24.0
           }
         }
       ]
@@ -1087,9 +1095,9 @@
           "short": "DelTim",
           "name": "Delay Time",
           "map": {
-            "type": "linear",
+            "type": "log",
             "lo": 0.3,
-            "hi": 9.9
+            "hi": 4999.9
           }
         }
       ]
@@ -1691,7 +1699,11 @@
           "index": 32,
           "short": "DHPakQ",
           "name": "Damping High Peak Q",
-          "map": null
+          "map": {
+            "type": "log",
+            "lo": 0.1,
+            "hi": 100.0
+          }
         },
         {
           "index": 33,
@@ -1770,9 +1782,9 @@
           "short": "LoCutQ",
           "name": "Low Cut Q",
           "map": {
-            "type": "linear",
+            "type": "log",
             "lo": 0.1,
-            "hi": 20000.0
+            "hi": 100.0
           }
         },
         {
@@ -1848,9 +1860,9 @@
           "short": "LoPekQ",
           "name": "Low Peak Q",
           "map": {
-            "type": "linear",
+            "type": "log",
             "lo": 0.1,
-            "hi": 20000.0
+            "hi": 100.0
           }
         },
         {
@@ -1974,9 +1986,9 @@
           "short": "HiCutQ",
           "name": "High Cut Q",
           "map": {
-            "type": "linear",
+            "type": "log",
             "lo": 0.1,
-            "hi": 20000.0
+            "hi": 100.0
           }
         }
       ]
@@ -2797,7 +2809,7 @@
           "map": {
             "type": "log",
             "lo": 20.0,
-            "hi": 0.0
+            "hi": 20000.0
           }
         },
         {
@@ -3279,7 +3291,11 @@
           "index": 128,
           "short": "X-OvrF",
           "name": "X-Over Freq",
-          "map": null
+          "map": {
+            "type": "log",
+            "lo": 200.0,
+            "hi": 16000.0
+          }
         },
         {
           "index": 129,
@@ -3363,7 +3379,7 @@
           "map": {
             "type": "linear",
             "lo": 0.0,
-            "hi": 18.3
+            "hi": 1.83
           }
         },
         {
@@ -3528,7 +3544,7 @@
           "map": {
             "type": "log",
             "lo": 20.0,
-            "hi": 0.0
+            "hi": 20000.0
           }
         },
         {
@@ -3690,7 +3706,11 @@
           "index": 168,
           "short": "LoCuOr",
           "name": "Low Cut Order",
-          "map": null
+          "map": {
+            "type": "linear",
+            "lo": 6.0,
+            "hi": 12.0
+          }
         },
         {
           "index": 169,
@@ -4193,7 +4213,7 @@
           "map": {
             "type": "log",
             "lo": 20.0,
-            "hi": 0.0
+            "hi": 20000.0
           }
         }
       ]
@@ -5312,9 +5332,9 @@
           "short": "Ea-Out",
           "name": "Ease-Out Low",
           "map": {
-            "type": "linear",
-            "lo": 0.0,
-            "hi": 961.0
+            "type": "log",
+            "lo": 20.0,
+            "hi": 23942.0
           }
         },
         {
@@ -5716,7 +5736,11 @@
           "index": 40,
           "short": "Redcto",
           "name": "Reduction",
-          "map": null
+          "map": {
+            "type": "linear",
+            "lo": -50.0,
+            "hi": 0.0
+          }
         },
         {
           "index": 41,
@@ -6563,7 +6587,11 @@
           "index": 48,
           "short": "MasGai",
           "name": "Master  Gain",
-          "map": null
+          "map": {
+            "type": "linear",
+            "lo": -24.0,
+            "hi": 24.0
+          }
         }
       ]
     },
@@ -6794,7 +6822,7 @@
           "map": {
             "type": "log",
             "lo": 20.0,
-            "hi": 0.0
+            "hi": 20000.0
           }
         },
         {
@@ -6949,7 +6977,11 @@
           "index": 24,
           "short": "Gain 5",
           "name": "Gain 5",
-          "map": null
+          "map": {
+            "type": "linear",
+            "lo": -18.0,
+            "hi": 18.0
+          }
         },
         {
           "index": 32,
@@ -7355,7 +7387,11 @@
           "index": 16,
           "short": "BW Mod",
           "name": "BW Modulation",
-          "map": null
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
         }
       ]
     },
@@ -7554,7 +7590,7 @@
           "map": {
             "type": "linear",
             "lo": 1.0,
-            "hi": 0.0
+            "hi": 30.0
           }
         },
         {
@@ -7696,7 +7732,7 @@
           "name": "Main Out",
           "map": {
             "type": "linear",
-            "lo": 0.0,
+            "lo": -50.0,
             "hi": 6.0
           }
         },
@@ -9030,7 +9066,11 @@
           "index": 16,
           "short": "OutGai",
           "name": "Output Gain",
-          "map": null
+          "map": {
+            "type": "linear",
+            "lo": -30.0,
+            "hi": 30.0
+          }
         }
       ]
     },
@@ -9754,7 +9794,11 @@
           "index": 24,
           "short": "Levl3A",
           "name": "Level  3 A",
-          "map": null
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
         },
         {
           "index": 25,
@@ -9830,7 +9874,11 @@
           "index": 32,
           "short": "Levl11",
           "name": "Level 11 A",
-          "map": null
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
         },
         {
           "index": 33,
@@ -9906,7 +9954,11 @@
           "index": 40,
           "short": "Levl19",
           "name": "Level 19 A",
-          "map": null
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
         },
         {
           "index": 41,
@@ -9982,7 +10034,11 @@
           "index": 48,
           "short": "Levl7B",
           "name": "Level  7 B",
-          "map": null
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
         },
         {
           "index": 49,
@@ -10058,7 +10114,11 @@
           "index": 56,
           "short": "Levl15",
           "name": "Level 15 B",
-          "map": null
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
         },
         {
           "index": 60,
@@ -10104,7 +10164,11 @@
           "index": 64,
           "short": "Levl20",
           "name": "Level 20 B",
-          "map": null
+          "map": {
+            "type": "linear",
+            "lo": 0.0,
+            "hi": 100.0
+          }
         }
       ]
     },
@@ -10805,9 +10869,9 @@
           "short": "Rel",
           "name": "Release",
           "map": {
-            "type": "linear",
+            "type": "log",
             "lo": 2.0,
-            "hi": 0.0
+            "hi": 2000.0
           }
         },
         {

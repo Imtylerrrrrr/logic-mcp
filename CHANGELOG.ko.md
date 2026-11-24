@@ -14,6 +14,9 @@
 - 내부 리팩토링(동작 변화 없음): Aux Plug-in Mixer 경로를 `plugin_mixer.py`로, `calibrate`/`scan`을 `plugins/calibrate.py`로, set 공통 로직(숫자/선택지 판별, `#n`·선택지 선택, 결과 판정)을 `setter.py`로 옮겨 `logic_plugin set`과 `logic_eq set`이 함께 쓴다.
 
 ### Fixed
+- Logic이 Cursor ◀/▶ 누름을 몇 초 늦게 처리하면(실측 최대 3.8초) `logic_plugin` `get`/`set`이 다른 페이지의 같은 열을 읽고 쓰던 문제. Compressor Release를 바꾸려던 값이 다음 페이지의 Distortion에 들어갔다. 이제 페이지 수 확인은 반응 없는 누름을 3초 더 기다리고, 표가 여러 페이지인데 끝까지 반응이 없으면 1페이지로 보지 않고 실패한다. 페이지 이동은 페이지 토큰이나 값 행이 바뀔 때만 센다. 페이더·V-Pot을 보내기 직전마다 LCD의 축약명을 표의 그 페이지와 비교하고, 다르면 보내지 않는다(note가 `guard:`로 시작). 번들 표와 배치가 다른 인스턴스도 같은 이유로 거부된다: 스테레오 인스턴스에서 66종 중 15종이 파라미터 묶음을 두 번 보이거나 좌·우 파라미터를 따로 둔다(예: PlatinumVerb `Dry`·`Wet`). 이전에는 이런 파라미터가 표의 위치대로 다른 파라미터에 쓰였다. `docs/troubleshooting.ko.md` 7번 참고.
+- 맨 끝 LCD 열의 값을 오버레이가 떠 있는 동안 틀리게 읽던 문제. 그 열의 오버레이는 오른쪽 정렬이라 6자를 넘으면 7열로 넘치는데, `-24.0 dB`를 `4.0 dB`로 읽었다. `set`이 틀린 값에서 `verified`를 보고할 수 있었고(Compressor 사이드체인 `Gain` 3 → 실제 23 dB), 캘리브레이션이 이런 파라미터의 범위를 틀리게 배웠다. 이제 넘친 글자까지 읽는다. 번들 표의 맨 끝 열 파라미터 범위를 Logic 12.0.1에서 다시 쟀다: 16개 플러그인에서 틀린 범위 14개를 고치고(Compressor `Gain` 0~4 → −24~24 dB, 주파수 `20~0` → 20~20000 Hz 여러 건, Tape Delay `Delay Time` 0.3~9.9 → 0.3~4999.9 ms) 비어 있던 16개를 채웠다.
+- 페이지가 많은 플러그인의 뒤쪽 페이지를 본 직후 다른 플러그인을 열면 슬롯이 차 있는데도 `empty_edit`로 실패하던 문제(Compressor 3페이지 뒤 Chorus). Logic은 편집 뷰를 직전 페이지 위치로 열고, 페이지가 더 적은 플러그인은 그 자리에서 빈 슬롯과 같은 화면을 보인다. 이제 Cursor ◀를 한 번 눌러 그 플러그인의 마지막 페이지로 온다.
 - 파라미터 하나를 LCD 두 칸에 걸쳐 그리는 구형 플러그인(Silver Compressor `Threshold`, Parametric EQ `Frequency` 등 14종)을 한 파라미터로 읽는다. 이름·값이 칸을 꽉 채우면 다음 칸과 잇는다. 이전에는 뒷칸이 유령 파라미터(`ld`, `cy`)가 되고 이름이 잘렸다. 번들 표 14개를 재수집했다. 남은 한계: set·프로빙 때 값은 여전히 한 칸만 읽어, Parametric EQ·Exciter·Low Pass Filter·High Pass Filter의 `Frequency`는 범위 map이 없고 숫자 set이 아직 안 된다.
 - `2.0  :1`처럼 단위 앞에 공백이 둘인 비율 값을 숫자로 읽어 Silver Compressor Ratio를 set할 수 있다.
 - 숫자 `set`의 목표가 캘리브레이션 범위 밖이면(GoldVerb Room Size 1500, 표는 10~200 m) 페이더를 끝까지 보내고 "LCD 반응 없음"이라 하는 대신 범위를 적어 skipped로 끝낸다.

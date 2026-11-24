@@ -124,7 +124,7 @@ Side effects: EQ, plugin and send commands change Logic's track selection; if a 
 | Channel EQ, insert plugins | Done (live round 9, 17/17) |
 | Output and Master strip guard | Done (live round 10, skipped on the Stereo Out strip) |
 | Sends (`logic_send`) | Done (live round 10, 9/9) |
-| Bundled plugin parameter tables | 67 plugins, every entry of the Logic 12.0.1 insert menu as seen over MCU (collected live 10/19-11/11, two-column tables recollected 11/11; 1,040 parameters, 96 without a map). Parameters without a map are probed when written. Most map-less parameters are action parameters, minimum values such as Mute, and unit changes (Space Designer 22, ChromaVerb 11) |
+| Bundled plugin parameter tables | 67 plugins, every entry of the Logic 12.0.1 insert menu as seen over MCU (collected live 10/19-11/11, two-column tables recollected 11/11, last-column ranges re-measured 11/25; 1,040 parameters, 80 without a map). Parameters without a map are probed when written. Most map-less parameters are action parameters, minimum values such as Mute, and unit changes (Space Designer 20, ChromaVerb 10) |
 | Calibration and scan correction (10/19) | Done (the 163 one-tick scan results matched the diagnosis, 0 enum misjudgments in the re-collected tables; search near the insert is unverified) |
 
 ## Cautions

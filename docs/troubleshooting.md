@@ -30,3 +30,10 @@ Right after probing plug-in parameters, the cursor response can be delayed (inte
 ## 6. After consecutive `set` calls, the value is blank or the previous value
 
 When you move a value with a fader in the edit view, Logic leaves the value overlay up for about 2 seconds (Z15). Read again after 2 seconds. The `set` path has no automatic wait yet.
+
+## 7. `guard: …` on `logic_plugin` `get`/`set`
+
+Before every fader move or V-Pot tick the server compares the parameter names on the LCD with its table for that page, and refuses when they differ. The note starts with `guard:` and lists the expected and the observed names. Two known causes:
+
+- Logic handled a Cursor press late and the view is on another page. Run the command again.
+- The instance is laid out differently from the bundled table, which holds one layout per plug-in. On stereo (`s/s`) instances, 15 of the 66 plug-ins checked on Logic 12.0.1 differ: 13 show the parameter set twice (DeEsser, Expander, PlatinumVerb, Parametric EQ, Low/High Pass Filter, Low/High Shelving EQ, Fat EQ, DJ EQ, High/Low Cut, Guitar Amp Pro) and 2 have separate left/right parameters (Modulation Delay, Scanner Vibrato). Pages whose names still match the table work. The others are refused rather than written to the wrong parameter. Per-format tables are not supported yet (Z24).
