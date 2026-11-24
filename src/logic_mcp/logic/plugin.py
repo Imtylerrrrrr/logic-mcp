@@ -12,7 +12,7 @@ from .plugins.cache import PluginCache
 from .plugins.scan import ITEM_TICKS, rewind_to_empty, seek_by_name
 from .plugins.match import find, normalize, strip_suffix
 from .strips import StripAux, StripUnsupported
-from .setter import coerce, probe_mapping, set_numeric, set_option, verdict
+from .setter import batch_verdict, coerce, probe_mapping, run_changes, set_numeric, set_option, verdict
 from .values import Mapping, Value, parse_value, tolerance_for
 
 if TYPE_CHECKING:
@@ -445,6 +445,54 @@ class PluginCommands:
                 return b._result(action, True, "verified", t0, target=target, after=self._param_dict(full, slot, item, v))
             return b._guarded(action, t0, target, body)
 
+    def _set_one(self, full: str, slot: int, item: dict, items: list[dict], value, tolerance: float | None) -> dict:
+        """항목 하나를 맞춘다(편집 뷰 안, NAME 모드에서 시작). set·set_many 공통. ok·verified·note·before·after를 돌려준다."""
+        b, d = self.b, self.d
+        col = self._goto_param(item, items)
+        before_v = d.read_column(col)[1]
+        before = self._param_dict(full, slot, item, before_v)
+        mapping = _map_from(item.get("map"))
+        numeric, want = coerce(value, before_v, mapping)                # 숫자 입력도 enum이면 선택지 경로(리뷰 I3·I4)
+        if numeric:
+            probed, raw0 = False, None
+            if mapping is None:
+                d.flip(True)
+                st = b.surface.state.strips[col]
+                raw0 = st.fader_raw if st.fader_known else None
+                mapping, _lo, _hi = probe_mapping(d, col)          # 범위를 모르면 페이더 1·16383으로 프로빙
+                if mapping is None:                                # 프로빙으로 옮긴 값을 원래 위치로 되돌린다(리뷰 I4)
+                    if raw0 is not None:
+                        d.fader(col, raw0)
+                        note = "프로빙 실패, 원래 위치로 복원"
+                    else:
+                        note = f"프로빙 실패, 복원 못함: 원래 값 {before_v.text}"
+                    return {"ok": False, "verified": "unverified", "note": note, "before": before,
+                            "after": self._param_dict(full, slot, item, d.read_value(col))}
+                item["map"] = _map_to(mapping)
+                self.cache.save()
+                probed = True
+            tol = tolerance if tolerance is not None else tolerance_for(float(want), before_v.unit)
+            out = set_numeric(d, col, float(want), mapping, tol, b.faders)
+            if out.note.startswith("skip:"):                       # 범위 밖: map은 그대로. 방금 프로빙으로 옮긴 값은 되돌린다
+                if probed:
+                    if raw0 is not None:
+                        d.fader(col, raw0)
+                        out.note += " (프로빙으로 옮긴 값을 원래 위치로 복원)"
+                    else:
+                        out.note += f" (프로빙으로 값이 바뀜, 복원 못함: 원래 값 {before_v.text})"
+            elif not out.ok:                                       # 틀린 map을 지워 다음에 다시 프로빙하게 한다(리뷰 m5)
+                item["map"] = None
+                self.cache.save()
+        else:
+            emap = item.get("map") or {}
+            options = emap.get("options") if emap.get("type") == "enum" else None
+            out = set_option(d, col, str(want), options, before_v)
+        ok, verified, note = verdict(out)
+        if verified == "skipped" and not ok:                       # 틱 없이 거른 경우(skip:)는 after 없이
+            return {"ok": False, "verified": "skipped", "note": note, "before": before, "after": None}
+        return {"ok": ok, "verified": verified, "note": note, "before": before,
+                "after": self._param_dict(full, slot, item, out.value)}
+
     def set(self, strip: int | None, number: int | None, slot: int, param, value,
             tolerance: float | None = None) -> "ToolResult":
         b, d, action = self.b, self.d, "plugin_set"
@@ -462,50 +510,57 @@ class PluginCommands:
                 self.b._fresh()
                 full, _abbrev, pages = self._open_edit(ch, slot)
                 item = self._locate(full, pages, param)
-                col = self._goto_param(item, self._table(full, pages)["items"])
-                before_v = d.read_column(col)[1]
-                before = self._param_dict(full, slot, item, before_v)
-                mapping = _map_from(item.get("map"))
-                numeric, want = coerce(value, before_v, mapping)                # 숫자 입력도 enum이면 선택지 경로(리뷰 I3·I4)
-                if numeric:
-                    probed, raw0 = False, None
-                    if mapping is None:
-                        d.flip(True)
-                        st = b.surface.state.strips[col]
-                        raw0 = st.fader_raw if st.fader_known else None
-                        mapping, _lo, _hi = probe_mapping(d, col)          # 범위를 모르면 페이더 1·16383으로 프로빙
-                        if mapping is None:                                # 프로빙으로 옮긴 값을 원래 위치로 되돌린다(리뷰 I4)
-                            if raw0 is not None:
-                                d.fader(col, raw0)
-                                note = "프로빙 실패, 원래 위치로 복원"
-                            else:
-                                note = f"프로빙 실패, 복원 못함: 원래 값 {before_v.text}"
-                            return b._result(action, False, "unverified", t0, target=target, before=before,
-                                             after=self._param_dict(full, slot, item, d.read_value(col)), note=note)
-                        item["map"] = _map_to(mapping)
-                        self.cache.save()
-                        probed = True
-                    tol = tolerance if tolerance is not None else tolerance_for(float(want), before_v.unit)
-                    out = set_numeric(d, col, float(want), mapping, tol, b.faders)
-                    if out.note.startswith("skip:"):                       # 범위 밖: map은 그대로. 방금 프로빙으로 옮긴 값은 되돌린다
-                        if probed:
-                            if raw0 is not None:
-                                d.fader(col, raw0)
-                                out.note += " (프로빙으로 옮긴 값을 원래 위치로 복원)"
-                            else:
-                                out.note += f" (프로빙으로 값이 바뀜, 복원 못함: 원래 값 {before_v.text})"
-                    elif not out.ok:                                       # 틀린 map을 지워 다음에 다시 프로빙하게 한다(리뷰 m5)
-                        item["map"] = None
-                        self.cache.save()
-                else:
-                    emap = item.get("map") or {}
-                    options = emap.get("options") if emap.get("type") == "enum" else None
-                    out = set_option(d, col, str(want), options, before_v)
-                ok, verified, note = verdict(out)
-                if verified == "skipped" and not ok:                       # 틱 없이 거른 경우(skip:)는 after 없이
-                    return b._result(action, False, "skipped", t0, target=target, before=before, note=note)
-                return b._result(action, ok, verified, t0, target=target, before=before,
-                                 after=self._param_dict(full, slot, item, out.value), note=note)
+                r = self._set_one(full, slot, item, self._table(full, pages)["items"], value, tolerance)
+                return b._result(action, r["ok"], r["verified"], t0, target=target, before=r["before"],
+                                 after=r["after"], note=r["note"])
+            return b._guarded(action, t0, target, body)
+
+    def set_many(self, strip: int | None, number: int | None, slot: int, changes: list[dict]) -> "ToolResult":
+        """같은 플러그인의 값 여러 개를 편집 뷰 한 번 진입으로 맞춘다. 받은 순서대로, 첫 실패에서 멈춘다(앞 값은 되돌리지 않음).
+        보내기 전에 전부 찾아 보고(읽기만), 하나라도 틀리면 아무 값도 바꾸지 않는다."""
+        b, d, action = self.b, self.d, "plugin_set"
+        t0 = b._now_ms()
+        with b._lock:
+            if (r := b._require_ready(action, t0)) is not None:
+                return r
+            ch = self.b._begin(action, strip, number, t0, slot, MAX_SLOT,
+                               f"slot은 1-{MAX_SLOT}(Plug-in Channel 뷰에서 닿는 슬롯만 지원)")
+            if not isinstance(ch, int):
+                return ch
+            target = {**b._target(ch), "slot": slot}
+
+            def body() -> "ToolResult":
+                self.b._fresh()
+                full, _abbrev, pages = self._open_edit(ch, slot)
+                located: list[dict] = []
+                for k, c in enumerate(changes, 1):
+                    try:
+                        it = self._locate(full, pages, c["param"])
+                    except ParamNotFound as e:
+                        raise ParamNotFound(f"changes {k}번째: {e.note}") from e
+                    if any(it is x for x in located):
+                        raise ParamNotFound(f"changes {k}번째: {it['short']}가 두 번 나옴")
+                    located.append(it)
+                items = self._table(full, pages)["items"]            # 모든 _locate가 끝난 뒤에 읽는다(_locate가 표를 채울 수 있다)
+                heads = [{"param": c["param"], "index": it["index"], "short": it["short"], "name": it.get("name")}
+                         for c, it in zip(changes, located)]
+
+                def between() -> None:                              # 직전 값 오버레이(≈2초)가 이웃 열을 덮으므로 만기까지 기다린다
+                    d.settle_overlay()
+                    d.flip(False)
+                    d.toggle_name_value()
+
+                def one(k: int) -> dict:
+                    c = changes[k]
+                    r = self._set_one(full, slot, located[k], items, c["value"], c.get("tolerance"))
+                    return {**r, **{x: (None if r[x] is None else {"value": r[x]["value"], "text": r[x]["text"]})
+                                    for x in ("before", "after")}}
+                results = run_changes(heads, one, between)
+                ok, verified, note = batch_verdict(len(changes), results, lambda r: r["short"])
+                done = sum(1 for r in results if r["ok"])
+                return b._result(action, ok, verified, t0, target=target, note=note,
+                                 after={"plugin": full, "slot": slot, "results": results, "done": done,
+                                        "remaining": changes[len(results):]})
             return b._guarded(action, t0, target, body)
 
     def _insert_body(self, action: str, t0: int, target: dict, ch: int, slot: int, plugin: str,

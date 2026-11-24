@@ -1023,3 +1023,133 @@ def test_column_7_param_is_set_as_before(tmp_path):                   # 열 7(Q)
     logic.tracks[0].insert(2, "Compressor")
     s = cmds.plugin.set(1, None, 2, "Q", 2.0)
     assert s.ok and s.verified == "verified" and abs(logic.tracks[0].params[2][18].value - 2.0) <= 0.05
+
+
+# ---------- 묶음 set ----------
+def _vals(logic, idx):
+    ps = logic.tracks[0].params[2]
+    return [ps[i - 1].value for i in idx]
+
+
+def _pan_presses(msgs):
+    return [m for m in msgs if m[0] == 0x90 and m[1] == P.Note.PAN and m[2]]
+
+
+def _item(cache, short):
+    return next(it for it in cache.param_table("Compressor")["items"] if it["short"] == short)
+
+
+def test_set_many_applies_in_one_visit(tmp_path):
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Compressor")
+    changes = [{"param": "Thrs", "value": -30.0}, {"param": "Ratio", "value": 4.0}, {"param": 11, "value": "On"}]
+    c0, n0 = surface.clock(), len(fake.sent)
+    r = cmds.plugin.set_many(1, None, 2, changes)
+    batch_s, batch_pans = surface.clock() - c0, len(_pan_presses(fake.sent[n0:]))
+    assert r.ok and r.verified == "verified", r.note
+    assert r.after["done"] == 3 and r.after["remaining"] == [] and r.note == "3개 완료"
+    assert _vals(logic, [2, 3, 11]) == [-30.0, 4.0, 1]
+    assert surface.state.view.kind == "pan"
+    assert _item(cache, "Thrs").get("map") is not None and _item(cache, "Ratio").get("map") is not None
+    assert r.after["results"][0]["before"] == {"value": -20.0, "text": r.after["results"][0]["before"]["text"]}
+    # 낱장 3회와 비교
+    (tmp_path / "b").mkdir()
+    cmds2, surface2, fake2, logic2, cache2 = make(tmp_path / "b")
+    logic2.tracks[0].insert(2, "Compressor")
+    c0, n0 = surface2.clock(), len(fake2.sent)
+    cmds2.plugin.set(1, None, 2, "Thrs", -30.0)
+    one_s, one_pans = surface2.clock() - c0, len(_pan_presses(fake2.sent[n0:]))
+    cmds2.plugin.set(1, None, 2, "Ratio", 4.0)
+    cmds2.plugin.set(1, None, 2, 11, "On")
+    singles_s = surface2.clock() - c0
+    print(f"VCLOCK batch3={batch_s:.1f}s single1={one_s:.1f}s singles3={singles_s:.1f}s")
+    assert batch_pans == one_pans
+    assert batch_s < singles_s
+
+
+def test_set_many_neighbor_columns_wait_out_the_overlay(tmp_path):
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Compressor")
+    logic.overlay_survives_toggle = True
+    r = cmds.plugin.set_many(1, None, 2, [{"param": 2, "value": -30.0}, {"param": 3, "value": 4.0}])
+    assert r.ok and [x["verified"] for x in r.after["results"]] == ["verified", "verified"], r.note
+    assert r.after["results"][1]["before"]["value"] == 2.1
+    assert _vals(logic, [2, 3]) == [-30.0, 4.0]
+
+
+@pytest.mark.parametrize("second", [{"param": "Zzz", "value": 1.0}, {"param": 2, "value": -10.0}])
+def test_set_many_unknown_param_sends_nothing(tmp_path, second):
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Compressor")
+    before = _vals(logic, range(1, 21))
+    changes = [{"param": "Thrs", "value": -30.0}, {"param": "Ratio", "value": 4.0}, second]
+    n0 = len(fake.sent)
+    r = cmds.plugin.set_many(1, None, 2, changes)
+    assert r.verified == "skipped" and not r.ok and r.note.startswith("changes 3번째: "), r.note
+    assert _vals(logic, range(1, 21)) == before
+    assert not turns(fake.sent[n0:]) and not _faders(fake.sent[n0:])
+    assert surface.state.view.kind == "pan"
+
+
+def test_set_many_stops_at_first_failure(tmp_path):
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Compressor")
+    changes = [{"param": "Ratio", "value": 4.0}, {"param": "Thrs", "value": -100.0}, {"param": "Attack", "value": 30.0}]
+    r = cmds.plugin.set_many(1, None, 2, changes)
+    assert r.ok is False and r.verified == "skipped", r.note
+    assert len(r.after["results"]) == 2 and r.after["done"] == 1
+    assert r.after["results"][0]["verified"] == "verified"
+    assert r.after["results"][1]["verified"] == "skipped" and "범위 밖: -60~0" in r.after["results"][1]["note"]
+    assert r.after["remaining"] == [{"param": "Attack", "value": 30.0}]
+    assert _vals(logic, [4, 2]) == [15.0, -20.0] and surface.state.view.kind == "pan"
+
+
+def test_set_many_keeps_applied_items_on_mode_error(tmp_path):
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Compressor")
+    logic.drop_first_flip = True
+    r = cmds.plugin.set_many(1, None, 2, [{"param": 11, "value": "On"}, {"param": "Thrs", "value": -30.0}])
+    assert r.ok is False and r.after["results"][0]["ok"], r.note
+    assert r.after["results"][1]["verified"] == "unverified" and "flip" in r.after["results"][1]["note"]
+    assert _vals(logic, [11, 2]) == [1, -20.0]
+    assert all(t.volume is None for t in logic.tracks) and surface.state.view.kind == "pan"
+
+
+def test_set_many_across_pages(tmp_path):
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Compressor")
+    r = cmds.plugin.set_many(1, None, 2, [{"param": 11, "value": "On"}, {"param": "Thrs", "value": -30.0},
+                                          {"param": "Mix", "value": 50.0}])
+    assert r.ok and all(x["verified"] == "verified" for x in r.after["results"]), r.note
+    assert _vals(logic, [11, 2, 14]) == [1, -30.0, pytest.approx(50.0, abs=1.0)]
+
+
+def test_set_many_continues_past_a_between_steps_value(tmp_path):   # 계획의 Release 293(20 ms 격자)은 가짜 Release 범위 때문에 로그 매핑으로 추론돼 Attack 30(7 ms 격자)으로 대체
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    logic.tracks[0].insert(2, "Compressor")
+    att = logic.tracks[0].params[2][3]
+    att.grid, att.step = 7.0, 7.0
+    r = cmds.plugin.set_many(1, None, 2, [{"param": "Attack", "value": 30.0}, {"param": "Thrs", "value": -30.0}])
+    assert r.ok and r.after["done"] == 2, r.note
+    first = r.after["results"][0]
+    assert first["ok"] and first["verified"] == "verified" and "닿는 단계 없음" in first["note"]
+    assert first["after"]["value"] == 28.0 and r.after["results"][1]["verified"] == "verified"
+
+
+def test_set_many_guard_failure_stops_the_batch(tmp_path):
+    cmds, surface, fake, logic, cache = _compressor_with_table(tmp_path)
+    d = cmds.modes
+    real, calls = d.toggle_name_value, []
+
+    def toggle():                                                # 둘째 항목의 _goto_param이 토글한 직후 페이지가 몰래 넘어감(늦은 ▶)
+        real()
+        calls.append(1)
+        if len(calls) == 4:
+            logic.page = 2
+            logic.redraw()
+    d.toggle_name_value = toggle
+    r = cmds.plugin.set_many(1, None, 2, [{"param": "Thrs", "value": -30.0}, {"param": "Ratio", "value": 4.0}])
+    assert not r.ok and r.after["results"][0]["ok"], r.note
+    second = r.after["results"][1]
+    assert second["verified"] == "unverified" and "guard" in second["note"]
+    assert _vals(logic, [2, 3]) == [-30.0, 2.1] and surface.state.view.kind == "pan"
