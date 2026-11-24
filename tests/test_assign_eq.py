@@ -239,3 +239,80 @@ def test_eq_set_that_inserts_and_is_already_there_reports_the_insert():   # 리�
     r = cmds.eq.set(1, None, 1, "on", False)                                # 새 EQ의 밴드 1은 Off → already
     assert r.ok and r.verified == "verified" and r.note == "Channel EQ 삽입됨. already"
     assert logic.tracks[0].eq is not None and logic.tracks[0].eq[0][3].value == 0
+
+
+# ---------- 묶음 set ----------
+def _presses(msgs, note):
+    return [m for m in msgs if m[0] == 0x90 and m[1] == note and m[2]]
+
+
+def test_eq_set_many_applies_in_one_visit():
+    cmds, surface, fake, logic = make()
+    logic.tracks[0].insert(1, "Channel EQ")
+    eq = logic.tracks[0].eq
+    changes = [{"band": 3, "param": "freq", "value": 1200.0}, {"band": 3, "param": "gain", "value": -3.0},
+               {"band": 6, "param": "gain", "value": 2.0}, {"band": 1, "param": "slope", "value": 24}]
+    c0, n0 = surface.clock(), len(fake.sent)
+    r = cmds.eq.set_many(1, None, changes)
+    batch_s, batch_eq = surface.clock() - c0, len(_presses(fake.sent[n0:], P.Note.EQ))
+    assert r.ok and r.verified == "verified" and r.after["done"] == 4 and r.after["remaining"] == [], r.note
+    assert abs(eq[2][0].value - 1200.0) <= 15 and eq[2][1].value == -3.0 and eq[5][1].value == 2.0 and eq[0][1].value == 3
+    assert surface.state.view.kind == "pan" and not surface.state.assignment.flip
+    cmds2, surface2, fake2, logic2 = make()
+    logic2.tracks[0].insert(1, "Channel EQ")
+    c0, n0 = surface2.clock(), len(fake2.sent)
+    cmds2.eq.set(1, None, 3, "freq", 1200.0)
+    one_s, one_eq = surface2.clock() - c0, len(_presses(fake2.sent[n0:], P.Note.EQ))
+    cmds2.eq.set(1, None, 3, "gain", -3.0)
+    cmds2.eq.set(1, None, 6, "gain", 2.0)
+    cmds2.eq.set(1, None, 1, "slope", 24)
+    singles_s = surface2.clock() - c0
+    print(f"VCLOCK eq batch4={batch_s:.1f}s single1={one_s:.1f}s singles4={singles_s:.1f}s")
+    assert batch_eq == one_eq and batch_s < singles_s
+
+
+def test_eq_set_many_validation_sends_nothing():
+    cmds, surface, fake, logic = make()
+    logic.tracks[0].insert(1, "Channel EQ")
+    ok = [{"band": 3, "param": "freq", "value": 1200.0}, {"band": 3, "param": "gain", "value": -3.0}]
+    for third in ({"band": 1, "param": "gain", "value": 1.0}, {"band": 3, "param": "gain", "value": -1.0}):
+        n = len(fake.sent)
+        r = cmds.eq.set_many(1, None, ok + [third])
+        assert r.verified == "skipped" and not r.ok and r.note.startswith("changes 3번째: "), r.note
+        assert len(fake.sent) == n
+
+
+def test_eq_set_many_inserts_once_and_reports_it():
+    cmds, surface, fake, logic = make()
+    changes = [{"band": 3, "param": "gain", "value": -3.0}, {"band": 6, "param": "gain", "value": 2.0}]
+    r = cmds.eq.set_many(1, None, changes)
+    assert r.ok and r.verified == "verified" and r.note.startswith("Channel EQ 삽입됨. "), r.note
+    assert logic.tracks[0].eq is not None and logic.tracks[0].eq[5][1].value == 2.0
+    cmds2, surface2, fake2, logic2 = make()
+    r = cmds2.eq.set_many(1, None, changes, allow_insert=False)
+    assert r.verified == "skipped" and not r.ok and logic2.tracks[0].eq is None
+
+
+def test_eq_set_many_stops_at_first_failure():
+    cmds, surface, fake, logic = make()
+    logic.tracks[0].insert(1, "Channel EQ")
+    eq = logic.tracks[0].eq
+    logic.drop_first_flip = True
+    third = {"band": 6, "param": "gain", "value": 2.0}
+    r = cmds.eq.set_many(1, None, [{"band": 3, "param": "on", "value": True},
+                                   {"band": 3, "param": "gain", "value": -3.0}, third])
+    assert r.ok is False and len(r.after["results"]) == 2, r.note
+    assert r.after["results"][1]["verified"] == "unverified" and "flip" in r.after["results"][1]["note"]
+    assert r.after["remaining"] == [third]
+    assert eq[2][1].value == 0.0 and eq[5][1].value == 0.0
+    assert all(t.volume is None for t in logic.tracks) and surface.state.view.kind == "pan"
+
+
+def test_eq_set_many_on_aux_or_output_is_skipped():
+    from tests.fake_assign import Track
+    surface, fake, logic = make_assign_logic([Track(1, "1"), Track(5, "Aux1", kind="aux"), Track(3, "StOu", kind="output")])
+    cmds = Commands(surface, FaderTable.load(), sleep=logic.sleep, logic_running=lambda: True)
+    for strip in (2, 3):
+        r = cmds.eq.set_many(strip, None, [{"band": 3, "param": "gain", "value": -3.0}])
+        assert not r.ok and r.verified == "skipped"
+    assert all(t.eq is None for t in logic.tracks) and surface.state.view.kind == "pan"

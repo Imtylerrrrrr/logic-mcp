@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from .modes import ModeError
-from .setter import set_enum, set_numeric, verdict
+from .setter import batch_verdict, run_changes, set_enum, set_numeric, verdict
 from .strips import StripAux
 from .values import Mapping, Value, parse_value, tolerance_for
 
@@ -55,6 +56,17 @@ def _eq_value_problem(param: str, value) -> str | None:
     if param == "slope" and (not v.is_integer() or str(int(v)) not in SLOPES):
         return f"slope는 {SLOPES} 중 하나(정수)"
     return None
+
+
+def _change_problem(band: int, param: str, value) -> str | None:
+    """set 입력 검사(band 1-8, param 이름, gain/slope 밴드 규칙, 값 형식). 문제가 있으면 이유를, 없으면 None."""
+    if not 1 <= band <= 8:
+        return "band는 1-8"
+    if param not in EQ_PARAM_COL:
+        return f"param은 {list(EQ_PARAM_COL)} 중 하나"
+    if (band in SLOPE_BANDS) != (param == "slope") and param in ("gain", "slope"):
+        return f"밴드 {band}는 {'slope' if band in SLOPE_BANDS else 'gain'}만 받음"
+    return _eq_value_problem(param, value)
 
 
 def _value_dict(band: int, param: str, v: Value) -> dict:
@@ -121,62 +133,115 @@ class EqCommands:
                 return b._result(action, True, "verified", t0, target=target, after={"has_eq": True, "bands": bands})
             return b._guarded(action, t0, target, body)
 
+    def _set_one(self, band: int, param: str, value) -> dict:
+        """밴드 값 하나를 맞춘다(EQ 채널 뷰 안). set·set_many 공통. ok·verified·note·before·after를 돌려준다."""
+        d = self.d
+        self._goto_page(band)
+        col = (0 if band % 2 == 1 else 4) + EQ_PARAM_COL[param]
+        before = _value_dict(band, param, d.read_column(col)[1])
+        if param == "on":
+            want = "On" if value == 1 else "Off"
+            out = set_enum(d, col, want)
+        elif param == "slope":
+            out = set_enum(d, col, str(int(value)))
+        else:
+            unit = {"freq": "Hz", "gain": "dB"}.get(param)          # q는 단위 없음(실측 T 매핑, 프로빙 안 함)
+            out = set_numeric(d, col, float(value), EQ_MAPPING[param], tolerance_for(float(value), unit))
+        ok, verified, note = verdict(out)
+        return {"ok": ok, "verified": verified, "note": note, "before": before,
+                "after": _value_dict(band, param, out.value)}
+
+    def _in_channel(self, action: str, t0: int, ch: int, target: dict, allow_insert: bool,
+                    work: Callable[[bool], "ToolResult"]) -> "ToolResult":
+        """스트립 ch의 EQ 채널 뷰 안에서 work(inserted)를 돌린다(Aux 거절·Channel EQ 확인·삽입 허용 검사 포함). set·set_many 공통."""
+        b, d = self.b, self.d
+        inserted = False
+
+        def body() -> "ToolResult":
+            nonlocal inserted
+            if b.strips.ensure(d, b.surface.state, ch) == "aux":     # EQ 채널 뷰가 Aux를 따라가지 않는다고 가정(미측정): 직전 트랙을 바꾸지 않게
+                s = b.surface.state.strips[ch]
+                raise StripAux(ch, s.number, s.name)
+            d.focus(ch)
+            if not self._has_eq(ch):
+                if not allow_insert:
+                    return b._result(action, False, "skipped", t0, target=target,
+                                     note="Channel EQ 없음. allow_insert=true면 삽입하고 설정")
+                inserted = True
+            d.enter("eq_channel")                                    # 없던 트랙이면 여기서 삽입됨(실측)
+            return work(inserted)
+
+        def body_noting_insert() -> "ToolResult":                  # ModeError 에도 삽입 여부를 알린다
+            try:
+                return body()
+            except ModeError as e:
+                if not inserted:
+                    raise
+                return b._result(action, False, "unverified", t0, target=target, note="Channel EQ 삽입됨. " + str(e))
+        return b._guarded(action, t0, target, body_noting_insert)
+
     def set(self, strip: int | None, number: int | None, band: int, param: str, value,
             allow_insert: bool = True) -> "ToolResult":
-        b, d, action = self.b, self.d, "eq_set"
+        b, action = self.b, "eq_set"
         t0 = b._now_ms()
         with b._lock:
             if (r := b._require_ready(action, t0)) is not None:
                 return r
-            if not 1 <= band <= 8:
-                return b._result(action, False, "skipped", t0, note="band는 1-8")
-            if param not in EQ_PARAM_COL:
-                return b._result(action, False, "skipped", t0, note=f"param은 {list(EQ_PARAM_COL)} 중 하나")
-            if (band in SLOPE_BANDS) != (param == "slope") and param in ("gain", "slope"):
-                return b._result(action, False, "skipped", t0,
-                                 note=f"밴드 {band}는 {'slope' if band in SLOPE_BANDS else 'gain'}만 받음")
-            if (why := _eq_value_problem(param, value)) is not None:
+            if (why := _change_problem(band, param, value)) is not None:
                 return b._result(action, False, "skipped", t0, note=why)
             ch = b._resolve(strip, number, action, t0)
             if not isinstance(ch, int):
                 return ch
             target = b._target(ch)
-            inserted = False
 
-            def body() -> "ToolResult":
-                nonlocal inserted
-                if b.strips.ensure(d, b.surface.state, ch) == "aux":     # EQ 채널 뷰가 Aux를 따라가지 않는다고 가정(미측정): 직전 트랙을 바꾸지 않게
-                    s = b.surface.state.strips[ch]
-                    raise StripAux(ch, s.number, s.name)
-                d.focus(ch)
-                if not self._has_eq(ch):
-                    if not allow_insert:
-                        return b._result(action, False, "skipped", t0, target=target,
-                                         note="Channel EQ 없음. allow_insert=true면 삽입하고 설정")
-                    inserted = True
-                d.enter("eq_channel")                                    # 없던 트랙이면 여기서 삽입됨(실측)
-                self._goto_page(band)
-                col = (0 if band % 2 == 1 else 4) + EQ_PARAM_COL[param]
-                before = _value_dict(band, param, d.read_column(col)[1])
-                if param == "on":
-                    want = "On" if value == 1 else "Off"
-                    out = set_enum(d, col, want)
-                elif param == "slope":
-                    out = set_enum(d, col, str(int(value)))
-                else:
-                    unit = {"freq": "Hz", "gain": "dB"}.get(param)          # q는 단위 없음(실측 T 매핑, 프로빙 안 함)
-                    out = set_numeric(d, col, float(value), EQ_MAPPING[param], tolerance_for(float(value), unit))
-                after = _value_dict(band, param, out.value)
-                ok, verified, note = verdict(out)
+            def work(inserted: bool) -> "ToolResult":
+                r = self._set_one(band, param, value)
+                verified, note = r["verified"], r["note"]
                 if inserted:                                             # 삽입이 일어났으면 already여도 skipped가 아니다
-                    verified, note = ("verified" if ok else "unverified"), "Channel EQ 삽입됨. " + note
-                return b._result(action, ok, verified, t0, target=target, before=before, after=after, note=note.strip())
+                    verified, note = ("verified" if r["ok"] else "unverified"), "Channel EQ 삽입됨. " + note
+                return b._result(action, r["ok"], verified, t0, target=target, before=r["before"], after=r["after"],
+                                 note=note.strip())
+            return self._in_channel(action, t0, ch, target, allow_insert, work)
 
-            def body_noting_insert() -> "ToolResult":                  # ModeError 에도 삽입 여부를 알린다
-                try:
-                    return body()
-                except ModeError as e:
-                    if not inserted:
-                        raise
-                    return b._result(action, False, "unverified", t0, target=target, note="Channel EQ 삽입됨. " + str(e))
-            return b._guarded(action, t0, target, body_noting_insert)
+    def set_many(self, strip: int | None, number: int | None, changes: list[dict],
+                 allow_insert: bool = True) -> "ToolResult":
+        """같은 트랙 Channel EQ의 값 여러 개를 EQ 뷰 한 번 진입으로 맞춘다. 받은 순서대로, 첫 실패에서 멈춘다(앞 값은 되돌리지 않음).
+        보내기 전에 전부 검사하고, 하나라도 틀리면 아무것도 보내지 않는다."""
+        b, action = self.b, "eq_set"
+        t0 = b._now_ms()
+        with b._lock:
+            if (r := b._require_ready(action, t0)) is not None:
+                return r
+            seen: set[tuple[int, str]] = set()
+            for k, c in enumerate(changes, 1):
+                why = _change_problem(c["band"], c["param"], c["value"])
+                if why is None and (c["band"], c["param"]) in seen:
+                    why = f"밴드 {c['band']} {c['param']}가 두 번 나옴"
+                if why is not None:
+                    return b._result(action, False, "skipped", t0, note=f"changes {k}번째: {why}")
+                seen.add((c["band"], c["param"]))
+            ch = b._resolve(strip, number, action, t0)
+            if not isinstance(ch, int):
+                return ch
+            target = b._target(ch)
+
+            def work(inserted: bool) -> "ToolResult":
+                d = self.d
+                heads = [{"band": c["band"], "param": c["param"]} for c in changes]
+
+                def between() -> None:                              # 직전 값 오버레이(≈2초)가 이웃 열을 덮으므로 만기까지 기다린다
+                    d.settle_overlay()
+                    d.flip(False)
+
+                def one(k: int) -> dict:
+                    c = changes[k]
+                    r = self._set_one(c["band"], c["param"], c["value"])
+                    return {**r, **{x: {"value": r[x]["value"], "text": r[x]["text"]} for x in ("before", "after")}}
+                results = run_changes(heads, one, between)
+                ok, verified, note = batch_verdict(len(changes), results, lambda r: f"밴드 {r['band']} {r['param']}")
+                if inserted:
+                    verified, note = ("verified" if ok else "unverified"), "Channel EQ 삽입됨. " + note
+                done = sum(1 for r in results if r["ok"])
+                return b._result(action, ok, verified, t0, target=target, note=note,
+                                 after={"results": results, "done": done, "remaining": changes[len(results):]})
+            return self._in_channel(action, t0, ch, target, allow_insert, work)
