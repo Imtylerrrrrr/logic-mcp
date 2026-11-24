@@ -11,6 +11,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `scripts/calibrate_batch.sh [strip] "Name" ...` runs `calibrate_plugin.py --write --yes` for several plug-ins in a row, skips names already in the bundle, and writes one log per plug-in to `~/.logic-mcp/calib-logs/`.
 
 ### Changed
+- Numeric `set` now settles on the nearer step and returns ok when the target lies between two control-surface steps. It used to spend 10 rounds bouncing between them and fail, e.g. Compressor Release 300 between 290 and 310. `note` names both steps.
 - Internal refactor, no behaviour change: the Aux Plug-in Mixer path moved to `plugin_mixer.py`, `calibrate`/`scan` to `plugins/calibrate.py`, and the shared set logic (numeric-vs-option decision, `#n`/option selection, result verdict) to `setter.py`, used by both `logic_plugin set` and `logic_eq set`.
 
 ### Fixed

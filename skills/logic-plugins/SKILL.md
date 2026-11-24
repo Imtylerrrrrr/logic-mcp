@@ -15,6 +15,7 @@ description: Order of operations and pitfalls when using Logic Pro MCP (logic-mc
 - If the cached list position shows another plug-in, or the name is not in the list, `insert` scans the insert menu by name (prefix match for unknown names; `note` is `name_scan:<ticks>`, up to ~2-3 minutes). If even that does not find it (`unverified`, nothing confirmed), run `scan` and try again. A filled slot is replaced only with `replace=true`.
 - `move` (slot → empty `to_slot`) is remove + reinsert: the plug-in's settings are reset. If the result says the remove worked but the reinsert failed, insert the named plug-in again yourself.
 - Read `params` first, then `get`/`set` by `short` (abbreviated name) or `index`. The last page may skip indexes, so use the index that params gave you as is.
+- If a numeric `set` target falls between two steps of the control (no step within the tolerance), it stops at the nearer step and still returns ok: `after` holds the value actually set and `note` names both steps.
 - If a third-party plug-in gives only unnamed `Control #N` (0-1000), address it by index; values are integers 0-1000.
 - Insert slots are 1-8 only.
 

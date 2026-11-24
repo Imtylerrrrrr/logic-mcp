@@ -73,7 +73,8 @@ def register_tools(mcp: MCPServer, commands: Commands) -> None:
     @mcp.tool(name="logic_eq", annotations=ToolAnnotations(idempotent_hint=True),
               description="Channel EQ. get: all 8 bands (has_eq=false if there is no EQ; nothing is inserted). "
                           "set: band 1-8, param freq|gain|slope|q|on, value. Bands 1 and 8 take slope (6/12/18/24/36/48) instead of gain. "
-                          "If there is no EQ, a Channel EQ is inserted only when allow_insert=true. Returns to PAN mode when done.")
+                          "If there is no EQ, a Channel EQ is inserted only when allow_insert=true. "
+                          "If the target falls between two steps of the control (no step lies within the tolerance, default or given), set stops at the nearer step and still returns ok; `after` holds the value actually set and `note` names both steps. Returns to PAN mode when done.")
     def logic_eq(
         action: Literal["get", "set"],
         strip: Strip = None,
@@ -96,6 +97,7 @@ def register_tools(mcp: MCPServer, commands: Commands) -> None:
                           "the insert menu is scanned by name, which can take up to ~2-3 minutes. remove. bypass(on). scan: scan the whole insert menu (60-180 s, nothing is inserted, needs an empty slot). "
                           "Aux strips (no track): only slot 1 insert/remove, via the Plug-in Mixer view. "
                           "move: remove + reinsert into an empty slot (to_slot); plug-in settings are reset. "
+                          "set: If the target falls between two steps of the control (no step lies within the tolerance, default or given), set stops at the nearer step and still returns ok; `after` holds the value actually set and `note` names both steps. "
                           "Logic opens and closes the plug-in window when the edit view is entered. Returns to PAN mode when done. "
                           "calibrate: collect the full parameter table of the plug-in in the slot and save it to the user cache (2-30 min; values are not restored, so force=true is required).")
     def logic_plugin(
