@@ -6,13 +6,25 @@ from typing import Annotated, Literal
 
 from mcp.server import MCPServer
 from mcp.types import ToolAnnotations
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from ..logic.commands import Commands, ToolResult
 
 Strip = Annotated[int | None, Field(ge=1, le=8, description="Strip 1-8 in the current bank. Give either this or number, not both")]
 Number = Annotated[int | None, Field(ge=1, description="Logic channel number shown on the LCD (absolute address). Give either this or strip, not both")]
 Slot = Annotated[int | None, Field(ge=1, le=8, description="Insert slot 1-8 (the slots reachable in the Plug-in Channel view)")]
+
+
+class PluginChange(BaseModel):
+    param: str | int = Field(description="Parameter name (partial match) or 1-based index, as for a single set")
+    value: float | str | bool
+    tolerance: float | None = Field(default=None, gt=0)
+
+
+class EqChange(BaseModel):
+    band: int = Field(ge=1, le=8)
+    param: Literal["freq", "gain", "slope", "q", "on"]
+    value: float | bool
 
 
 def register_tools(mcp: MCPServer, commands: Commands) -> None:
@@ -74,7 +86,8 @@ def register_tools(mcp: MCPServer, commands: Commands) -> None:
               description="Channel EQ. get: all 8 bands (has_eq=false if there is no EQ; nothing is inserted). "
                           "set: band 1-8, param freq|gain|slope|q|on, value. Bands 1 and 8 take slope (6/12/18/24/36/48) instead of gain. "
                           "If there is no EQ, a Channel EQ is inserted only when allow_insert=true. "
-                          "If the target falls between two steps of the control (no step lies within the tolerance, default or given), set stops at the nearer step and still returns ok; `after` holds the value actually set and `note` names both steps. Returns to PAN mode when done.")
+                          "If the target falls between two steps of the control (no step lies within the tolerance, default or given), set stops at the nearer step and still returns ok; `after` holds the value actually set and `note` names both steps. "
+                          "To set several values of one EQ, send them in one call with `changes` (instead of param/value): they are applied in order and the batch stops at the first failure, returning `after.results` and `after.remaining`. Returns to PAN mode when done.")
     def logic_eq(
         action: Literal["get", "set"],
         strip: Strip = None,
@@ -83,9 +96,14 @@ def register_tools(mcp: MCPServer, commands: Commands) -> None:
         param: Literal["freq", "gain", "slope", "q", "on"] | None = None,
         value: Annotated[float | bool | None, Field(description="freq Hz, gain dB, slope 6..48, q number, on boolean")] = None,
         allow_insert: bool = True,
+        changes: Annotated[list[EqChange] | None, Field(min_length=1, max_length=32, description="set: several band values in one call, applied in order (1-32). Do not combine with band/param/value")] = None,
     ) -> ToolResult:
         if action == "get":
             return commands.eq.get(strip, number)
+        if changes:
+            if band is not None or param is not None or value is not None:
+                return ToolResult(ok=False, verified="skipped", action="eq_set", note="changes와 param·value는 같이 줄 수 없음")
+            return commands.eq.set_many(strip, number, [c.model_dump(exclude_none=True) for c in changes], allow_insert)
         if band is None or param is None or value is None:
             return ToolResult(ok=False, verified="skipped", action="eq_set", note="set에는 band, param, value가 필요")
         return commands.eq.set(strip, number, band, param, value, allow_insert)
@@ -98,6 +116,7 @@ def register_tools(mcp: MCPServer, commands: Commands) -> None:
                           "Aux strips (no track): only slot 1 insert/remove, via the Plug-in Mixer view. "
                           "move: remove + reinsert into an empty slot (to_slot); plug-in settings are reset. "
                           "set: If the target falls between two steps of the control (no step lies within the tolerance, default or given), set stops at the nearer step and still returns ok; `after` holds the value actually set and `note` names both steps. "
+                          "To set several parameters of one plug-in, send them in one call with `changes` (instead of param/value): they are applied in order within one edit-view visit and the batch stops at the first failure, returning `after.results` and `after.remaining`. "
                           "Logic opens and closes the plug-in window when the edit view is entered. Returns to PAN mode when done. "
                           "calibrate: collect the full parameter table of the plug-in in the slot and save it to the user cache (2-30 min; values are not restored, so force=true is required).")
     def logic_plugin(
@@ -113,6 +132,7 @@ def register_tools(mcp: MCPServer, commands: Commands) -> None:
         on: Annotated[bool | None, Field(description="bypass: true = bypassed")] = None,
         tolerance: Annotated[float | None, Field(gt=0, description="set: tolerance (default 0.2 for dB, 2% otherwise)")] = None,
         force: bool = False,
+        changes: Annotated[list[PluginChange] | None, Field(min_length=1, max_length=32, description="set: several parameters of this plug-in in one call, applied in order (1-32). Do not combine with param/value/tolerance")] = None,
     ) -> ToolResult:
         name = f"plugin_{action}"
         if action == "scan":
@@ -133,6 +153,10 @@ def register_tools(mcp: MCPServer, commands: Commands) -> None:
                 return ToolResult(ok=False, verified="skipped", action=name, note="get에는 param(이름 또는 인덱스)이 필요")
             return commands.plugin.get(strip, number, slot, param)
         if action == "set":
+            if changes:
+                if param is not None or value is not None or tolerance is not None:
+                    return ToolResult(ok=False, verified="skipped", action=name, note="changes와 param·value는 같이 줄 수 없음")
+                return commands.plugin.set_many(strip, number, slot, [c.model_dump(exclude_none=True) for c in changes])
             if param is None or value is None:
                 return ToolResult(ok=False, verified="skipped", action=name, note="set에는 param과 value가 필요")
             return commands.plugin.set(strip, number, slot, param, value, tolerance)

@@ -206,3 +206,62 @@ async def test_server_instructions_reach_client(setup):
     async with Client(mcp, raise_exceptions=True) as client:
         assert client.instructions is not None
         assert "wait_ready" in client.instructions
+
+
+@pytest.mark.anyio
+async def test_eq_changes_via_client(assign_setup):
+    mcp, logic = assign_setup
+    changes = [{"band": 3, "param": "gain", "value": -3}, {"band": 6, "param": "gain", "value": 2}]
+    async with Client(mcp) as client:
+        r = await client.call_tool("logic_eq", {"action": "set", "strip": 2, "changes": changes})
+        assert r.structured_content["verified"] == "verified" and r.structured_content["after"]["done"] == 2
+        assert logic.tracks[1].eq[2][1].value == -3.0 and logic.tracks[1].eq[5][1].value == 2.0
+
+
+@pytest.mark.anyio
+async def test_plugin_changes_conflict_with_param_is_skipped(assign_setup):
+    mcp, logic = assign_setup
+    async with Client(mcp) as client:
+        r = await client.call_tool("logic_plugin", {"action": "set", "strip": 2, "slot": 2, "param": "Thrs", "value": -30,
+                                                    "changes": [{"param": "Ratio", "value": 4}]})
+        assert r.structured_content["verified"] == "skipped" and "changes와 param·value는 같이 줄 수 없음" in r.structured_content["note"]
+        r = await client.call_tool("logic_eq", {"action": "set", "strip": 2, "band": 3,
+                                                "changes": [{"band": 3, "param": "gain", "value": 1}]})
+        assert r.structured_content["verified"] == "skipped" and "같이 줄 수 없음" in r.structured_content["note"]
+
+
+@pytest.mark.anyio
+async def test_plugin_changes_via_client(assign_setup):
+    mcp, logic = assign_setup
+    async with Client(mcp) as client:
+        await client.call_tool("logic_plugin", {"action": "insert", "strip": 2, "slot": 2, "plugin": "Compressor"})
+        r = await client.call_tool("logic_plugin", {"action": "set", "strip": 2, "slot": 2,
+                                                    "changes": [{"param": "Thrs", "value": -30}, {"param": "Ratio", "value": 4, "tolerance": 0.3}]})
+        assert r.structured_content["verified"] == "verified" and r.structured_content["after"]["done"] == 2
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("tool,extra", [("logic_eq", {}), ("logic_plugin", {"slot": 2})])
+async def test_changes_length_limits(assign_setup, tool, extra):
+    mcp, logic = assign_setup
+    item = {"band": 3, "param": "gain", "value": 1} if tool == "logic_eq" else {"param": "Thrs", "value": -30}
+    async with Client(mcp) as client:
+        before = [t.eq for t in logic.tracks]
+        for changes in ([], [item] * 33):
+            try:
+                r = await client.call_tool(tool, {"action": "set", "strip": 2, **extra, "changes": changes})
+                rejected = r.is_error
+            except Exception as e:
+                assert "changes" in str(e) or "at least" in str(e) or "most" in str(e) or "validation" in str(e).lower(), str(e)
+                rejected = True
+            assert rejected
+        assert [t.eq for t in logic.tracks] == before                       # 명령이 호출되지 않음
+
+
+@pytest.mark.anyio
+async def test_changes_visible_in_schemas(setup):
+    mcp, fake = setup
+    async with Client(mcp) as client:
+        tools = {t.name: t for t in (await client.list_tools()).tools}
+        assert "changes" in tools["logic_plugin"].input_schema["properties"]
+        assert "changes" in tools["logic_eq"].input_schema["properties"]
