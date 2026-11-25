@@ -255,6 +255,22 @@ bank first   ok=True skipped    1049ms already
   - **Test Oscillator**: 넣는 순간 테스트 톤을 내는 플러그인인데 11/25의 전수 대조 3회에서 뮤트 없이 넣었다 뺐다(소리가 났는지는 확인 못 함). 이번 측정부터 트랙을 뮤트하고 이 플러그인은 뺐다. 앞으로 임시 삽입을 도는 스크립트는 트랙 뮤트를 기본으로 한다.
   - UI 조작 도구(cmux Computer Use)는 온보딩 미완료로 시작되지 않는다(11/25). 플러그인 창 실험은 그대로 남아 있다.
 
+## 코드 정리: 명령 공통 서두 + 플러그인 LCD 모듈 분리 (2026-11-26 02:20~, 브랜치 `refactor/command-skeleton`, 동작 변화 없음, 420 테스트)
+- **계기**: 사용자 지시(11/26 01:48 "속도 방면에서 말고 코드 최적화", 02:20 "끝난다음 정리하고 최적화 진행해"). 곡선 2차 측정이 main 트리의 코드로 도는 동안이라 구현은 별도 워크트리(`.claude/worktrees/refactor`)에서 했다.
+- **방식**: Fable이 읽기 전용 조사(긴 함수·중복 블록·안 쓰는 이름을 스크립트로 뽑고 `plugin.py`·`commands.py`·`sends.py`·`eq.py`·`modes.py`·`tools.py`를 읽음)로 항목을 고르고 지시서를 썼다. 구현은 Sonnet 에이전트 3회(커밋 7개), diff 검토와 대조는 Fable. 테스트 2개와 안 쓰는 메서드 삭제는 Fable이 직접 했다.
+- **바꾼 것(커밋 9개)**
+  - 명령마다 복사돼 있던 서두(시각 → 락 → 준비 확인 → 인자 검사 → 트랙 해석 → `target` → `_fresh` → `_guarded`)를 `Commands._on_strip(action, strip, number, body, check=, extra=)` 하나로. 계열별 얇은 래퍼: `PluginCommands._on_slot`(슬롯 범위 검사 + `_fresh`), `SendCommands._on_send`(센드 범위 검사 + SE 뷰 + 페이지 + 없는 센드 거르기), `EqCommands._on_eq`(옛 `_in_channel`의 두 겹 함수와 `nonlocal`을 try/except 하나로). 17개 명령이 쓴다. `Commands._begin`은 없앴다. `plugin list`·`plugin scan`은 트랙 하나를 해석하지 않아 그대로 뒀다.
+  - 순환 import 정리: `plugin.py`에 있던 LCD 해석 상수·순수 함수(`MAX_SLOT`·`EMPTY_TEXTS`·`EMPTY_SHORTS`·`_header_name`·`_header_track`·`pair_columns`·`overlay_param_name`)를 `plugins/lcd.py`로, `_map_from`·`_map_to`를 `plugins/cache.py`로 글자 그대로 옮겼다. `plugin.py`가 `plugin_mixer`·`plugins/calibrate`를 함수 안에서 import하던 세 곳이 맨 위 import가 됐다.
+  - `PluginCommands.list`(81줄, 중첩 6단)에서 `_slot_row`(PL 2행 → 슬롯 행, 모르는 축약 드러내기)와 `_aux_rows`(Aux 슬롯 1)를 뗐다.
+  - `ModeDriver`: `_mark()` + `_press()` 12곳 → `_tap(note)`, 커서 누름 → `cursor(forward)`(`_open_edit`가 드라이버의 비공개 함수를 직접 부르던 것을 없앰), 오버레이 창 시작 칸 계산 5곳 → `overlay_start(ch)`. 아무도 부르지 않던 `press_vpot` 삭제.
+  - `tools.py`: 같은 모양의 `ToolResult(ok=False, verified="skipped", …)` 17곳 → `_skip(action, note)`. `commands.py`의 안 쓰는 import 1개 삭제.
+  - 줄 수: `plugin.py` 783 → 660, `sends.py` 307 → 277, `eq.py` 247 → 226, `src` 전체 −82줄(공백 변경 제외 +323 −405).
+- **동작이 그대로라는 근거**
+  - 기록 대조: 테스트 418개를 수정 전(8079550)과 수정 후 코드로 돌리며 보낸 MIDI 전부(가짜 시계 시각 포함 11,595건)와 만들어진 `ToolResult` 전부(346건)를 기록해 테스트별로 비교했다. 커밋마다 0개 차이. 수정 전 코드를 두 번 돌려 기록이 실행마다 같음도 확인했다(임시 폴더 번호·스캔 시각만 정규화).
+  - 이 대조가 본 범위: 바뀐 문장 244개 중 테스트가 실행하는 것은 230개였다. 나머지 14개 가운데 공통 서두의 조기 반환 2곳(준비 안 됨, 트랙 해석 실패)은 테스트 2개를 추가해 메웠다(`tests/test_commands.py`, 수정 전 코드에서도 통과 = 원래 동작을 적은 것). 남은 12개는 글자 그대로 옮긴 함수의 가지 3개, `tools.py`의 `_skip` 8곳(문구가 같은지 diff로 확인), 삭제한 `press_vpot` 1곳이다.
+  - 테스트 파일은 import 경로 한 줄(`tests/test_calibrate.py`의 `overlay_param_name`)만 고쳤다.
+- **손대지 않은 것(이유)**: `setter.set_numeric`(76줄, 줄마다 실측 근거가 있고 Z28 조사와 겹침) / `plugins/calibrate.py` 본체(실기 확인에 수십 분) / `plugins/scan.py`의 닮은 루프 두 개(멈춤 조건이 미묘하게 다름) / `Commands.configure`·`mixer_pan` / 테스트용 가짜 Logic(`tests/fake_assign.py` 1,063줄) / `faders.ZERO_DB_RAW`(안 쓰는 상수지만 실측값 기록) / `scripts/live_check*.py`(오래된 일회성 스크립트, 지울지는 사용자 결정).
+
 ## TODO
 - **사용자 지시(2026-11-26 01:48)**: 지금까지 한 작업을 정리해 커밋하고, 다음은 속도 쪽이 아니라 **코드 최적화**(코드 정리·구조 개선)로 간다. 아래 ①②③은 그 뒤로 미룬다. 진행 중인 것: 곡선 2차 측정(1차에서 재지 않은 linear 306개, 48종, 01:44 시작, 백그라운드). 끝나면 `docs/measurements/`에 측정값만 추가하고, 분석과 표 수정은 나중에 한다. 측정이 도는 동안 main 트리의 코드는 고치지 않는다(실기 스크립트가 이 트리의 코드를 쓴다).
 - **다음 순서(2026-11-26 01:40 갱신)**: ① 형식별 표 계획(`docs/superpowers/plans/2026-11-25-layouts.md`)의 사용자 검토·승인 → 구현 → 번들 배치 수집. ② 곡선 종류는 위 절에서 처리했다(35 + 8개). 남은 것: linear도 log도 아닌 45개를 위한 "측정 점 보간" map 제안(계획 필요), 재지 않은 linear 약 350개의 측정, 첫 페이더 이동 무시(Z28) 조건 찾기. ③ 남은 속도 후보는 아래 그대로. (이하 11/25 아침 기록) ① 형식별 표(결함 ⑤·⑦) 계획은 썼다(`docs/superpowers/plans/2026-11-25-layouts.md`) → 사용자 검토·승인 뒤 구현. 아래 "계획 전에 사용자가 정하거나 도와줄 것"은 계획의 "정할 것" 1건으로 줄었다(창 확인은 선택). 확인된 것: 표는 플러그인마다 형식이 섞여 있고(모노 배치 65종, 스테레오 배치 2종), 형식은 편집 뷰 헤더 접미(`(m/m)`·`(s/s)`·`(m/s)`)로 읽힌다. 계획 전에 사용자가 정하거나 도와줄 것: 스테레오 인스턴스에서 두 묶음 중 어디에 쓸지(첫 묶음만·둘 다), 그 근거로 플러그인 창을 한 번 열어 둔 상태의 확인 또는 귀로 확인, 스테레오 오디오 트랙 하나. ② 번들 표의 곡선 종류 재측정(가운데 점): 지금은 Compressor Ratio 한 건만 고쳤다. ③ 남은 속도 후보(항목 사이 대기 줄이기, 표가 있는 플러그인의 페이지 수 확인 생략).
