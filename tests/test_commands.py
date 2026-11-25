@@ -42,6 +42,24 @@ def test_not_ready_refuses_without_sending():
     assert "wait_ready" in r.note
 
 
+def test_strip_subcommands_refuse_when_not_ready_without_sending():      # 공통 서두(_on_strip): 준비 확인이 인자 검사보다 먼저
+    cmds, surface, fake = make_commands(ready=False)
+    for r in (cmds.plugin.params(1, None, 9), cmds.send.mute(1, None, 9, True), cmds.eq.set(1, None, 99, "gain", 0.0)):
+        assert r.ok is False and r.verified == "skipped" and "wait_ready" in r.note
+    assert fake.sent == []
+
+
+def test_strip_subcommands_check_arguments_before_resolving_the_strip():  # 명령 고유 검사 → 범위 검사 → 트랙 해석 순서
+    cmds, surface, fake = make_commands()
+    assert "slot은 1-8" in cmds.plugin.params(None, None, 9).note            # 범위가 주소보다 먼저
+    assert "to_slot" in cmds.plugin.move(None, None, 9, 9).note              # 명령 고유 검사가 범위보다 먼저
+    assert "send는 1-8" in cmds.send.mute(None, None, 9, True).note
+    assert "NaN" in cmds.send.set_level(None, None, 9, float("nan")).note
+    r = cmds.plugin.params(None, None, 1)                                     # 인자가 맞으면 주소 오류가 나온다
+    assert r.verified == "skipped" and "하나만 지정" in r.note and r.target is None
+    assert fake.sent == []
+
+
 def test_address_validation():
     cmds, surface, fake = make_commands()
     assert cmds.track("mute").ok is False
