@@ -5,9 +5,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from ..mcu import protocol as P
 from ..mcu import state as S
-from .modes import CONFIRM_S, CURSOR_LATE_S, EDIT_OPEN_S, OVERLAY_WIDTH, ModeError
+from .modes import CONFIRM_S, CURSOR_LATE_S, EDIT_OPEN_S, OVERLAY_WIDTH, ModeError, overlay_start
 from .plugin_mixer import AuxMixer
 from .plugins import calibrate as cal
 from .plugins.cache import PluginCache, _map_from, _map_to
@@ -97,8 +96,7 @@ class PluginCommands:
         if ok and d.view.kind == "empty_edit":
             # 차 있는 슬롯인데 빈 화면: Logic이 직전 플러그인의 페이지 위치로 열어 마지막 페이지 너머를 보인다(VALUE는 1행 전부 `-`,
             # 2행 공백 — 빈 슬롯과 같은 화면). Cursor ◀ 한 번이면 마지막 페이지로 온다(실기 2026-11-21 Compressor 3페이지 뒤 Chorus).
-            d._mark()
-            d._press(P.Note.CURSOR_LEFT)
+            d.cursor(False)
             ok = d.wait_view(opened, EDIT_OPEN_S) or d.wait_view(opened, CURSOR_LATE_S)
         if not ok:
             raise ModeError("edit", f"plugin_edit 슬롯 {slot}", f"{d.view.kind} {d.view.index or ''}".strip())
@@ -226,7 +224,7 @@ class PluginCommands:
                 want[c] = it["short"][:w].strip()               # LCD 쪽도 strip해서 비교: 칸 경계의 공백(`Lo Cut `|`Freq`)
                 if len(it["short"]) > w and c < 7:
                     want[c + 1] = it["short"][w:2 * w].strip()
-        first = min(col * w, P.LCD_WIDTH - OVERLAY_WIDTH) // w
+        first = overlay_start(col) // w
         overlay = set(range(first, first + OVERLAY_WIDTH // w))
 
         def check(full: bool) -> bool | None:

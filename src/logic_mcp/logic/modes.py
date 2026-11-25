@@ -43,6 +43,11 @@ TRACK_MENU_INPUT = (3, "Input")        # 오디오 트랙 `1`, Aux `Bus n`, 출�
 TRACK_MENU_VOLUME = (0, "Volume")
 
 
+def overlay_start(ch: int) -> int:
+    """열 ch의 값 오버레이(21칸)가 시작하는 LCD 칸. 오른쪽 끝 열들은 창이 화면 안에 들어오게 왼쪽으로 밀린다."""
+    return min(ch * S.COL_W, P.LCD_WIDTH - OVERLAY_WIDTH)
+
+
 class ModeError(Exception):
     def __init__(self, step: str, expected: str, observed: str) -> None:
         super().__init__(f"{step}: 기대 {expected}, 관측 {observed}")
@@ -74,6 +79,11 @@ class ModeDriver:
         self.surface.send(P.button_down(note))
         self._sleep(PRESS_HOLD_S)
         self.surface.send(P.button_up(note))
+
+    def _tap(self, note: int) -> None:
+        """버튼 한 번: 내 동작 시각을 찍고(_mark) 누른다. 대기·정착(settle_*)이 이 시각을 기준으로 삼는다."""
+        self._mark()
+        self._press(note)
 
     def _settle(self, extra: float = 0.0) -> None:
         """조각 쓰기가 멈추고(dirty_until) 마지막 LCD 변화 뒤 extra초가 지나도록 시간을 보낸다."""
@@ -130,19 +140,19 @@ class ModeDriver:
             tail = parse_value(lcd[1][last - S.COL_W:])
             if tail.kind == "number":
                 return tail
-        start = min(ch * S.COL_W, P.LCD_WIDTH - OVERLAY_WIDTH)
+        start = overlay_start(ch)
         wide = parse_value(lcd[1][start:start + OVERLAY_WIDTH])
         if wide.kind == "number":
             return wide
         return self.read_column(ch)[1]
 
     def read_overlay_name(self, ch: int) -> str:
-        start = min(ch * S.COL_W, P.LCD_WIDTH - OVERLAY_WIDTH)
+        start = overlay_start(ch)
         return self.surface.state.lcd[0][start:start + OVERLAY_WIDTH].strip()
 
     def read_overlay_text(self, ch: int) -> str:
         """오버레이 2행(21칸) 원문. 플러그인 이름처럼 숫자가 아닌 값에 쓴다."""
-        start = min(ch * S.COL_W, P.LCD_WIDTH - OVERLAY_WIDTH)
+        start = overlay_start(ch)
         return self.surface.state.lcd[1][start:start + OVERLAY_WIDTH].strip()
 
     # ---------- 조작 ----------
@@ -154,8 +164,7 @@ class ModeDriver:
             self._restore_select = next((i for i, s in enumerate(strips) if s.select), None)
         if strips[ch].select:
             return
-        self._mark()
-        self._press(P.Note.SELECT + ch)
+        self._tap(P.Note.SELECT + ch)
         if not self.surface.wait_for(lambda s: s.strips[ch].select, LED_TIMEOUT):
             raise ModeError("focus", f"SELECT{ch + 1} LED", "변화 없음")
         self._settle()
@@ -175,8 +184,7 @@ class ModeDriver:
             raise ModeError("enter", kind, f"{cur}에서 전환 경로 없음")
         for _ in range(steps):
             before = self.view.kind
-            self._mark()
-            self._press(_FAMILY_BUTTON[fam])
+            self._tap(_FAMILY_BUTTON[fam])
             # EQ는 down에 `E_`(메뉴)가 먼저 뜨고 up 뒤에 뷰가 온다(실측 A). 메뉴·과도기(unknown)는 지나쳐 기다린다.
             if not self.surface.wait_for(lambda s: s.view.kind != before and not s.view.kind.endswith("_menu")
                                          and s.view.kind != "unknown", ENTER_TIMEOUT):
@@ -186,6 +194,10 @@ class ModeDriver:
             raise ModeError("enter", kind, self.view.kind)
         self._page_hint = 1
         self.settle_overlay()
+
+    def cursor(self, forward: bool) -> None:
+        """Cursor ▶(forward) 또는 ◀ 한 번. 반응을 기다리지 않는다(기다림은 호출자가 고른다)."""
+        self._tap(P.Note.CURSOR_RIGHT if forward else P.Note.CURSOR_LEFT)
 
     def page_to(self, page: int) -> None:
         """Cursor ◀▶로 페이지 이동. 편집 뷰 NAME 모드는 헤더 `Page n/N`, 그 밖은 드라이버가 센 힌트로.
@@ -205,12 +217,10 @@ class ModeDriver:
 
             def moved(s: S.SurfaceState) -> bool:      # 1행만 바뀐 것(토큰 ≈2.07초 만기, Z16)은 이동이 아니다
                 return (s.view.page is not None and s.view.page[0] != cur) or s.lcd[1] != row2_before
-            self._mark()
-            self._press(P.Note.CURSOR_RIGHT if forward else P.Note.CURSOR_LEFT)
+            self.cursor(forward)
             steps += 1
             if not (self.surface.wait_for(moved, MODE_TIMEOUT) or self.surface.wait_for(moved, CURSOR_LATE_S)):
-                self._mark()
-                self._press(P.Note.CURSOR_RIGHT if forward else P.Note.CURSOR_LEFT)
+                self.cursor(forward)
                 steps += 1
                 if not self.surface.wait_for(moved, MODE_TIMEOUT):
                     raise ModeError("page_to", f"page {page}", f"페이지 {cur}에서 커서 반응 없음")
@@ -223,8 +233,7 @@ class ModeDriver:
             if pred(self.view):
                 return True
             cols_before = self.view.columns
-            self._mark()
-            self._press(P.Note.CURSOR_RIGHT if forward else P.Note.CURSOR_LEFT)
+            self.cursor(forward)
             if not self.surface.wait_for(lambda s: s.view.columns != cols_before, MODE_TIMEOUT):
                 return pred(self.view)
             self._page_hint += 1 if forward else -1
@@ -244,8 +253,7 @@ class ModeDriver:
         changed = False
         for note in (P.Note.CURSOR_RIGHT, P.Note.CURSOR_LEFT):      # 마지막 페이지에서 열렸으면 ▶는 페이지를 안 바꾸고 토큰 없는 헤더만 다시 그린다(실측 2026-10-20)
             lcd_before = self.surface.state.lcd
-            self._mark()
-            self._press(note)
+            self._tap(note)
             if (self.surface.wait_for(lambda s: s.lcd != lcd_before, MODE_TIMEOUT)
                     or self.surface.wait_for(lambda s: s.lcd != lcd_before, CURSOR_LATE_S)):
                 changed = True
@@ -277,8 +285,7 @@ class ModeDriver:
 
     def press_vpot_until(self, ch: int, pred: Callable[[S.View], bool], timeout: float) -> bool:
         """V-Pot 누름 뒤 뷰 조건을 timeout까지 기다린다(편집 뷰 열기·확정)."""
-        self._mark()
-        self._press(P.Note.VPOT_PUSH + ch)
+        self._tap(P.Note.VPOT_PUSH + ch)
         return self.wait_view(pred, timeout)
 
     def tick(self, ch: int, steps: int) -> bool:
@@ -296,8 +303,7 @@ class ModeDriver:
         return ok
 
     def press_vpot(self, ch: int) -> bool:
-        self._mark()
-        self._press(P.Note.VPOT_PUSH + ch)
+        self._tap(P.Note.VPOT_PUSH + ch)
         return self._wait_change()
 
     def shift_press_vpot(self, ch: int) -> bool:
@@ -334,8 +340,7 @@ class ModeDriver:
         """FLIP 한 번 누르고 LED를 FLIP_LED_TIMEOUT 기다린다. 재누름 없음: 늦은 LED와 겹치면 Flip이 꺼진 채 페이더가 볼륨을 움직인다(리뷰 C1)."""
         if self.surface.state.assignment.flip == on:
             return
-        self._mark()
-        self._press(P.Note.FLIP)
+        self._tap(P.Note.FLIP)
         if not self.surface.wait_for(lambda s: s.assignment.flip == on, FLIP_LED_TIMEOUT):
             raise ModeError("flip", "on" if on else "off", "FLIP LED 변화 없음")
         self._sleep(0.1)                      # 페이더 위치 에코가 오는 시간
@@ -343,8 +348,7 @@ class ModeDriver:
     def toggle_name_value(self) -> None:
         """편집 뷰에서 NAME↔VALUE는 2행(축약명 ↔ 값)을 바꾼다. 2행이 1행보다 늦게 올 수 있어 2행 변화를 기다린다(실기 10차)."""
         before = self.surface.state.lcd[1]
-        self._mark()
-        self._press(P.Note.NAME_VALUE)
+        self._tap(P.Note.NAME_VALUE)
         ok = self.surface.wait_for(lambda s: s.lcd[1] != before, FEEDBACK_TIMEOUT)
         self._settle()
         if not ok:
@@ -446,8 +450,7 @@ class ModeDriver:
             prev, self._focused, self._restore_select = self._restore_select, False, None   # 성공·실패와 무관하게 초기화(리뷰 m7)
             strips = self.surface.state.strips
             if prev is not None and strips[prev].number is not None and not strips[prev].select:
-                self._mark()
-                self._press(P.Note.SELECT + prev)
+                self._tap(P.Note.SELECT + prev)
                 self.surface.wait_for(lambda s: s.strips[prev].select, LED_TIMEOUT)
                 self._settle()
         if errors:
@@ -464,8 +467,7 @@ class ModeDriver:
     def _leave_pan(self) -> None:
         if self.view.kind != "pan":
             for _ in range(2):
-                self._mark()
-                self._press(P.Note.PAN)
+                self._tap(P.Note.PAN)
                 if self.surface.wait_for(lambda s: s.view.kind == "pan", MODE_TIMEOUT):
                     break
             else:

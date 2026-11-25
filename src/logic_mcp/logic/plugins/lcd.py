@@ -3,9 +3,8 @@ from __future__ import annotations
 
 import re
 
-from ...mcu import protocol as P
 from ...mcu import state as S
-from ..modes import OVERLAY_WIDTH
+from ..modes import OVERLAY_WIDTH, overlay_start
 from .match import strip_suffix
 
 MAX_SLOT = 8            # 2a는 Plug-in Channel 뷰(PL)의 슬롯 1~8만(실측 C: 9~15 접근 경로 미확인)
@@ -58,7 +57,7 @@ def overlay_param_name(header: str, row: str, col: int) -> str:
     3칸(7자 단위): 대상 열 앞 칸은 바뀌었을 때만, 대상 열 칸은 항상 넣고, 그 뒤 칸은 바뀌지 않은 첫 칸부터 버린다.
     이어 붙여 strip. 아무것도 안 바뀌면 ""."""
     w = S.COL_W
-    first = min(col * w, P.LCD_WIDTH - OVERLAY_WIDTH) // w
+    first = overlay_start(col) // w
     cells = [(c, row[c * w:(c + 1) * w], row[c * w:(c + 1) * w] != header[c * w:(c + 1) * w])
              for c in range(first, first + OVERLAY_WIDTH // w)]
     if not any(changed for _c, _t, changed in cells):
