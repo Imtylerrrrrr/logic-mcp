@@ -162,6 +162,24 @@ class Commands:
         finally:
             self.modes.leave_safely()
 
+    def _on_strip(self, action: str, strip: int | None, number: int | None,
+                  body: Callable[[int, int, dict], ToolResult], *,
+                  check: Callable[[int], ToolResult | None] | None = None,
+                  extra: dict | None = None) -> ToolResult:
+        """트랙 하나를 상대하는 서브커맨드의 공통 순서: 락 → 준비 확인 → check(t0)(보내기 전 인자 검사, 결과를 돌려주면 거기서 끝)
+        → 트랙 해석 → body(ch, t0, target)를 _guarded 안에서. target = 스트립·번호·이름 + extra."""
+        t0 = self._now_ms()
+        with self._lock:
+            if (r := self._require_ready(action, t0)) is not None:
+                return r
+            if check is not None and (r := check(t0)) is not None:
+                return r
+            ch = self._resolve(strip, number, action, t0)
+            if not isinstance(ch, int):
+                return ch
+            target = {**self._target(ch), **(extra or {})}
+            return self._guarded(action, t0, target, lambda: body(ch, t0, target))
+
     _BANK_NOTES = {"left": P.Note.BANK_LEFT, "right": P.Note.BANK_RIGHT,
                    "channel_left": P.Note.CHANNEL_LEFT, "channel_right": P.Note.CHANNEL_RIGHT}
 

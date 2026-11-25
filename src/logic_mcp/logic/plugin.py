@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from ..mcu import protocol as P
@@ -122,6 +123,25 @@ class PluginCommands:
         self.mixer = AuxMixer(self)                      # Aux 스트립 슬롯 1(Plug-in Mixer 뷰) 경로
 
     # ---------- 공통 ----------
+    def _on_slot(self, action: str, strip: int | None, number: int | None, slot: int,
+                 body: Callable[[int, int, dict], "ToolResult"], *,
+                 check: Callable[[int], "ToolResult | None"] | None = None, **extra) -> "ToolResult":
+        """슬롯 하나를 상대하는 명령의 공통 순서: Commands._on_strip에 슬롯 범위 검사(check 뒤)와 PAN에서 시작(_fresh)을 더한다."""
+        b = self.b
+
+        def checks(t0: int) -> "ToolResult | None":
+            if check is not None and (r := check(t0)) is not None:
+                return r
+            if not 1 <= slot <= MAX_SLOT:
+                return b._result(action, False, "skipped", t0,
+                                 note=f"slot은 1-{MAX_SLOT}(Plug-in Channel 뷰에서 닿는 슬롯만 지원)")
+            return None
+
+        def run(ch: int, t0: int, target: dict) -> "ToolResult":
+            b._fresh()
+            return body(ch, t0, target)
+        return b._on_strip(action, strip, number, run, check=checks, extra={"slot": slot, **extra})
+
     def _slot_text(self, slot: int) -> str:
         """PL 2행의 슬롯 열(축약). `--`·공백은 빈 슬롯."""
         return self.d.read_column(slot - 1)[1].text
@@ -401,49 +421,29 @@ class PluginCommands:
 
     def params(self, strip: int | None, number: int | None, slot: int) -> "ToolResult":
         b, action = self.b, "plugin_params"
-        t0 = b._now_ms()
-        with b._lock:
-            if (r := b._require_ready(action, t0)) is not None:
-                return r
-            ch = self.b._begin(action, strip, number, t0, slot, MAX_SLOT,
-                               f"slot은 1-{MAX_SLOT}(Plug-in Channel 뷰에서 닿는 슬롯만 지원)")
-            if not isinstance(ch, int):
-                return ch
-            target = {**b._target(ch), "slot": slot}
 
-            def body() -> "ToolResult":
-                self.b._fresh()
-                full, abbrev, pages = self._open_edit(ch, slot)
-                observed = self._read_pages(pages)
-                self._merge_items(full, pages, observed)
-                self.cache.save()
-                table = {x["index"]: x for x in self._table(full, pages)["items"]}
-                out = [{"index": o["index"], "short": o["short"], "name": table[o["index"]].get("name"),
-                        "value": o["value"], "text": o["text"]} for o in observed]
-                return b._result(action, True, "verified", t0, target=target,
-                                 after={"plugin": full, "abbrev": abbrev, "slot": slot, "pages": pages, "params": out})
-            return b._guarded(action, t0, target, body)
+        def body(ch: int, t0: int, target: dict) -> "ToolResult":
+            full, abbrev, pages = self._open_edit(ch, slot)
+            observed = self._read_pages(pages)
+            self._merge_items(full, pages, observed)
+            self.cache.save()
+            table = {x["index"]: x for x in self._table(full, pages)["items"]}
+            out = [{"index": o["index"], "short": o["short"], "name": table[o["index"]].get("name"),
+                    "value": o["value"], "text": o["text"]} for o in observed]
+            return b._result(action, True, "verified", t0, target=target,
+                             after={"plugin": full, "abbrev": abbrev, "slot": slot, "pages": pages, "params": out})
+        return self._on_slot(action, strip, number, slot, body)
 
     def get(self, strip: int | None, number: int | None, slot: int, param) -> "ToolResult":
         b, d, action = self.b, self.d, "plugin_get"
-        t0 = b._now_ms()
-        with b._lock:
-            if (r := b._require_ready(action, t0)) is not None:
-                return r
-            ch = self.b._begin(action, strip, number, t0, slot, MAX_SLOT,
-                               f"slot은 1-{MAX_SLOT}(Plug-in Channel 뷰에서 닿는 슬롯만 지원)")
-            if not isinstance(ch, int):
-                return ch
-            target = {**b._target(ch), "slot": slot}
 
-            def body() -> "ToolResult":
-                self.b._fresh()
-                full, _abbrev, pages = self._open_edit(ch, slot)
-                item = self._locate(full, pages, param)
-                col = self._goto_param(item, self._table(full, pages)["items"])
-                v = d.read_column(col)[1]
-                return b._result(action, True, "verified", t0, target=target, after=self._param_dict(full, slot, item, v))
-            return b._guarded(action, t0, target, body)
+        def body(ch: int, t0: int, target: dict) -> "ToolResult":
+            full, _abbrev, pages = self._open_edit(ch, slot)
+            item = self._locate(full, pages, param)
+            col = self._goto_param(item, self._table(full, pages)["items"])
+            v = d.read_column(col)[1]
+            return b._result(action, True, "verified", t0, target=target, after=self._param_dict(full, slot, item, v))
+        return self._on_slot(action, strip, number, slot, body)
 
     def _set_one(self, full: str, slot: int, item: dict, items: list[dict], value, tolerance: float | None) -> dict:
         """항목 하나를 맞춘다(편집 뷰 안, NAME 모드에서 시작). set·set_many 공통. ok·verified·note·before·after를 돌려준다."""
@@ -496,72 +496,52 @@ class PluginCommands:
     def set(self, strip: int | None, number: int | None, slot: int, param, value,
             tolerance: float | None = None) -> "ToolResult":
         b, d, action = self.b, self.d, "plugin_set"
-        t0 = b._now_ms()
-        with b._lock:
-            if (r := b._require_ready(action, t0)) is not None:
-                return r
-            ch = self.b._begin(action, strip, number, t0, slot, MAX_SLOT,
-                               f"slot은 1-{MAX_SLOT}(Plug-in Channel 뷰에서 닿는 슬롯만 지원)")
-            if not isinstance(ch, int):
-                return ch
-            target = {**b._target(ch), "slot": slot}
 
-            def body() -> "ToolResult":
-                self.b._fresh()
-                full, _abbrev, pages = self._open_edit(ch, slot)
-                item = self._locate(full, pages, param)
-                r = self._set_one(full, slot, item, self._table(full, pages)["items"], value, tolerance)
-                return b._result(action, r["ok"], r["verified"], t0, target=target, before=r["before"],
-                                 after=r["after"], note=r["note"])
-            return b._guarded(action, t0, target, body)
+        def body(ch: int, t0: int, target: dict) -> "ToolResult":
+            full, _abbrev, pages = self._open_edit(ch, slot)
+            item = self._locate(full, pages, param)
+            r = self._set_one(full, slot, item, self._table(full, pages)["items"], value, tolerance)
+            return b._result(action, r["ok"], r["verified"], t0, target=target, before=r["before"],
+                             after=r["after"], note=r["note"])
+        return self._on_slot(action, strip, number, slot, body)
 
     def set_many(self, strip: int | None, number: int | None, slot: int, changes: list[dict]) -> "ToolResult":
         """같은 플러그인의 값 여러 개를 편집 뷰 한 번 진입으로 맞춘다. 받은 순서대로, 첫 실패에서 멈춘다(앞 값은 되돌리지 않음).
         보내기 전에 전부 찾아 보고(읽기만), 하나라도 틀리면 아무 값도 바꾸지 않는다."""
         b, d, action = self.b, self.d, "plugin_set"
-        t0 = b._now_ms()
-        with b._lock:
-            if (r := b._require_ready(action, t0)) is not None:
-                return r
-            ch = self.b._begin(action, strip, number, t0, slot, MAX_SLOT,
-                               f"slot은 1-{MAX_SLOT}(Plug-in Channel 뷰에서 닿는 슬롯만 지원)")
-            if not isinstance(ch, int):
-                return ch
-            target = {**b._target(ch), "slot": slot}
 
-            def body() -> "ToolResult":
-                self.b._fresh()
-                full, _abbrev, pages = self._open_edit(ch, slot)
-                located: list[dict] = []
-                for k, c in enumerate(changes, 1):
-                    try:
-                        it = self._locate(full, pages, c["param"])
-                    except ParamNotFound as e:
-                        raise ParamNotFound(f"changes {k}번째: {e.note}") from e
-                    if any(it is x for x in located):
-                        raise ParamNotFound(f"changes {k}번째: {it['short']}가 두 번 나옴")
-                    located.append(it)
-                items = self._table(full, pages)["items"]            # 모든 _locate가 끝난 뒤에 읽는다(_locate가 표를 채울 수 있다)
-                heads = [{"param": c["param"], "index": it["index"], "short": it["short"], "name": it.get("name")}
-                         for c, it in zip(changes, located)]
+        def body(ch: int, t0: int, target: dict) -> "ToolResult":
+            full, _abbrev, pages = self._open_edit(ch, slot)
+            located: list[dict] = []
+            for k, c in enumerate(changes, 1):
+                try:
+                    it = self._locate(full, pages, c["param"])
+                except ParamNotFound as e:
+                    raise ParamNotFound(f"changes {k}번째: {e.note}") from e
+                if any(it is x for x in located):
+                    raise ParamNotFound(f"changes {k}번째: {it['short']}가 두 번 나옴")
+                located.append(it)
+            items = self._table(full, pages)["items"]            # 모든 _locate가 끝난 뒤에 읽는다(_locate가 표를 채울 수 있다)
+            heads = [{"param": c["param"], "index": it["index"], "short": it["short"], "name": it.get("name")}
+                     for c, it in zip(changes, located)]
 
-                def between() -> None:                              # 직전 값 오버레이(≈2초)가 이웃 열을 덮으므로 만기까지 기다린다
-                    d.settle_overlay()
-                    d.flip(False)
-                    d.toggle_name_value()
+            def between() -> None:                              # 직전 값 오버레이(≈2초)가 이웃 열을 덮으므로 만기까지 기다린다
+                d.settle_overlay()
+                d.flip(False)
+                d.toggle_name_value()
 
-                def one(k: int) -> dict:
-                    c = changes[k]
-                    r = self._set_one(full, slot, located[k], items, c["value"], c.get("tolerance"))
-                    return {**r, **{x: (None if r[x] is None else {"value": r[x]["value"], "text": r[x]["text"]})
-                                    for x in ("before", "after")}}
-                results = run_changes(heads, one, between)
-                ok, verified, note = batch_verdict(len(changes), results, lambda r: r["short"])
-                done = sum(1 for r in results if r["ok"])
-                return b._result(action, ok, verified, t0, target=target, note=note,
-                                 after={"plugin": full, "slot": slot, "results": results, "done": done,
-                                        "remaining": changes[len(results):]})
-            return b._guarded(action, t0, target, body)
+            def one(k: int) -> dict:
+                c = changes[k]
+                r = self._set_one(full, slot, located[k], items, c["value"], c.get("tolerance"))
+                return {**r, **{x: (None if r[x] is None else {"value": r[x]["value"], "text": r[x]["text"]})
+                                for x in ("before", "after")}}
+            results = run_changes(heads, one, between)
+            ok, verified, note = batch_verdict(len(changes), results, lambda r: r["short"])
+            done = sum(1 for r in results if r["ok"])
+            return b._result(action, ok, verified, t0, target=target, note=note,
+                             after={"plugin": full, "slot": slot, "results": results, "done": done,
+                                    "remaining": changes[len(results):]})
+        return self._on_slot(action, strip, number, slot, body)
 
     def _insert_body(self, action: str, t0: int, target: dict, ch: int, slot: int, plugin: str,
                      replace: bool) -> "ToolResult":
@@ -656,121 +636,87 @@ class PluginCommands:
     def insert(self, strip: int | None, number: int | None, slot: int, plugin: str,
                replace: bool = False) -> "ToolResult":
         b, action = self.b, "plugin_insert"
-        t0 = b._now_ms()
-        with b._lock:
-            if (r := b._require_ready(action, t0)) is not None:
-                return r
+
+        def check(t0: int) -> "ToolResult | None":
             idx, cands = find(self.cache.items, plugin)
             if idx is None and cands:                        # 보내기 전에 거른다(본체도 같은 검사)
                 return b._result(action, False, "skipped", t0, note=f"{plugin!r}가 여럿에 맞음: {cands}")
-            ch = self.b._begin(action, strip, number, t0, slot, MAX_SLOT,
-                               f"slot은 1-{MAX_SLOT}(Plug-in Channel 뷰에서 닿는 슬롯만 지원)")
-            if not isinstance(ch, int):
-                return ch
-            target = {**b._target(ch), "slot": slot}
+            return None
 
-            def body() -> "ToolResult":
-                self.b._fresh()
-                return self._insert_body(action, t0, target, ch, slot, plugin, replace)
-            return b._guarded(action, t0, target, body)
+        def body(ch: int, t0: int, target: dict) -> "ToolResult":
+            return self._insert_body(action, t0, target, ch, slot, plugin, replace)
+        return self._on_slot(action, strip, number, slot, body, check=check)
 
     def remove(self, strip: int | None, number: int | None, slot: int) -> "ToolResult":
-        b, action = self.b, "plugin_remove"
-        t0 = b._now_ms()
-        with b._lock:
-            if (r := b._require_ready(action, t0)) is not None:
-                return r
-            ch = self.b._begin(action, strip, number, t0, slot, MAX_SLOT,
-                               f"slot은 1-{MAX_SLOT}(Plug-in Channel 뷰에서 닿는 슬롯만 지원)")
-            if not isinstance(ch, int):
-                return ch
-            target = {**b._target(ch), "slot": slot}
+        action = "plugin_remove"
 
-            def body() -> "ToolResult":
-                self.b._fresh()
-                return self._remove_body(action, t0, target, ch, slot)
-            return b._guarded(action, t0, target, body)
+        def body(ch: int, t0: int, target: dict) -> "ToolResult":
+            return self._remove_body(action, t0, target, ch, slot)
+        return self._on_slot(action, strip, number, slot, body)
 
     def move(self, strip: int | None, number: int | None, slot: int, to_slot: int) -> "ToolResult":
         """슬롯 이동 = 제거 + 빈 목표 슬롯에 재삽입(MCU에 이동 명령이 없다, 스펙 4 F5). 설정값은 초기화된다.
         이름은 편집 뷰 헤더에서 읽는다(축약 캐시를 믿지 않는다, F6). 재삽입이 실패해도 되돌리지 않는다(되돌리기도 삽입)."""
         b, d, action = self.b, self.d, "plugin_move"
-        t0 = b._now_ms()
-        with b._lock:
-            if (r := b._require_ready(action, t0)) is not None:
-                return r
+
+        def check(t0: int) -> "ToolResult | None":
             if not 1 <= to_slot <= MAX_SLOT or to_slot == slot:
                 return b._result(action, False, "skipped", t0,
                                  note=f"to_slot은 1-{MAX_SLOT}이고 slot({slot})과 달라야 함")
-            ch = self.b._begin(action, strip, number, t0, slot, MAX_SLOT,
-                               f"slot은 1-{MAX_SLOT}(Plug-in Channel 뷰에서 닿는 슬롯만 지원)")
-            if not isinstance(ch, int):
-                return ch
-            target = {**b._target(ch), "slot": slot, "to_slot": to_slot}
+            return None
 
-            def body() -> "ToolResult":
-                self.b._fresh()
-                header, _abbrev, _pages = self._open_edit(ch, slot)  # Aux면 StripAux, 빈 슬롯이면 SlotEmpty → skipped
-                d.toggle_name_value()                                # _open_edit가 켠 NAME 모드를 끈다(재삽입 헤더 확인이 토글로 쓴다)
-                idx, cands = find(self.cache.items, header)          # 재삽입 이름은 목록 항목 하나로 확정될 때만(제거 전에)
-                if idx is None:
-                    return b._result(action, False, "skipped", t0, target=target,
-                                     note=f"이름을 확정하지 못해 이동하지 않음: {header!r} (후보 {cands})")
-                full = self.cache.items[idx]
-                d.enter("plugin_channel")
-                occupant = self._slot_text(to_slot)
-                if occupant not in EMPTY_TEXTS:
-                    return b._result(action, False, "skipped", t0, target=target,
-                                     note=f"슬롯 {to_slot}에 {occupant!r}가 있음. move는 빈 슬롯으로만 옮김")
-                removed = self._remove_body(action, t0, target, ch, slot)
-                if removed.verified != "verified":
-                    return b._result(action, False, removed.verified, t0, target=target, before=removed.before,
-                                     after=removed.after, note=f"제거 단계: {removed.note}")
-                moved = {"from": slot, "to": to_slot, "plugin": full, "note_path": "remove+insert"}
-                try:
-                    put = self._insert_body(action, t0, target, ch, to_slot, full, replace=False)
-                except ModeError as e:                               # 제거는 끝났다: 이름을 잃지 않게 결과로 돌려준다
-                    return b._result(action, False, "unverified", t0, target=target, before={"slot": slot, "plugin": full},
-                                     after=moved, note=f"제거는 됐으나 재삽입 실패: {e} — {full!r}가 to_slot에 들어갔는지 확인한 뒤 수동으로 다시 넣을 것")
-                if put.verified != "verified":
-                    return b._result(action, False, "unverified", t0, target=target, before={"slot": slot, "plugin": full},
-                                     after=moved, note=f"슬롯 {slot}의 {full!r} 제거는 됐으나 재삽입 실패(슬롯 {to_slot}): {put.note}. "
-                                                       "직접 다시 넣어야 함")
-                return b._result(action, True, "verified", t0, target=target, before={"slot": slot, "plugin": full},
-                                 after=moved,
-                                 note="설정값은 초기화됨(MCU에 이동 명령이 없어 제거+재삽입)")
-            return b._guarded(action, t0, target, body)
+        def body(ch: int, t0: int, target: dict) -> "ToolResult":
+            header, _abbrev, _pages = self._open_edit(ch, slot)  # Aux면 StripAux, 빈 슬롯이면 SlotEmpty → skipped
+            d.toggle_name_value()                                # _open_edit가 켠 NAME 모드를 끈다(재삽입 헤더 확인이 토글로 쓴다)
+            idx, cands = find(self.cache.items, header)          # 재삽입 이름은 목록 항목 하나로 확정될 때만(제거 전에)
+            if idx is None:
+                return b._result(action, False, "skipped", t0, target=target,
+                                 note=f"이름을 확정하지 못해 이동하지 않음: {header!r} (후보 {cands})")
+            full = self.cache.items[idx]
+            d.enter("plugin_channel")
+            occupant = self._slot_text(to_slot)
+            if occupant not in EMPTY_TEXTS:
+                return b._result(action, False, "skipped", t0, target=target,
+                                 note=f"슬롯 {to_slot}에 {occupant!r}가 있음. move는 빈 슬롯으로만 옮김")
+            removed = self._remove_body(action, t0, target, ch, slot)
+            if removed.verified != "verified":
+                return b._result(action, False, removed.verified, t0, target=target, before=removed.before,
+                                 after=removed.after, note=f"제거 단계: {removed.note}")
+            moved = {"from": slot, "to": to_slot, "plugin": full, "note_path": "remove+insert"}
+            try:
+                put = self._insert_body(action, t0, target, ch, to_slot, full, replace=False)
+            except ModeError as e:                               # 제거는 끝났다: 이름을 잃지 않게 결과로 돌려준다
+                return b._result(action, False, "unverified", t0, target=target, before={"slot": slot, "plugin": full},
+                                 after=moved, note=f"제거는 됐으나 재삽입 실패: {e} — {full!r}가 to_slot에 들어갔는지 확인한 뒤 수동으로 다시 넣을 것")
+            if put.verified != "verified":
+                return b._result(action, False, "unverified", t0, target=target, before={"slot": slot, "plugin": full},
+                                 after=moved, note=f"슬롯 {slot}의 {full!r} 제거는 됐으나 재삽입 실패(슬롯 {to_slot}): {put.note}. "
+                                                   "직접 다시 넣어야 함")
+            return b._result(action, True, "verified", t0, target=target, before={"slot": slot, "plugin": full},
+                             after=moved,
+                             note="설정값은 초기화됨(MCU에 이동 명령이 없어 제거+재삽입)")
+        return self._on_slot(action, strip, number, slot, body, check=check, to_slot=to_slot)
 
     def bypass(self, strip: int | None, number: int | None, slot: int, on: bool) -> "ToolResult":
         b, d, action = self.b, self.d, "plugin_bypass"
-        t0 = b._now_ms()
-        with b._lock:
-            if (r := b._require_ready(action, t0)) is not None:
-                return r
-            ch = self.b._begin(action, strip, number, t0, slot, MAX_SLOT,
-                               f"slot은 1-{MAX_SLOT}(Plug-in Channel 뷰에서 닿는 슬롯만 지원)")
-            if not isinstance(ch, int):
-                return ch
-            target = {**b._target(ch), "slot": slot}
 
-            def body() -> "ToolResult":
-                self.b._fresh()
-                self.b._channel(ch, "plugin_channel")
-                current = self._slot_text(slot)
-                if current in EMPTY_TEXTS:
-                    return b._result(action, False, "skipped", t0, target=target, note=f"슬롯 {slot}이 비어 있음")
-                if current.startswith("*") == on:
-                    return b._result(action, True, "skipped", t0, target=target, after={"slot": slot, "text": current}, note="already")
-                d.shift_press_vpot(slot - 1)                         # PL에서 SHIFT+V-Pot = 바이패스 토글, 뷰 그대로(실측 N)
-                if d.view.kind != "plugin_channel":
-                    return b._result(action, False, "unverified", t0, target=target, before={"slot": slot, "text": current},
-                                     note=f"SHIFT+V-Pot 뒤 뷰가 {d.view.kind}")
-                after = self._slot_text(slot)
-                ok = after.startswith("*") == on
-                return b._result(action, ok, "verified" if ok else "unverified", t0, target=target,
-                                 before={"slot": slot, "text": current}, after={"slot": slot, "text": after},
-                                 note="" if ok else "SHIFT+V-Pot 뒤 `*` 표시가 기대와 다름")
-            return b._guarded(action, t0, target, body)
+        def body(ch: int, t0: int, target: dict) -> "ToolResult":
+            b._channel(ch, "plugin_channel")
+            current = self._slot_text(slot)
+            if current in EMPTY_TEXTS:
+                return b._result(action, False, "skipped", t0, target=target, note=f"슬롯 {slot}이 비어 있음")
+            if current.startswith("*") == on:
+                return b._result(action, True, "skipped", t0, target=target, after={"slot": slot, "text": current}, note="already")
+            d.shift_press_vpot(slot - 1)                         # PL에서 SHIFT+V-Pot = 바이패스 토글, 뷰 그대로(실측 N)
+            if d.view.kind != "plugin_channel":
+                return b._result(action, False, "unverified", t0, target=target, before={"slot": slot, "text": current},
+                                 note=f"SHIFT+V-Pot 뒤 뷰가 {d.view.kind}")
+            after = self._slot_text(slot)
+            ok = after.startswith("*") == on
+            return b._result(action, ok, "verified" if ok else "unverified", t0, target=target,
+                             before={"slot": slot, "text": current}, after={"slot": slot, "text": after},
+                             note="" if ok else "SHIFT+V-Pot 뒤 `*` 표시가 기대와 다름")
+        return self._on_slot(action, strip, number, slot, body)
 
     def calibrate(self, strip: int | None, number: int | None, slot: int) -> "ToolResult":
         """plugins/calibrate.py의 calibrate로 위임(설명은 그쪽). import는 순환을 피해 여기서."""
