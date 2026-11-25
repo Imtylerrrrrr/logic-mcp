@@ -5,9 +5,10 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from ..plugin import EMPTY_TEXTS, _map_to, overlay_param_name
 from ..setter import probe_mapping
 from ..values import parse_value
+from .cache import _map_to
+from .lcd import EMPTY_TEXTS, overlay_param_name
 from .scan import scan_list
 
 if TYPE_CHECKING:

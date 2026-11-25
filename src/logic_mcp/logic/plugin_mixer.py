@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from .modes import CONFIRM_S, EDIT_OPEN_S, ModeError
-from .plugin import EMPTY_TEXTS, MAX_SLOT
+from .plugins.lcd import EMPTY_TEXTS, MAX_SLOT
 from .plugins.scan import rewind_to_empty, seek_by_name
 
 if TYPE_CHECKING:
