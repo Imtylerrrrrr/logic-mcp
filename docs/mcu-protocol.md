@@ -188,6 +188,7 @@
 - **Z27. 번들 표 숫자 map의 곡선을 페이더 안쪽 세 점으로 쟀다(2026-11-25 11:32~12:36, 11/26 00:18~01:10, 트랙 6 슬롯 1 모노 임시 인스턴스. Space Designer·Level Meter는 트랙 5 스테레오. 측정 중 트랙 뮤트, `audit_curve.py`, main f46fcc8).**
   - 방법: 항목마다 Flip 페이더를 raw 1·4096·8192·12288·16383으로 보내고 에코 raw와 값 오버레이를 읽었다. 대상은 66종(넣자마자 테스트 톤을 내는 Test Oscillator 제외) 318개: `log` 114개 전부, 양수 범위 `linear` 90개 전부, 0·음수에서 시작하는 `linear`는 플러그인당 앞 2개씩 표본 114개. 그 밖의 `linear` 약 350개는 재지 않았다.
   - 판정(안쪽 세 점의 페이더 비율 오차 최댓값. 2 % 안이면 맞음, 지금 종류가 5 % 넘게 어긋나고 다른 종류가 2 % 안이면 종류 오류): 맞음 230, 종류 오류 35(linear → log 32, log → linear 3), 어느 쪽도 아님 45(25종), 숫자로 못 읽음 7, 단위가 바뀜 1.
+  - 측정값: `docs/measurements/2026-11-26-fader-curves.jsonl`(플러그인당 한 줄, 항목마다 `[보낸 raw, 에코 raw, 읽힌 글자, 숫자, 단위]` 다섯 점. `map`은 측정 당시의 표). 스크립트: `scripts/measure_curves.py`(측정), `scripts/curve_summary.py`(판정).
   - 재현성: 같은 항목을 두 번 잰 67개(묶음 2 재실행, 무효 묶음의 잠들기 전 기록, Level Meter)는 읽힌 글자가 전부 같았다.
   - 종류 오류의 크기: 고치기 전 map으로는 가운데 점이 페이더 범위의 8~61 %(중앙값 43 %) 빗나간다. 예: Channel EQ `Peak 1 Q-Factor`(0.1~100) raw 8256 = `3.20`(linear map은 raw 508을 준다), Compressor 사이드체인 `Frequency` raw 8258 = `587.33`, Tape Delay `Delay Time`(표 log) raw 8192 = `2500.1 ms`(선형).
   - 어느 쪽도 아닌 곡선의 예(값은 raw 4096·8192·12288 근처): Compressor `Attack` 0~200 ms = `12.5`·`50.0`·`125.0`, Stereo Delay `Left Delay Time` 5~2000 ms = `148`·`330`·`790`, Chorus `Intensity` 0~100 % = `15`·`40`·`70`, PlatinumVerb `Predelay` 0~200 ms = `31`·`76`·`138`, Multipressor 밴드 Ratio 1~30 = `1.933`·`2.911`·`15.825`. 지금 map 형식(linear·log)으로는 못 적는다. 가운데 점의 빗나감 중앙값은 25 %.
