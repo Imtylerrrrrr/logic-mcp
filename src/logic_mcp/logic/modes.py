@@ -302,10 +302,6 @@ class ModeDriver:
         self.settle_quiet()
         return ok
 
-    def press_vpot(self, ch: int) -> bool:
-        self._tap(P.Note.VPOT_PUSH + ch)
-        return self._wait_change()
-
     def shift_press_vpot(self, ch: int) -> bool:
         """SHIFT를 누른 채 V-Pot 누름(플러그인 바이패스 토글, Apple 문서·라이브 체크 대상)."""
         self._mark()
