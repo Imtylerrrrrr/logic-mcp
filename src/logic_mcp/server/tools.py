@@ -27,6 +27,10 @@ class EqChange(BaseModel):
     value: float | bool
 
 
+def _skip(action: str, note: str) -> ToolResult:
+    return ToolResult(ok=False, verified="skipped", action=action, note=note)
+
+
 def register_tools(mcp: MCPServer, commands: Commands) -> None:
     @mcp.tool(name="logic_transport", annotations=ToolAnnotations(idempotent_hint=True),
               description="Play, stop, record, cycle, rewind, fast-forward. Verified via the LEDs and the time display.")
@@ -55,11 +59,11 @@ def register_tools(mcp: MCPServer, commands: Commands) -> None:
     ) -> ToolResult:
         if action == "set_volume":
             if db is None:
-                return ToolResult(ok=False, verified="skipped", action=action, note="set_volume에는 db가 필요. 예: -6.0, 0, \"-inf\"")
+                return _skip(action, "set_volume에는 db가 필요. 예: -6.0, 0, \"-inf\"")
             value = -math.inf if db == "-inf" else float(db)
             return commands.mixer_volume(strip, number, value)
         if pan is None:
-            return ToolResult(ok=False, verified="skipped", action=action, note="set_pan에는 pan(-64..63)이 필요")
+            return _skip(action, "set_pan에는 pan(-64..63)이 필요")
         return commands.mixer_pan(strip, number, pan)
 
     @mcp.tool(name="logic_bank",
@@ -102,10 +106,10 @@ def register_tools(mcp: MCPServer, commands: Commands) -> None:
             return commands.eq.get(strip, number)
         if changes:
             if band is not None or param is not None or value is not None:
-                return ToolResult(ok=False, verified="skipped", action="eq_set", note="changes와 param·value는 같이 줄 수 없음")
+                return _skip("eq_set", "changes와 param·value는 같이 줄 수 없음")
             return commands.eq.set_many(strip, number, [c.model_dump(exclude_none=True) for c in changes], allow_insert)
         if band is None or param is None or value is None:
-            return ToolResult(ok=False, verified="skipped", action="eq_set", note="set에는 band, param, value가 필요")
+            return _skip("eq_set", "set에는 band, param, value가 필요")
         return commands.eq.set(strip, number, band, param, value, allow_insert)
 
     @mcp.tool(name="logic_plugin",
@@ -140,38 +144,38 @@ def register_tools(mcp: MCPServer, commands: Commands) -> None:
         if action == "list":
             return commands.plugin.list(strip, number)
         if slot is None:
-            return ToolResult(ok=False, verified="skipped", action=name, note="slot(1-8)이 필요")
+            return _skip(name, "slot(1-8)이 필요")
         if action == "calibrate":
             if not force:
-                return ToolResult(ok=False, verified="skipped", action=name,
-                                  note="calibrate는 파라미터 값을 되돌리지 않고 움직인다. 테스트 프로젝트에서 force=true로 실행")
+                return _skip(name,
+                             "calibrate는 파라미터 값을 되돌리지 않고 움직인다. 테스트 프로젝트에서 force=true로 실행")
             return commands.plugin.calibrate(strip, number, slot)
         if action == "params":
             return commands.plugin.params(strip, number, slot)
         if action == "get":
             if param is None:
-                return ToolResult(ok=False, verified="skipped", action=name, note="get에는 param(이름 또는 인덱스)이 필요")
+                return _skip(name, "get에는 param(이름 또는 인덱스)이 필요")
             return commands.plugin.get(strip, number, slot, param)
         if action == "set":
             if changes:
                 if param is not None or value is not None or tolerance is not None:
-                    return ToolResult(ok=False, verified="skipped", action=name, note="changes와 param·value는 같이 줄 수 없음")
+                    return _skip(name, "changes와 param·value는 같이 줄 수 없음")
                 return commands.plugin.set_many(strip, number, slot, [c.model_dump(exclude_none=True) for c in changes])
             if param is None or value is None:
-                return ToolResult(ok=False, verified="skipped", action=name, note="set에는 param과 value가 필요")
+                return _skip(name, "set에는 param과 value가 필요")
             return commands.plugin.set(strip, number, slot, param, value, tolerance)
         if action == "insert":
             if not plugin:
-                return ToolResult(ok=False, verified="skipped", action=name, note="insert에는 plugin 이름이 필요")
+                return _skip(name, "insert에는 plugin 이름이 필요")
             return commands.plugin.insert(strip, number, slot, plugin, replace)
         if action == "remove":
             return commands.plugin.remove(strip, number, slot)
         if action == "move":
             if to_slot is None:
-                return ToolResult(ok=False, verified="skipped", action=name, note="move에는 to_slot(1-8)이 필요")
+                return _skip(name, "move에는 to_slot(1-8)이 필요")
             return commands.plugin.move(strip, number, slot, to_slot)
         if on is None:
-            return ToolResult(ok=False, verified="skipped", action=name, note="bypass에는 on(true/false)이 필요")
+            return _skip(name, "bypass에는 on(true/false)이 필요")
         return commands.plugin.bypass(strip, number, slot, on)
 
     @mcp.tool(name="logic_send", annotations=ToolAnnotations(idempotent_hint=True),
@@ -194,21 +198,21 @@ def register_tools(mcp: MCPServer, commands: Commands) -> None:
         if action == "get":
             return commands.send.get(strip, number)
         if send is None:
-            return ToolResult(ok=False, verified="skipped", action=name, note="send(1-8)가 필요")
+            return _skip(name, "send(1-8)가 필요")
         if action == "set_dest":
             if dest is None:
-                return ToolResult(ok=False, verified="skipped", action=name, note="set_dest에는 dest가 필요(버스 번호 또는 \"--\")")
+                return _skip(name, "set_dest에는 dest가 필요(버스 번호 또는 \"--\")")
             return commands.send.set_dest(strip, number, send, dest)
         if action == "remove":
             return commands.send.remove(strip, number, send)
         if action == "set_level":
             if db is None:
-                return ToolResult(ok=False, verified="skipped", action=name, note="set_level에는 db가 필요. 예: -6.0, 0, \"-inf\"")
+                return _skip(name, "set_level에는 db가 필요. 예: -6.0, 0, \"-inf\"")
             return commands.send.set_level(strip, number, send, -math.inf if db == "-inf" else float(db))
         if action == "set_pos":
             if pos is None:
-                return ToolResult(ok=False, verified="skipped", action=name, note="set_pos에는 pos(pre|post|post_pan)가 필요")
+                return _skip(name, "set_pos에는 pos(pre|post|post_pan)가 필요")
             return commands.send.set_pos(strip, number, send, pos)
         if on is None:
-            return ToolResult(ok=False, verified="skipped", action=name, note="mute에는 on(true/false)이 필요")
+            return _skip(name, "mute에는 on(true/false)이 필요")
         return commands.send.mute(strip, number, send, on)

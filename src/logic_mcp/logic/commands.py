@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, Literal
 from pydantic import BaseModel
 
 from ..mcu import protocol as P
-from ..mcu import state as S
 from ..mcu.surface import Surface
 from .eq import EqCommands
 from .faders import FaderTable, parse_pan_text
