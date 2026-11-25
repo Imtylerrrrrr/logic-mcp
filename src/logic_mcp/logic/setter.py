@@ -27,12 +27,18 @@ def _num(v: Value) -> float | None:
     return v.number if v.kind == "number" and v.number is not None and math.isfinite(v.number) else None
 
 
+def _probe_end(d: ModeDriver, ch: int, raw: int, via: int) -> Value:
+    """페이더를 raw로 보내고 값을 읽는다. 에코가 없으면(이미 그 자리였거나 이동이 무시됨, 실측 2026-11-26) via를 거쳐 한 번 더 보낸다."""
+    if d.fader(ch, raw) is None:
+        d.fader(ch, via)
+        d.fader(ch, raw)
+    return d.read_value(ch)
+
+
 def probe_mapping(d: ModeDriver, ch: int) -> tuple[Mapping | None, Value, Value]:
     """Flip 상태에서 페이더를 1·16383으로 보내 최소·최대를 읽는다. 값이 바뀌므로 이어서 set_*로 목표를 맞춘다."""
-    d.fader(ch, 1)
-    lo = d.read_value(ch)
-    d.fader(ch, MAX_FADER)
-    hi = d.read_value(ch)
+    lo = _probe_end(d, ch, 1, MAX_FADER)
+    hi = _probe_end(d, ch, MAX_FADER, 1)
     return infer_mapping(lo, hi), lo, hi
 
 

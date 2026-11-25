@@ -5,7 +5,7 @@ EQ 버튼은 실측 A처럼 down에 `E_`(메뉴)를, up 뒤에 뷰를 그린다.
 기다리기 시작한 뒤(wait_for의 첫 판정 다음)나 다음 sleep·입력 때 도착한다.
 lcd_lag(실측 X)의 LCD 값 쓰기는 lagged에 쌓여 sleep으로는 오지 않고, 판정이 안 끝난 wait_for나 다음 입력 때만 도착한다.
 drop_first_fader(실측 Z1)는 Flip을 켠 뒤 처음 오는 페이더 이동을, drop_first_flip(실측 Z2)은 처음 FLIP 누름을 한 번 무시한다.
-drop_all_faders는 페이더 이동을 항상 무시한다(반응 없는 Logic).
+drop_all_faders는 페이더 이동을 항상 무시한다(반응 없는 Logic). drop_next_faders(실측 2026-11-26)는 Flip 상태 페이더 이동을 그 횟수만큼 무시한다.
 flip_led_lag(리뷰 C1)는 처음 처리된 FLIP 누름의 LED 변화를 flip_lagged에 쌓아 두었다가, 드라이버가 FLIP LED 대기에서 한 번
 시간 초과한 뒤 다음 판정 거짓 wait_for에 들어갈 때 보낸다. Flip이 꺼진 상태의 페이더 이동은 해당 스트립 트랙 볼륨(Track.volume, raw)을 바꾼다.
 drop_all_flips는 FLIP 누름을 항상, drop_all_name_value는 NAME/VALUE 누름을 항상 무시한다.
@@ -354,6 +354,7 @@ class FakeLogic:
         self.drop_first_fader = False                  # True면 Flip을 켠 뒤 처음 페이더 이동을 한 번 무시(에코·LCD 없음, 실측 Z1)
         self._fader_armed = False
         self.drop_all_faders = False                   # True면 페이더 이동을 항상 무시
+        self.drop_next_faders = 0                      # 0보다 크면 페이더 이동을 그 횟수만큼 무시(에코·LCD 없음, 실측 2026-11-26)
         self.drop_all_vpots = False                    # True면 V-Pot 틱을 항상 무시(반응 없는 Logic)
         self.drop_first_flip = False                   # True면 처음 FLIP 누름을 한 번 무시(LED 변화 없음, 실측 Z2)
         self.flip_led_lag = False                      # True면 처음 처리된 FLIP 누름의 LED 변화가 첫 대기 시간 초과 뒤에 도착(리뷰 C1)
@@ -1002,6 +1003,9 @@ class FakeLogic:
             return
         if self.drop_all_faders or (self.drop_first_fader and self._fader_armed):
             self._fader_armed = False
+            return
+        if self.drop_next_faders > 0:
+            self.drop_next_faders -= 1
             return
         if self.view == "send_channel":                                 # SE Flip: 레벨 열 페이더 = 센드 dB(볼륨 표, 실측 S6)
             n, fld, s = self._send_at(ch)

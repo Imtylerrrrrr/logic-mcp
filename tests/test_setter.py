@@ -207,6 +207,24 @@ def test_probe_mapping_reads_min_max():
     assert m2 == Mapping("log", 20.0, 20000.0)
 
 
+def test_probe_mapping_resends_when_the_first_move_is_ignored():       # 실측 2026-11-26
+    d, logic, eq = eq_driver()
+    d.flip(True)
+    d.fader(5, 8192)                                               # 범위 가운데
+    assert abs(d.read_value(5).number) < 1.0
+    logic.drop_next_faders = 2                                     # 첫 d.fader의 내부 전송 2번
+    m, lo, hi = probe_mapping(d, 5)
+    assert lo.number == -24.0 and hi.number == 24.0 and m == Mapping("linear", -24.0, 24.0)
+
+
+def test_probe_mapping_param_already_at_minimum():
+    d, logic, eq = eq_driver()
+    d.flip(True)
+    d.fader(5, 1)                                                  # 이미 맨 아래
+    m, lo, hi = probe_mapping(d, 5)
+    assert lo.number == -24.0 and hi.number == 24.0 and m == Mapping("linear", -24.0, 24.0)
+
+
 def test_enum_matches_truncated_slope_unit():
     assert enum_matches(parse_value("24 dB/O"), "24") is True
     assert enum_matches(parse_value("18 dB/O"), "24") is False
