@@ -22,6 +22,30 @@ def test_bundled_compressor_ratio_is_logarithmic():                     # 실측
     assert ratio["map"] == {"type": "log", "lo": 1.0, "hi": 30.0}
 
 
+def test_bundled_curve_types_match_midpoint_measurements():              # 실측 2026-11-25~26, 페이더 가운데 점
+    from logic_mcp.logic.plugin import _map_from
+    from logic_mcp.logic.values import raw_for
+    measured = [("Channel EQ", 19, 8256, 3.2), ("Compressor", 22, 8258, 587.33), ("Compressor", 23, 8191, 1.6),
+                ("Tape Delay", 24, 8192, 2500.1), ("Delay Designer", 13, 8191, 5002.8), ("Expander", 2, 8191, 0.71),
+                ("Parametric EQ", 5, 8191, 1.0), ("Fat EQ", 9, 8191, 1.0), ("Pitch Shifter", 5, 8191, 11.0),
+                ("Space Designer", 75, 8191, 100.0)]
+    params = json.loads(BUNDLED.read_text())["params"]
+    for plugin, index, raw, value in measured:
+        item = next(i for i in params[plugin]["items"] if i["index"] == index)
+        assert abs(raw_for(_map_from(item["map"]), value) - raw) <= 0.03 * 16383, (plugin, index)
+    sizes = [i for i in params["Space Designer"]["items"] if i["short"] == "Size"]
+    assert len(sizes) == 2 and all(i["map"]["type"] == "log" for i in sizes)
+
+
+def test_bundled_minimums_are_measured_not_defaults():
+    params = json.loads(BUNDLED.read_text())["params"]
+    def lo(plugin, index):
+        return next(i for i in params[plugin]["items"] if i["index"] == index)["map"]["lo"]
+    assert lo("Adaptive Limiter", 5) == 20.0
+    assert lo("Channel EQ", 35) == 0.0
+    assert lo("Pitch Correction", 4) == 0.0
+
+
 def test_logic_version_reads_plist(tmp_path):
     import plistlib
     p = tmp_path / "Info.plist"
