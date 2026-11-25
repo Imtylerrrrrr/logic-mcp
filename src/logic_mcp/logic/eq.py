@@ -102,36 +102,28 @@ class EqCommands:
 
     def get(self, strip: int | None, number: int | None) -> "ToolResult":
         b, d, action = self.b, self.d, "eq_get"
-        t0 = b._now_ms()
-        with b._lock:
-            if (r := b._require_ready(action, t0)) is not None:
-                return r
-            ch = b._resolve(strip, number, action, t0)
-            if not isinstance(ch, int):
-                return ch
-            target = b._target(ch)
 
-            def body() -> "ToolResult":
-                kind = b.strips.kind(d, b.surface.state, ch)
-                if kind == "aux":                                         # EQ 채널 뷰 진입이 직전 트랙에 Channel EQ를 넣을 수 있다(가정, 미측정)
-                    s = b.surface.state.strips[ch]
-                    raise StripAux(ch, s.number, s.name)
-                if kind == "output":                                      # 출력·Master: E1 뷰의 유무만(실측 Z4)
-                    d.focus(ch)
-                    return b._result(action, True, "verified", t0, target=target,
-                                     after={"has_eq": self._has_eq(ch), "bands": {}},
-                                     note="출력·Master 스트립: EQ 채널 뷰가 따라가지 않아 밴드 값은 읽지 않음(실측 Z4)")
+        def body(ch: int, t0: int, target: dict) -> "ToolResult":
+            kind = b.strips.kind(d, b.surface.state, ch)
+            if kind == "aux":                                         # EQ 채널 뷰 진입이 직전 트랙에 Channel EQ를 넣을 수 있다(가정, 미측정)
+                s = b.surface.state.strips[ch]
+                raise StripAux(ch, s.number, s.name)
+            if kind == "output":                                      # 출력·Master: E1 뷰의 유무만(실측 Z4)
                 d.focus(ch)
-                if not self._has_eq(ch):
-                    return b._result(action, True, "verified", t0, target=target, after={"has_eq": False, "bands": {}})
-                d.enter("eq_channel")
-                bands: dict[str, dict] = {}
-                for band in (1, 3, 5, 7):
-                    self._goto_page(band)
-                    bands[str(band)] = _band_dict(d.view.columns, band)
-                    bands[str(band + 1)] = _band_dict(d.view.columns, band + 1)
-                return b._result(action, True, "verified", t0, target=target, after={"has_eq": True, "bands": bands})
-            return b._guarded(action, t0, target, body)
+                return b._result(action, True, "verified", t0, target=target,
+                                 after={"has_eq": self._has_eq(ch), "bands": {}},
+                                 note="출력·Master 스트립: EQ 채널 뷰가 따라가지 않아 밴드 값은 읽지 않음(실측 Z4)")
+            d.focus(ch)
+            if not self._has_eq(ch):
+                return b._result(action, True, "verified", t0, target=target, after={"has_eq": False, "bands": {}})
+            d.enter("eq_channel")
+            bands: dict[str, dict] = {}
+            for band in (1, 3, 5, 7):
+                self._goto_page(band)
+                bands[str(band)] = _band_dict(d.view.columns, band)
+                bands[str(band + 1)] = _band_dict(d.view.columns, band + 1)
+            return b._result(action, True, "verified", t0, target=target, after={"has_eq": True, "bands": bands})
+        return b._on_strip(action, strip, number, body)
 
     def _set_one(self, band: int, param: str, value) -> dict:
         """밴드 값 하나를 맞춘다(EQ 채널 뷰 안). set·set_many 공통. ok·verified·note·before·after를 돌려준다."""
@@ -151,67 +143,57 @@ class EqCommands:
         return {"ok": ok, "verified": verified, "note": note, "before": before,
                 "after": _value_dict(band, param, out.value)}
 
-    def _in_channel(self, action: str, t0: int, ch: int, target: dict, allow_insert: bool,
-                    work: Callable[[bool], "ToolResult"]) -> "ToolResult":
-        """스트립 ch의 EQ 채널 뷰 안에서 work(inserted)를 돌린다(Aux 거절·Channel EQ 확인·삽입 허용 검사 포함). set·set_many 공통."""
+    def _on_eq(self, action: str, strip: int | None, number: int | None, allow_insert: bool,
+               work: Callable[[int, dict, bool], "ToolResult"], *,
+               check: Callable[[int], "ToolResult | None"] | None = None) -> "ToolResult":
+        """스트립의 EQ 채널 뷰 안에서 work(t0, target, inserted)를 돌린다(Aux 거절·Channel EQ 확인·삽입 허용 검사 포함). set·set_many 공통."""
         b, d = self.b, self.d
-        inserted = False
 
-        def body() -> "ToolResult":
-            nonlocal inserted
-            if b.strips.ensure(d, b.surface.state, ch) == "aux":     # EQ 채널 뷰가 Aux를 따라가지 않는다고 가정(미측정): 직전 트랙을 바꾸지 않게
-                s = b.surface.state.strips[ch]
-                raise StripAux(ch, s.number, s.name)
-            d.focus(ch)
-            if not self._has_eq(ch):
-                if not allow_insert:
-                    return b._result(action, False, "skipped", t0, target=target,
-                                     note="Channel EQ 없음. allow_insert=true면 삽입하고 설정")
-                inserted = True
-            d.enter("eq_channel")                                    # 없던 트랙이면 여기서 삽입됨(실측)
-            return work(inserted)
-
-        def body_noting_insert() -> "ToolResult":                  # ModeError 에도 삽입 여부를 알린다
+        def body(ch: int, t0: int, target: dict) -> "ToolResult":
+            inserted = False
             try:
-                return body()
-            except ModeError as e:
+                if b.strips.ensure(d, b.surface.state, ch) == "aux":     # EQ 채널 뷰가 Aux를 따라가지 않는다고 가정(미측정): 직전 트랙을 바꾸지 않게
+                    s = b.surface.state.strips[ch]
+                    raise StripAux(ch, s.number, s.name)
+                d.focus(ch)
+                if not self._has_eq(ch):
+                    if not allow_insert:
+                        return b._result(action, False, "skipped", t0, target=target,
+                                         note="Channel EQ 없음. allow_insert=true면 삽입하고 설정")
+                    inserted = True
+                d.enter("eq_channel")                                    # 없던 트랙이면 여기서 삽입됨(실측)
+                return work(t0, target, inserted)
+            except ModeError as e:                                       # ModeError 에도 삽입 여부를 알린다
                 if not inserted:
                     raise
                 return b._result(action, False, "unverified", t0, target=target, note="Channel EQ 삽입됨. " + str(e))
-        return b._guarded(action, t0, target, body_noting_insert)
+        return b._on_strip(action, strip, number, body, check=check)
 
     def set(self, strip: int | None, number: int | None, band: int, param: str, value,
             allow_insert: bool = True) -> "ToolResult":
         b, action = self.b, "eq_set"
-        t0 = b._now_ms()
-        with b._lock:
-            if (r := b._require_ready(action, t0)) is not None:
-                return r
+
+        def check(t0: int) -> "ToolResult | None":
             if (why := _change_problem(band, param, value)) is not None:
                 return b._result(action, False, "skipped", t0, note=why)
-            ch = b._resolve(strip, number, action, t0)
-            if not isinstance(ch, int):
-                return ch
-            target = b._target(ch)
+            return None
 
-            def work(inserted: bool) -> "ToolResult":
-                r = self._set_one(band, param, value)
-                verified, note = r["verified"], r["note"]
-                if inserted:                                             # 삽입이 일어났으면 already여도 skipped가 아니다
-                    verified, note = ("verified" if r["ok"] else "unverified"), "Channel EQ 삽입됨. " + note
-                return b._result(action, r["ok"], verified, t0, target=target, before=r["before"], after=r["after"],
-                                 note=note.strip())
-            return self._in_channel(action, t0, ch, target, allow_insert, work)
+        def work(t0: int, target: dict, inserted: bool) -> "ToolResult":
+            r = self._set_one(band, param, value)
+            verified, note = r["verified"], r["note"]
+            if inserted:                                             # 삽입이 일어났으면 already여도 skipped가 아니다
+                verified, note = ("verified" if r["ok"] else "unverified"), "Channel EQ 삽입됨. " + note
+            return b._result(action, r["ok"], verified, t0, target=target, before=r["before"], after=r["after"],
+                             note=note.strip())
+        return self._on_eq(action, strip, number, allow_insert, work, check=check)
 
     def set_many(self, strip: int | None, number: int | None, changes: list[dict],
                  allow_insert: bool = True) -> "ToolResult":
         """같은 트랙 Channel EQ의 값 여러 개를 EQ 뷰 한 번 진입으로 맞춘다. 받은 순서대로, 첫 실패에서 멈춘다(앞 값은 되돌리지 않음).
         보내기 전에 전부 검사하고, 하나라도 틀리면 아무것도 보내지 않는다."""
         b, action = self.b, "eq_set"
-        t0 = b._now_ms()
-        with b._lock:
-            if (r := b._require_ready(action, t0)) is not None:
-                return r
+
+        def check(t0: int) -> "ToolResult | None":
             seen: set[tuple[int, str]] = set()
             for k, c in enumerate(changes, 1):
                 why = _change_problem(c["band"], c["param"], c["value"])
@@ -220,28 +202,25 @@ class EqCommands:
                 if why is not None:
                     return b._result(action, False, "skipped", t0, note=f"changes {k}번째: {why}")
                 seen.add((c["band"], c["param"]))
-            ch = b._resolve(strip, number, action, t0)
-            if not isinstance(ch, int):
-                return ch
-            target = b._target(ch)
+            return None
 
-            def work(inserted: bool) -> "ToolResult":
-                d = self.d
-                heads = [{"band": c["band"], "param": c["param"]} for c in changes]
+        def work(t0: int, target: dict, inserted: bool) -> "ToolResult":
+            d = self.d
+            heads = [{"band": c["band"], "param": c["param"]} for c in changes]
 
-                def between() -> None:                              # 직전 값 오버레이(≈2초)가 이웃 열을 덮으므로 만기까지 기다린다
-                    d.settle_overlay()
-                    d.flip(False)
+            def between() -> None:                              # 직전 값 오버레이(≈2초)가 이웃 열을 덮으므로 만기까지 기다린다
+                d.settle_overlay()
+                d.flip(False)
 
-                def one(k: int) -> dict:
-                    c = changes[k]
-                    r = self._set_one(c["band"], c["param"], c["value"])
-                    return {**r, **{x: {"value": r[x]["value"], "text": r[x]["text"]} for x in ("before", "after")}}
-                results = run_changes(heads, one, between)
-                ok, verified, note = batch_verdict(len(changes), results, lambda r: f"밴드 {r['band']} {r['param']}")
-                if inserted:
-                    verified, note = ("verified" if ok else "unverified"), "Channel EQ 삽입됨. " + note
-                done = sum(1 for r in results if r["ok"])
-                return b._result(action, ok, verified, t0, target=target, note=note,
-                                 after={"results": results, "done": done, "remaining": changes[len(results):]})
-            return self._in_channel(action, t0, ch, target, allow_insert, work)
+            def one(k: int) -> dict:
+                c = changes[k]
+                r = self._set_one(c["band"], c["param"], c["value"])
+                return {**r, **{x: {"value": r[x]["value"], "text": r[x]["text"]} for x in ("before", "after")}}
+            results = run_changes(heads, one, between)
+            ok, verified, note = batch_verdict(len(changes), results, lambda r: f"밴드 {r['band']} {r['param']}")
+            if inserted:
+                verified, note = ("verified" if ok else "unverified"), "Channel EQ 삽입됨. " + note
+            done = sum(1 for r in results if r["ok"])
+            return b._result(action, ok, verified, t0, target=target, note=note,
+                             after={"results": results, "done": done, "remaining": changes[len(results):]})
+        return self._on_eq(action, strip, number, allow_insert, work, check=check)
