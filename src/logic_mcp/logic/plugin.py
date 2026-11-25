@@ -260,7 +260,7 @@ class PluginCommands:
 
     # ---------- 명령 ----------
     def list(self, strip: int | None, number: int | None) -> "ToolResult":
-        b, d, action = self.b, self.d, "plugin_list"
+        b, action = self.b, "plugin_list"
         t0 = b._now_ms()
         with b._lock:
             if (r := b._require_ready(action, t0)) is not None:
@@ -294,42 +294,14 @@ class PluginCommands:
                         tracks[str(num)] = None                 # Aux: PL이 직전 트랙 슬롯을 보여 준다(실전 F2) → 아래 Mixer 뷰 슬롯 1만
                         aux.append((ch, num))
                         continue
-                    d.settle_overlay()
-                    texts = [d.view.columns[i][1].strip() for i in range(MAX_SLOT)]
-                    row: dict[str, dict | None] = {}
-                    revealed = False
-                    for i, text in enumerate(texts):
-                        if text in EMPTY_TEXTS:
-                            row[str(i + 1)] = None
-                            continue
-                        name = self.cache.abbrev.get(text.lstrip("*"))
-                        if name is None:
-                            d.tick(i, -1)                       # ceil 모델: -1 = 현재 항목, +1은 다음 항목(실측 E)
-                            shown = strip_suffix(d.read_overlay_text(i))
-                            revealed = True
-                            if shown and shown != "--":
-                                name = self._complete(shown)
-                                if self.cache.learn_abbrev(text.lstrip("*"), name):
-                                    learned = True
-                                else:
-                                    name = None                 # 축약과 안 맞는 이름 = 이웃 항목 오버레이(실기 10/27): 보고도 저장도 안 함
-                        row[str(i + 1)] = {"text": text, "name": name}
-                    tracks[str(num)] = row
-                    if revealed:
-                        d.leave(keep_select=True)               # 드러낸 미리 선택은 누르지 않고 모드 전환으로 취소
+                    tracks[str(num)], new = self._slot_row()
+                    learned = learned or new
                 aux_error = ""
                 if aux:
                     try:
-                        slot1 = self.mixer.slot1()
+                        tracks.update(self._aux_rows(aux))
                     except ModeError as e:                      # 이미 읽은 트랙 행은 버리지 않는다: Aux 행만 null로 두고 unverified
                         aux_error = f"Aux 슬롯 1을 못 읽음: {e}"
-                    else:
-                        for ch, num in aux:                     # 축약 → 이름은 캐시로만(Aux에서는 미리 선택으로 드러내지 않는다)
-                            text = slot1[ch]
-                            row = {str(i): None for i in range(1, MAX_SLOT + 1)}
-                            if text not in EMPTY_TEXTS:
-                                row["1"] = {"text": text, "name": self.cache.abbrev.get(text.lstrip("*"))}
-                            tracks[str(num)] = row
                 if learned:
                     self.cache.save()
                 self.inventory.update(tracks)
@@ -340,6 +312,47 @@ class PluginCommands:
                     return b._result(action, False, "unverified", t0, after=after, note=aux_error)
                 return b._result(action, True, "verified", t0, after=after)
             return b._guarded(action, t0, None, body)
+
+    def _slot_row(self) -> tuple[dict[str, dict | None], bool]:
+        """PL 뷰(대상 트랙으로 들어온 뒤) 2행 → 슬롯별 {"text","name"} 또는 None, 그리고 새 축약을 배웠는지.
+        캐시에 없는 축약은 -1틱 오버레이로 이름을 드러내 배우고, 드러냈으면 모드 전환으로 미리 선택을 취소한다."""
+        d = self.d
+        learned = False
+        d.settle_overlay()
+        texts = [d.view.columns[i][1].strip() for i in range(MAX_SLOT)]
+        row: dict[str, dict | None] = {}
+        revealed = False
+        for i, text in enumerate(texts):
+            if text in EMPTY_TEXTS:
+                row[str(i + 1)] = None
+                continue
+            name = self.cache.abbrev.get(text.lstrip("*"))
+            if name is None:
+                d.tick(i, -1)                       # ceil 모델: -1 = 현재 항목, +1은 다음 항목(실측 E)
+                shown = strip_suffix(d.read_overlay_text(i))
+                revealed = True
+                if shown and shown != "--":
+                    name = self._complete(shown)
+                    if self.cache.learn_abbrev(text.lstrip("*"), name):
+                        learned = True
+                    else:
+                        name = None                 # 축약과 안 맞는 이름 = 이웃 항목 오버레이(실기 10/27): 보고도 저장도 안 함
+            row[str(i + 1)] = {"text": text, "name": name}
+        if revealed:
+            d.leave(keep_select=True)               # 드러낸 미리 선택은 누르지 않고 모드 전환으로 취소
+        return row, learned
+
+    def _aux_rows(self, aux: list[tuple[int, int | None]]) -> dict[str, dict]:
+        """Aux 스트립들의 슬롯 1(Plug-in Mixer 뷰) → 번호별 행. 축약 → 이름은 캐시로만. 못 읽으면 ModeError."""
+        slot1 = self.mixer.slot1()
+        rows: dict[str, dict] = {}
+        for ch, num in aux:                     # 축약 → 이름은 캐시로만(Aux에서는 미리 선택으로 드러내지 않는다)
+            text = slot1[ch]
+            row = {str(i): None for i in range(1, MAX_SLOT + 1)}
+            if text not in EMPTY_TEXTS:
+                row["1"] = {"text": text, "name": self.cache.abbrev.get(text.lstrip("*"))}
+            rows[str(num)] = row
+        return rows
 
     def params(self, strip: int | None, number: int | None, slot: int) -> "ToolResult":
         b, action = self.b, "plugin_params"
