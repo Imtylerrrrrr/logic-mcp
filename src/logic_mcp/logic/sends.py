@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from .modes import CONFIRM_S, ModeError
@@ -113,195 +114,164 @@ class SendCommands:
     def _row(self, send: int) -> dict:
         return parse_send(self.d.view.columns, send)
 
+    def _on_send(self, action: str, strip: int | None, number: int | None, send: int,
+                 body: Callable[[int, dict, dict], "ToolResult"], *,
+                 check: Callable[[int], "ToolResult | None"] | None = None, existing: bool = True) -> "ToolResult":
+        """센드 하나를 바꾸는 명령의 공통 순서: 센드 범위 검사(check 뒤) → PAN에서 시작 → SE 뷰 → 그 센드의 페이지 →
+        body(t0, target, before). existing이면 목적지가 없는 센드는 여기서 skipped."""
+        b = self.b
+
+        def checks(t0: int) -> "ToolResult | None":
+            if check is not None and (r := check(t0)) is not None:
+                return r
+            if not 1 <= send <= MAX_SEND:
+                return b._result(action, False, "skipped", t0, note=f"send는 1-{MAX_SEND}")
+            return None
+
+        def run(ch: int, t0: int, target: dict) -> "ToolResult":
+            b._fresh()
+            b._channel(ch, "send_channel")
+            self._goto_page(send)
+            before = self._row(send)
+            if existing and not before["present"]:
+                return b._result(action, False, "skipped", t0, target=target,
+                                 note=f"센드 {send} 없음. set_dest로 먼저 목적지를 정할 것")
+            return body(t0, target, before)
+        return b._on_strip(action, strip, number, run, check=checks, extra={"send": send})
+
     # ---------- 명령 ----------
     def get(self, strip: int | None, number: int | None) -> "ToolResult":
         b, action = self.b, "send_get"
-        t0 = b._now_ms()
-        with b._lock:
-            if (r := b._require_ready(action, t0)) is not None:
-                return r
-            ch = b._resolve(strip, number, action, t0)
-            if not isinstance(ch, int):
-                return ch
-            target = b._target(ch)
 
-            def body() -> "ToolResult":
-                self.b._fresh()
-                self.b._channel(ch, "send_channel")
-                sends: dict[str, dict] = {}
-                for page in range(1, MAX_SEND // 2 + 1):
-                    self._goto_page(2 * page - 1)
-                    for send in (2 * page - 1, 2 * page):
-                        sends[str(send)] = self._row(send)
-                return b._result(action, True, "verified", t0, target=target, after={"sends": sends})
-            return b._guarded(action, t0, target, body)
+        def body(ch: int, t0: int, target: dict) -> "ToolResult":
+            b._fresh()
+            b._channel(ch, "send_channel")
+            sends: dict[str, dict] = {}
+            for page in range(1, MAX_SEND // 2 + 1):
+                self._goto_page(2 * page - 1)
+                for send in (2 * page - 1, 2 * page):
+                    sends[str(send)] = self._row(send)
+            return b._result(action, True, "verified", t0, target=target, after={"sends": sends})
+        return b._on_strip(action, strip, number, body)
 
     def set_dest(self, strip: int | None, number: int | None, send: int, dest) -> "ToolResult":
         b, d = self.b, self.d
         want = dest_query(dest)
         action = "send_remove" if want == 0 else "send_set_dest"
-        t0 = b._now_ms()
-        with b._lock:
-            if (r := b._require_ready(action, t0)) is not None:
-                return r
+
+        def check(t0: int) -> "ToolResult | None":
             if want is None:
                 return b._result(action, False, "skipped", t0,
                                  note=f"dest는 버스 번호(1-{MAX_BUS}, 예: \"Bus 3\"·3) 또는 \"--\"(제거). 받은 값: {dest!r}")
-            ch = self.b._begin(action, strip, number, t0, send, MAX_SEND, f"send는 1-{MAX_SEND}")
-            if not isinstance(ch, int):
-                return ch
-            target = {**b._target(ch), "send": send}
-            col = col_of(send, "dest")
+            return None
 
-            def body() -> "ToolResult":
-                self.b._fresh()
-                self.b._channel(ch, "send_channel")
-                self._goto_page(send)
-                before = self._row(send)
-                if (not before["present"]) if want == 0 else (before["present"] and before["bus"] == want):
-                    return b._result(action, True, "skipped", t0, target=target, before=before, after=before, note="already")
-                rewind_to_empty(d, col)                                  # 오버레이 `--`까지(1틱 = 1항목이라 -63이면 넉넉, 실측 S4)
-                if want > 0:
-                    d.tick(col, want + DEST_PREFIX)
+        def body(t0: int, target: dict, before: dict) -> "ToolResult":
+            col = col_of(send, "dest")
+            if (not before["present"]) if want == 0 else (before["present"] and before["bus"] == want):
+                return b._result(action, True, "skipped", t0, target=target, before=before, after=before, note="already")
+            rewind_to_empty(d, col)                                  # 오버레이 `--`까지(1틱 = 1항목이라 -63이면 넉넉, 실측 S4)
+            if want > 0:
+                d.tick(col, want + DEST_PREFIX)
+                shown = bus_number(d.read_overlay_text(col))
+                for _ in range(4):                                   # 목록 앞 항목 수가 다르면 보이는 번호로 보정(실측 S4)
+                    if shown == want:
+                        break
+                    d.tick(col, 1 if not shown else want - shown)    # `--`·`1`·`2`처럼 버스가 아니면 한 칸 앞으로
                     shown = bus_number(d.read_overlay_text(col))
-                    for _ in range(4):                                   # 목록 앞 항목 수가 다르면 보이는 번호로 보정(실측 S4)
-                        if shown == want:
-                            break
-                        d.tick(col, 1 if not shown else want - shown)    # `--`·`1`·`2`처럼 버스가 아니면 한 칸 앞으로
-                        shown = bus_number(d.read_overlay_text(col))
-                    if shown != want:                                    # 누르지 않는다: finally의 leave가 미리 선택을 취소(S4)
-                        return b._result(action, False, "unverified", t0, target=target, before=before,
-                                         note=f"목적지 오버레이가 {d.read_overlay_text(col)!r}(기대 Bus {want}). 확정하지 않음")
-                ok = d.press_vpot_until(col, lambda v: dest_done(parse_send(v.columns, send), want), CONFIRM_S)
-                d.settle_overlay()                                       # `Send n Instantiate` 오버레이가 지나간 뒤 읽는다(S5)
-                reads = [self._row(send)]
-                for _ in range(CONFIRM_READS - 1):                       # 누름이 드롭되면 미리 선택이 계속 깜박인다(S4):
-                    d.pause(CONFIRM_GAP_S)                               # 켜진 위상 한 번만 보고 판정하지 않는다
-                    reads.append(self._row(send))
-                after = reads[-1]
-                stable = all(r["text"] == after["text"] for r in reads)
-                ok = ok and stable and dest_done(after, want)
-                if ok:
-                    note = "버스 센드를 새로 만들면 Logic이 Aux 트랙을 자동 생성해 뒤 스트립 번호가 바뀔 수 있음(실측 S5)" if want else ""
-                else:
-                    note = (f"확정 뒤 {CONFIRM_S:.0f}초 안에 행이 {[r['text'] for r in reads]!r}"
-                            f"(기대 {'--' if want == 0 else f'Bus {want}'}). 확정 누름이 무시된 듯(미리 선택 깜박임, 실측 S4)")
-                return b._result(action, ok, "verified" if ok else "unverified", t0, target=target, before=before,
-                                 after=after, note=note)
-            return b._guarded(action, t0, target, body)
+                if shown != want:                                    # 누르지 않는다: finally의 leave가 미리 선택을 취소(S4)
+                    return b._result(action, False, "unverified", t0, target=target, before=before,
+                                     note=f"목적지 오버레이가 {d.read_overlay_text(col)!r}(기대 Bus {want}). 확정하지 않음")
+            ok = d.press_vpot_until(col, lambda v: dest_done(parse_send(v.columns, send), want), CONFIRM_S)
+            d.settle_overlay()                                       # `Send n Instantiate` 오버레이가 지나간 뒤 읽는다(S5)
+            reads = [self._row(send)]
+            for _ in range(CONFIRM_READS - 1):                       # 누름이 드롭되면 미리 선택이 계속 깜박인다(S4):
+                d.pause(CONFIRM_GAP_S)                               # 켜진 위상 한 번만 보고 판정하지 않는다
+                reads.append(self._row(send))
+            after = reads[-1]
+            stable = all(r["text"] == after["text"] for r in reads)
+            ok = ok and stable and dest_done(after, want)
+            if ok:
+                note = "버스 센드를 새로 만들면 Logic이 Aux 트랙을 자동 생성해 뒤 스트립 번호가 바뀔 수 있음(실측 S5)" if want else ""
+            else:
+                note = (f"확정 뒤 {CONFIRM_S:.0f}초 안에 행이 {[r['text'] for r in reads]!r}"
+                        f"(기대 {'--' if want == 0 else f'Bus {want}'}). 확정 누름이 무시된 듯(미리 선택 깜박임, 실측 S4)")
+            return b._result(action, ok, "verified" if ok else "unverified", t0, target=target, before=before,
+                             after=after, note=note)
+        return self._on_send(action, strip, number, send, body, check=check, existing=False)
 
     def remove(self, strip: int | None, number: int | None, send: int) -> "ToolResult":
         return self.set_dest(strip, number, send, "--")
 
     def set_level(self, strip: int | None, number: int | None, send: int, db: float) -> "ToolResult":
         b, d, action = self.b, self.d, "send_set_level"
-        t0 = b._now_ms()
-        with b._lock:
-            if (r := b._require_ready(action, t0)) is not None:
-                return r
+
+        def check(t0: int) -> "ToolResult | None":
             if db != db:
                 return b._result(action, False, "skipped", t0, note="db가 NaN. 예: -6.0, 0, \"-inf\"")
-            ch = self.b._begin(action, strip, number, t0, send, MAX_SEND, f"send는 1-{MAX_SEND}")
-            if not isinstance(ch, int):
-                return ch
-            target = {**b._target(ch), "send": send}
-            col = col_of(send, "level")
+            return None
 
-            def body() -> "ToolResult":
-                self.b._fresh()
-                self.b._channel(ch, "send_channel")
-                self._goto_page(send)
-                before = self._row(send)
-                if not before["present"]:
-                    return b._result(action, False, "skipped", t0, target=target,
-                                     note=f"센드 {send} 없음. set_dest로 먼저 목적지를 정할 것")
-                clamp = "clamped to +6.0 dB" if db > 6.0 else ""
-                goal = min(db, 6.0)
-                if goal == -math.inf:
-                    if before["level_db"] == -math.inf:
-                        return b._result(action, True, "skipped", t0, target=target, before=before, after=before, note="already")
-                    d.flip(True)
-                    d.fader(col, 1)                                        # raw 1 → `-oo dB`(실측 S6)
-                    d.settle_overlay()
-                    after = self._row(send)
-                    ok, detail = after["level_db"] == -math.inf, ""
-                else:
-                    out = set_numeric(d, col, goal, Mapping("db_table"), 0.1, b.faders)   # 센드 dB 표 = 볼륨 표(실측 S6)
-                    d.settle_overlay()
-                    after = self._row(send)
-                    ok, detail = out.ok and after["level_db"] is not None and abs(after["level_db"] - goal) <= 0.1, out.note
-                    if ok and out.note == "already":
-                        return b._result(action, True, "skipped", t0, target=target, before=before, after=after, note="already")
-                return b._result(action, ok, "verified" if ok else "unverified", t0, target=target, before=before,
-                                 after=after, note=" ".join(x for x in (clamp, detail) if x))
-            return b._guarded(action, t0, target, body)
+        def body(t0: int, target: dict, before: dict) -> "ToolResult":
+            col = col_of(send, "level")
+            clamp = "clamped to +6.0 dB" if db > 6.0 else ""
+            goal = min(db, 6.0)
+            if goal == -math.inf:
+                if before["level_db"] == -math.inf:
+                    return b._result(action, True, "skipped", t0, target=target, before=before, after=before, note="already")
+                d.flip(True)
+                d.fader(col, 1)                                        # raw 1 → `-oo dB`(실측 S6)
+                d.settle_overlay()
+                after = self._row(send)
+                ok, detail = after["level_db"] == -math.inf, ""
+            else:
+                out = set_numeric(d, col, goal, Mapping("db_table"), 0.1, b.faders)   # 센드 dB 표 = 볼륨 표(실측 S6)
+                d.settle_overlay()
+                after = self._row(send)
+                ok, detail = out.ok and after["level_db"] is not None and abs(after["level_db"] - goal) <= 0.1, out.note
+                if ok and out.note == "already":
+                    return b._result(action, True, "skipped", t0, target=target, before=before, after=after, note="already")
+            return b._result(action, ok, "verified" if ok else "unverified", t0, target=target, before=before,
+                             after=after, note=" ".join(x for x in (clamp, detail) if x))
+        return self._on_send(action, strip, number, send, body, check=check)
 
     def set_pos(self, strip: int | None, number: int | None, send: int, pos: str) -> "ToolResult":
         b, d, action = self.b, self.d, "send_set_pos"
-        t0 = b._now_ms()
-        with b._lock:
-            if (r := b._require_ready(action, t0)) is not None:
-                return r
+
+        def check(t0: int) -> "ToolResult | None":
             if pos not in POS_ORDER:
                 return b._result(action, False, "skipped", t0, note=f"pos는 {'|'.join(POS_ORDER)} 중 하나")
-            ch = self.b._begin(action, strip, number, t0, send, MAX_SEND, f"send는 1-{MAX_SEND}")
-            if not isinstance(ch, int):
-                return ch
-            target = {**b._target(ch), "send": send}
-            col = col_of(send, "pos")
+            return None
 
-            def body() -> "ToolResult":
-                self.b._fresh()
-                self.b._channel(ch, "send_channel")
-                self._goto_page(send)
-                before = self._row(send)
-                if not before["present"]:
-                    return b._result(action, False, "skipped", t0, target=target,
-                                     note=f"센드 {send} 없음. set_dest로 먼저 목적지를 정할 것")
-                cur = before["pos"]
-                if cur == pos:
-                    return b._result(action, True, "skipped", t0, target=target, before=before, after=before, note="already")
-                if cur is None:
-                    raise ModeError("pos", "Pre/Post/PosPan", before["text"][2] or "빈 열")
-                after = before
-                for _ in range(2):                                         # 순서 고정 Pre→Post→Post Pan(실측 S8): 차이만큼 한 번에
-                    d.tick(col, POS_ORDER.index(pos) - POS_ORDER.index(cur))
-                    d.settle_overlay()
-                    after = self._row(send)
-                    if after["pos"] == pos:
-                        break
-                    cur = after["pos"] or cur
-                ok = after["pos"] == pos
-                return b._result(action, ok, "verified" if ok else "unverified", t0, target=target, before=before,
-                                 after=after, note="" if ok else f"위치가 {after['text'][2]!r}(기대 {pos})")
-            return b._guarded(action, t0, target, body)
+        def body(t0: int, target: dict, before: dict) -> "ToolResult":
+            col = col_of(send, "pos")
+            cur = before["pos"]
+            if cur == pos:
+                return b._result(action, True, "skipped", t0, target=target, before=before, after=before, note="already")
+            if cur is None:
+                raise ModeError("pos", "Pre/Post/PosPan", before["text"][2] or "빈 열")
+            after = before
+            for _ in range(2):                                         # 순서 고정 Pre→Post→Post Pan(실측 S8): 차이만큼 한 번에
+                d.tick(col, POS_ORDER.index(pos) - POS_ORDER.index(cur))
+                d.settle_overlay()
+                after = self._row(send)
+                if after["pos"] == pos:
+                    break
+                cur = after["pos"] or cur
+            ok = after["pos"] == pos
+            return b._result(action, ok, "verified" if ok else "unverified", t0, target=target, before=before,
+                             after=after, note="" if ok else f"위치가 {after['text'][2]!r}(기대 {pos})")
+        return self._on_send(action, strip, number, send, body, check=check)
 
     def mute(self, strip: int | None, number: int | None, send: int, on: bool) -> "ToolResult":
         b, d, action = self.b, self.d, "send_mute"
-        t0 = b._now_ms()
-        with b._lock:
-            if (r := b._require_ready(action, t0)) is not None:
-                return r
-            ch = self.b._begin(action, strip, number, t0, send, MAX_SEND, f"send는 1-{MAX_SEND}")
-            if not isinstance(ch, int):
-                return ch
-            target = {**b._target(ch), "send": send}
-            col = col_of(send, "mute")
 
-            def body() -> "ToolResult":
-                self.b._fresh()
-                self.b._channel(ch, "send_channel")
-                self._goto_page(send)
-                before = self._row(send)
-                if not before["present"]:
-                    return b._result(action, False, "skipped", t0, target=target,
-                                     note=f"센드 {send} 없음. set_dest로 먼저 목적지를 정할 것")
-                if before["muted"] == on:
-                    return b._result(action, True, "skipped", t0, target=target, before=before, after=before, note="already")
-                d.tick(col, 1 if on else -1)                                # +1 = muted, -1 = active(실측 S9)
-                d.settle_overlay()
-                after = self._row(send)
-                ok = after["muted"] == on
-                return b._result(action, ok, "verified" if ok else "unverified", t0, target=target, before=before,
-                                 after=after, note="" if ok else f"뮤트 열이 {after['text'][3]!r}")
-            return b._guarded(action, t0, target, body)
+        def body(t0: int, target: dict, before: dict) -> "ToolResult":
+            col = col_of(send, "mute")
+            if before["muted"] == on:
+                return b._result(action, True, "skipped", t0, target=target, before=before, after=before, note="already")
+            d.tick(col, 1 if on else -1)                                # +1 = muted, -1 = active(실측 S9)
+            d.settle_overlay()
+            after = self._row(send)
+            ok = after["muted"] == on
+            return b._result(action, ok, "verified" if ok else "unverified", t0, target=target, before=before,
+                             after=after, note="" if ok else f"뮤트 열이 {after['text'][3]!r}")
+        return self._on_send(action, strip, number, send, body)

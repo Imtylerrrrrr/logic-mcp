@@ -140,13 +140,6 @@ class Commands:
         self.modes.focus(ch)
         self.modes.enter(kind)
 
-    def _begin(self, action: str, strip, number, t0: int, index: int, max_index: int,
-               range_note: str) -> int | ToolResult:
-        """index(slot/send)가 1~max_index 밖이면 skipped(range_note), 아니면 _resolve 결과."""
-        if not 1 <= index <= max_index:
-            return self._result(action, False, "skipped", t0, note=range_note)
-        return self._resolve(strip, number, action, t0)
-
     def _guarded(self, action: str, t0: int, target: dict | None, body: Callable[[], ToolResult]) -> ToolResult:
         """서브커맨드 공통: body의 예외를 결과로 바꾸고 뷰를 항상 PAN으로 되돌린다."""
         try:
