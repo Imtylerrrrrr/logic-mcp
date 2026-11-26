@@ -406,56 +406,73 @@ class Commands:
                 return self._result(action, False, "skipped", t0,
                                     note=f"상태가 {st.connection.state}. 먼저 logic_session wait_ready")
             done: list[str] = []
-            # 1) 번호 접두사
-            if not any(s.number is not None for s in st.strips):
-                self._move_bank(lambda: self._press_with_option(P.Note.NAME_VALUE))
-                if not any(s.number is not None for s in self.surface.state.strips):
-                    self._move_bank(lambda: self._press_with_option(P.Note.NAME_VALUE))
-                    return self._result(action, False, "unverified", t0, after=self.status(),
-                                        note="OPTION+NAME/VALUE 뒤에도 LCD에 번호가 없음 (되돌려 눌렀음)")
-                done.append("numbers")
-            if not self.surface.state.strips[0].fader_known:
-                return self._result(action, False, "unverified", t0, after=self.status(),
-                                    note="페이더 1 위치를 아직 못 받음. 페이더 1을 살짝 움직이거나 프로젝트를 다시 연 뒤 configure를 다시 실행")
-            # 2) 값 표시 모드 + 팬 파라미터. PAN 뷰 2행(실측 2026-10-20): 팬 값이 보이면 정상, 전부 공백이면 NAME 상태,
-            #    이름 있는 스트립이 `-`면 서라운드 파라미터가 팬이 아님(Z17) → PAN 홀드 항목 0(Angle)로 되돌린다.
-            #    페이더 재전송 프로브는 두 상태 모두 +0.0 dB가 약 2초 과도 표시돼 NAME 상태를 못 가렸다.
-            def pan_shown(s) -> bool:
-                return any(parse_pan_text(st.value_text) is not None for st in s.strips if st.name)
-            def row2_blank(s) -> bool:
-                return not any(st.value_text.strip() for st in s.strips if st.name)
-            if any(st.name for st in self.surface.state.strips):
-                if self.modes.view.kind != "pan":
-                    self.modes.leave_safely()
-                self.surface.wait_settled(0.5)
-                if not pan_shown(self.surface.state):
-                    pressed = False
-                    if not row2_blank(self.surface.state):
-                        self.modes.hold_menu(P.Note.PAN, 0)
-                        done.append("pan_param")
-                    if row2_blank(self.surface.state):
-                        self._press(P.Note.NAME_VALUE)
-                        pressed = True
-                    if not self.surface.wait_for(pan_shown, FEEDBACK_TIMEOUT):
-                        if pressed:
-                            self._press(P.Note.NAME_VALUE)
-                            self.surface.wait_settled(0.5)
-                        return self._result(action, False, "unverified", t0, after=self.status(),
-                                            note=("NAME/VALUE 뒤에도 LCD 2행에 팬 값이 안 보임 (되돌려 눌렀음)" if pressed
-                                                  else "PAN 홀드 항목 0 뒤에도 LCD 2행에 팬 값이 안 보임"))
-                    if pressed:
-                        done.append("value_mode")
-            # 3) Beats 클락
-            if self.surface.state.time.mode != "beats":
-                self._press(P.Note.SMPTE_BEATS)
-                if not self.surface.wait_for(lambda s: s.time.mode == "beats", LED_TIMEOUT):
-                    return self._result(action, False, "unverified", t0, after=self.status(),
-                                        note="SMPTE/BEATS 뒤에도 BEATS LED가 안 켜짐")
-                done.append("beats")
+            for step in (self._cfg_numbers, self._cfg_fader, self._cfg_values, self._cfg_clock):
+                if (fail := step(done)) is not None:
+                    return self._result(action, False, "unverified", t0, after=self.status(), note=fail)
             self.surface.wait_settled(0.5)
             self.configured = True
             return self._result(action, True, "verified" if done else "skipped", t0, after=self.status(),
                                 note=("changed: " + ", ".join(done)) if done else "already")
+
+    def _cfg_numbers(self, done: list[str]) -> str | None:
+        """configure 1단계: LCD 번호 접두사(OPTION+NAME/VALUE). 실패 note 또는 None."""
+        if any(s.number is not None for s in self.surface.state.strips):
+            return None
+        self._move_bank(lambda: self._press_with_option(P.Note.NAME_VALUE))
+        if not any(s.number is not None for s in self.surface.state.strips):
+            self._move_bank(lambda: self._press_with_option(P.Note.NAME_VALUE))
+            return "OPTION+NAME/VALUE 뒤에도 LCD에 번호가 없음 (되돌려 눌렀음)"
+        done.append("numbers")
+        return None
+
+    def _cfg_fader(self, done: list[str]) -> str | None:
+        """configure 페이더 확인: 페이더 1 위치를 받았는지. 실패 note 또는 None."""
+        if not self.surface.state.strips[0].fader_known:
+            return "페이더 1 위치를 아직 못 받음. 페이더 1을 살짝 움직이거나 프로젝트를 다시 연 뒤 configure를 다시 실행"
+        return None
+
+    def _cfg_values(self, done: list[str]) -> str | None:
+        """configure 2단계: 값 표시 모드 + 팬 파라미터(PAN 뷰 2행에 팬 값이 보이게). 실패 note 또는 None."""
+        # 2) 값 표시 모드 + 팬 파라미터. PAN 뷰 2행(실측 2026-10-20): 팬 값이 보이면 정상, 전부 공백이면 NAME 상태,
+        #    이름 있는 스트립이 `-`면 서라운드 파라미터가 팬이 아님(Z17) → PAN 홀드 항목 0(Angle)로 되돌린다.
+        #    페이더 재전송 프로브는 두 상태 모두 +0.0 dB가 약 2초 과도 표시돼 NAME 상태를 못 가렸다.
+        def pan_shown(s) -> bool:
+            return any(parse_pan_text(st.value_text) is not None for st in s.strips if st.name)
+        def row2_blank(s) -> bool:
+            return not any(st.value_text.strip() for st in s.strips if st.name)
+        if not any(st.name for st in self.surface.state.strips):
+            return None
+        if self.modes.view.kind != "pan":
+            self.modes.leave_safely()
+        self.surface.wait_settled(0.5)
+        if pan_shown(self.surface.state):
+            return None
+        pressed = False
+        if not row2_blank(self.surface.state):
+            self.modes.hold_menu(P.Note.PAN, 0)
+            done.append("pan_param")
+        if row2_blank(self.surface.state):
+            self._press(P.Note.NAME_VALUE)
+            pressed = True
+        if not self.surface.wait_for(pan_shown, FEEDBACK_TIMEOUT):
+            if pressed:
+                self._press(P.Note.NAME_VALUE)
+                self.surface.wait_settled(0.5)
+            return ("NAME/VALUE 뒤에도 LCD 2행에 팬 값이 안 보임 (되돌려 눌렀음)" if pressed
+                    else "PAN 홀드 항목 0 뒤에도 LCD 2행에 팬 값이 안 보임")
+        if pressed:
+            done.append("value_mode")
+        return None
+
+    def _cfg_clock(self, done: list[str]) -> str | None:
+        """configure 3단계: Beats 클락(SMPTE/BEATS). 실패 note 또는 None."""
+        if self.surface.state.time.mode == "beats":
+            return None
+        self._press(P.Note.SMPTE_BEATS)
+        if not self.surface.wait_for(lambda s: s.time.mode == "beats", LED_TIMEOUT):
+            return "SMPTE/BEATS 뒤에도 BEATS LED가 안 켜짐"
+        done.append("beats")
+        return None
 
     def wait_ready(self, timeout_s: float) -> ToolResult:
         action = "wait_ready"
