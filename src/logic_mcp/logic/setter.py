@@ -42,40 +42,37 @@ def probe_mapping(d: ModeDriver, ch: int) -> tuple[Mapping | None, Value, Value]
     return infer_mapping(lo, hi), lo, hi
 
 
-def set_numeric(d: ModeDriver, ch: int, target: float, mapping: Mapping | None, tolerance: float,
-                faders: FaderTable | None = None) -> SetOutcome:
+def _coarse(d: ModeDriver, ch: int, target: float, mapping: Mapping, tolerance: float,
+            faders: FaderTable | None, before: float | None) -> tuple[Value, int, str | None]:
+    """거친 위치: Flip 페이더를 매핑이 가리키는 자리로 보내고, 빗나갔으면 관측 오차로 한 번 보정한다(시컨트).
+    (마지막으로 읽은 값, 쓴 라운드 수, 허용 오차 안에 들어왔으면 그 경로 이름·아니면 None)."""
+    d.flip(True)
+    raw = raw_for(mapping, target, faders)
+    d.fader(ch, raw)
     cur = d.read_value(ch)
-    before = _num(cur)
-    if before is not None and within(before, target, tolerance):
-        return SetOutcome(True, cur, 0, "already")
-    if mapping is not None and mapping.type in ("log", "linear"):
-        lo, hi = sorted((mapping.lo, mapping.hi))
-        if target < lo - tolerance or target > hi + tolerance:   # 보내기 전에 거른다: 끝까지 밀고 틱 무반응으로 실패하던 것(실기 11/11 GoldVerb Room Size 1500, 10~200 m)
-            unit = f" {cur.unit}" if cur.unit else ""
-            return SetOutcome(False, cur, 0, f"skip:범위 밖: {lo:g}~{hi:g}{unit}")
-    rounds = 0
-    if mapping is not None:
-        d.flip(True)
-        raw = raw_for(mapping, target, faders)
-        d.fader(ch, raw)
-        cur = d.read_value(ch)
-        if (n := _num(cur)) is not None and within(n, target, tolerance):
-            return SetOutcome(True, cur, 0, "fader")
-        n = _num(cur)
-        reacted = n is None or n != before    # 값이 이동 전과 같으면 Logic이 반응하지 않은 것: 그 값으로 보정하면 폭주한다(실측 Z1)
-        if reacted and ((mapping.type == "log" and n is not None and n > 0) or mapping.type == "linear"):
-            # 관측 오차로 페이더 위치를 한 번 보정(시컨트)
-            if n is not None:
-                if mapping.type == "log" and n > 0 and target > 0:
-                    delta, span = math.log(target / n), math.log(mapping.hi / mapping.lo)
-                else:
-                    delta, span = target - n, mapping.hi - mapping.lo
-                raw = max(1, min(MAX_FADER, raw + round(delta / span * MAX_FADER)))
-                d.fader(ch, raw)
-                cur = d.read_value(ch)
-                rounds = 1
-                if (n := _num(cur)) is not None and within(n, target, tolerance):
-                    return SetOutcome(True, cur, rounds, "fader+보정")
+    if (n := _num(cur)) is not None and within(n, target, tolerance):
+        return cur, 0, "fader"
+    n = _num(cur)
+    reacted = n is None or n != before    # 값이 이동 전과 같으면 Logic이 반응하지 않은 것: 그 값으로 보정하면 폭주한다(실측 Z1)
+    if reacted and ((mapping.type == "log" and n is not None and n > 0) or mapping.type == "linear"):
+        # 관측 오차로 페이더 위치를 한 번 보정(시컨트)
+        if n is not None:
+            if mapping.type == "log" and n > 0 and target > 0:
+                delta, span = math.log(target / n), math.log(mapping.hi / mapping.lo)
+            else:
+                delta, span = target - n, mapping.hi - mapping.lo
+            raw = max(1, min(MAX_FADER, raw + round(delta / span * MAX_FADER)))
+            d.fader(ch, raw)
+            cur = d.read_value(ch)
+            if (n := _num(cur)) is not None and within(n, target, tolerance):
+                return cur, 1, "fader+보정"
+            return cur, 1, None
+    return cur, 0, None
+
+
+def _fine(d: ModeDriver, ch: int, target: float, mapping: Mapping | None, tolerance: float,
+          cur: Value, rounds: int) -> SetOutcome:
+    """틱 미세 보정: V-Pot 틱으로 허용 오차 안까지. cur·rounds는 거친 위치 단계가 남긴 값."""
     # 틱 미세 보정. Hz·log 매핑(Q 등)은 로그 영역에서 틱당 변화를 추정한다(실측 U: 틱당 비율 일정)
     log_domain = (cur.unit == "Hz" or (mapping is not None and mapping.type == "log")) and target > 0
     dom = (lambda v: math.log(v)) if log_domain else (lambda v: v)
@@ -118,6 +115,25 @@ def set_numeric(d: ModeDriver, ch: int, target: float, mapping: Mapping | None, 
                     continue                              # 되돌아오지 못했다: 성공으로 치지 않고 루프를 이어 간다
             return SetOutcome(True, cur, rounds, f"목표 {target:g}에 닿는 단계 없음({low.text} 다음이 {high.text}): 가까운 {cur.text}로 맞춤")
     return SetOutcome(False, cur, rounds, f"{MAX_ROUNDS}회 안에 허용 오차 {tolerance} 안으로 못 맞춤 (마지막 {cur.text!r})")
+
+
+def set_numeric(d: ModeDriver, ch: int, target: float, mapping: Mapping | None, tolerance: float,
+                faders: FaderTable | None = None) -> SetOutcome:
+    cur = d.read_value(ch)
+    before = _num(cur)
+    if before is not None and within(before, target, tolerance):
+        return SetOutcome(True, cur, 0, "already")
+    if mapping is not None and mapping.type in ("log", "linear"):
+        lo, hi = sorted((mapping.lo, mapping.hi))
+        if target < lo - tolerance or target > hi + tolerance:   # 보내기 전에 거른다: 끝까지 밀고 틱 무반응으로 실패하던 것(실기 11/11 GoldVerb Room Size 1500, 10~200 m)
+            unit = f" {cur.unit}" if cur.unit else ""
+            return SetOutcome(False, cur, 0, f"skip:범위 밖: {lo:g}~{hi:g}{unit}")
+    rounds = 0
+    if mapping is not None:
+        cur, rounds, hit = _coarse(d, ch, target, mapping, tolerance, faders, before)
+        if hit is not None:
+            return SetOutcome(True, cur, rounds, hit)
+    return _fine(d, ch, target, mapping, tolerance, cur, rounds)
 
 
 def enum_matches(v: Value, target: str) -> bool:
