@@ -13,7 +13,7 @@
 
 ### Changed
 - 숫자 `set`은 목표가 컨트롤 서피스의 두 단계 사이에 있으면 가까운 단계에 맞추고 ok로 돌려준다. 이전에는 두 단계 사이를 10회 오가다 실패했다(예: Compressor Release 300은 290과 310 사이). `note`에 두 단계가 적힌다.
-- 내부 리팩토링(동작 변화 없음): 명령마다 반복하던 서두(락·준비 확인·인자 검사·트랙 찾기)를 `Commands._on_strip`(+ `_on_slot`/`_on_send`/`_on_eq`) 하나로 모았다. 플러그인 LCD 해석 함수를 `plugins/lcd.py`로 옮겨 `plugin.py` 주변의 순환 import를 없앴고, `PluginCommands.list`를 나눴다. 테스트 전체를 수정 전후 코드로 돌려 보낸 MIDI와 결과를 전부 대조해 확인했다.
+- 내부 리팩토링(동작 변화 없음): 명령마다 반복하던 서두(락·준비 확인·인자 검사·트랙 찾기)를 `Commands._on_strip`(+ `_on_slot`/`_on_send`/`_on_eq`) 하나로 모았다. 플러그인 LCD 해석 함수를 `plugins/lcd.py`로 옮겨 `plugin.py` 주변의 순환 import를 없앴고, `PluginCommands.list`를 나눴다. `set_numeric`(페이더로 거친 위치 → 틱으로 미세 보정), `configure`(네 단계), 플러그인 삽입 본체(미리 선택 → 확정)를 단계별 함수로 나눴다. 테스트 전체를 수정 전후 코드로 돌려 보낸 MIDI와 결과를 전부 대조해 확인했다.
 - 내부 리팩토링(동작 변화 없음): Aux Plug-in Mixer 경로를 `plugin_mixer.py`로, `calibrate`/`scan`을 `plugins/calibrate.py`로, set 공통 로직(숫자/선택지 판별, `#n`·선택지 선택, 결과 판정)을 `setter.py`로 옮겨 `logic_plugin set`과 `logic_eq set`이 함께 쓴다.
 
 ### Fixed

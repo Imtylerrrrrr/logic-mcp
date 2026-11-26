@@ -1,14 +1,21 @@
 """실기 확인(테스트 프로젝트 전용, 저장하지 말 것): 명령 계열마다 한두 개씩 돌려 결과를 한 줄씩 찍고 jsonl로 남긴다.
 리팩토링 전후를 같은 순서로 돌려 비교하는 용도. 대상은 Logic 채널 번호로 준 트랙 하나(슬롯이 전부 비어 있어야 하고, 도는 동안 뮤트한다).
 Compressor를 넣어 params·get·set·set_many·bypass·move·remove를, Channel EQ를 넣어 eq get·set·set_many를, 센드는 읽기와 거절 경로만 돈다.
-끝나면 넣은 것을 제거하고 뮤트를 푼다. 숫자 set 결과는 직전 실행이 남긴 페이더 값에 따라 달라질 수 있다(docs/mcu-protocol.md Z28).
-사용: scripts/live_smoke.py <out.jsonl> <label> [트랙 번호=6]"""
+끝나면 넣은 것을 제거하고 뮤트를 푼다.
+숫자 set 결과는 직전 실행이 남긴 페이더 값에 따라 달라진다(docs/mcu-protocol.md Z28: 직전과 같은 값은 Logic이 무시 → 틱 경로).
+그래서 목표값 묶음이 둘(A·B)이다: 코드 두 벌을 비교할 때는 B·A·B·A…로 번갈아 돌리고 같은 묶음끼리, 첫 실행은 빼고 견준다.
+"set(고정값)"만 매번 같은 값이라 둘째 실행부터는 틱 경로를 지난다.
+사용: scripts/live_smoke.py <out.jsonl> <label> [트랙 번호=6] [A|B]"""
 import json
 import sys
 
 from logic_mcp.server.main import build
 
 OUT, LABEL, N = sys.argv[1], sys.argv[2], int(sys.argv[3]) if len(sys.argv) > 3 else 6
+VARIANT = sys.argv[4] if len(sys.argv) > 4 else "A"
+# 묶음별 숫자 목표: Threshold, Ratio, Attack, EQ 3번 gain, EQ 4번 freq, EQ 4번 q
+THRS, RATIO, ATTACK, GAIN, FREQ, Q = {"A": (-24.0, 4.0, 20.0, 3.0, 1000.0, 1.0),
+                                      "B": (-30.0, 3.0, 30.0, -2.0, 2000.0, 2.0)}[VARIANT]
 commands, surface = build()
 surface.start()
 pc, eq, se = commands.plugin, commands.eq, commands.send
@@ -42,7 +49,7 @@ def brief(after):
 
 def step(name, fn, *a):
     r = fn(*a)
-    row = {"label": LABEL, "step": name, "ok": r.ok, "verified": r.verified, "note": r.note, "ms": r.elapsed_ms,
+    row = {"label": LABEL, "variant": VARIANT, "step": name, "ok": r.ok, "verified": r.verified, "note": r.note, "ms": r.elapsed_ms,
            "after": brief(r.after)}
     rows.append(row)
     print(f"{name:22} ok={r.ok!s:5} {r.verified:10} {r.elapsed_ms / 1000:5.1f}s {str(row['after'])[:150]} | {r.note[:90]}", flush=True)
@@ -50,7 +57,8 @@ def step(name, fn, *a):
 
 
 try:
-    print("ready:", commands.wait_ready(60).ok, flush=True)
+    print("ready:", commands.wait_ready(60).ok, "/ 묶음", VARIANT, flush=True)
+    step("configure", commands.configure)
     r = step("list(처음)", pc.list, None, N)
     if not r.ok or slots(r):
         raise SystemExit(f"!! 중단: 트랙 {N} 슬롯이 비어 있지 않음: {slots(r)}")
@@ -60,8 +68,9 @@ try:
         step("insert", pc.insert, None, N, 1, "Compressor", False)
         step("params", pc.params, None, N, 1)
         step("get(이름)", pc.get, None, N, 1, "Ratio")
-        step("set(인덱스)", pc.set, None, N, 1, 2, -24.0)
-        step("set_many", pc.set_many, None, N, 1, [{"param": "Ratio", "value": 4.0}, {"param": "Attack", "value": 20.0}])
+        step("set(인덱스)", pc.set, None, N, 1, 2, THRS)
+        step("set_many", pc.set_many, None, N, 1, [{"param": "Ratio", "value": RATIO}, {"param": "Attack", "value": ATTACK}])
+        step("set(고정값)", pc.set, None, N, 1, 5, 100.0)            # Release: 매번 같은 값
         step("bypass on", pc.bypass, None, N, 1, True)
         step("bypass off", pc.bypass, None, N, 1, False)
         step("move 1→3", pc.move, None, N, 1, 3)
@@ -70,10 +79,10 @@ try:
         step("get(빈 슬롯)", pc.get, None, N, 1, "Ratio")
         step("params(슬롯 9)", pc.params, None, N, 9)
         step("eq get(없음)", eq.get, None, N)
-        step("eq set(삽입 금지)", eq.set, None, N, 3, "gain", 3.0, False)
-        step("eq set(삽입)", eq.set, None, N, 3, "gain", 3.0, True)
-        step("eq set_many", eq.set_many, None, N, [{"band": 4, "param": "freq", "value": 1000.0},
-                                                   {"band": 4, "param": "q", "value": 1.0}], True)
+        step("eq set(삽입 금지)", eq.set, None, N, 3, "gain", GAIN, False)
+        step("eq set(삽입)", eq.set, None, N, 3, "gain", GAIN, True)
+        step("eq set_many", eq.set_many, None, N, [{"band": 4, "param": "freq", "value": FREQ},
+                                                   {"band": 4, "param": "q", "value": Q}], True)
         step("eq get", eq.get, None, N)
         step("send get", se.get, None, N)
         step("send level(없음)", se.set_level, None, N, 1, -6.0)

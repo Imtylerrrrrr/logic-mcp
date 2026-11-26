@@ -13,7 +13,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 - Numeric `set` now settles on the nearer step and returns ok when the target lies between two control-surface steps. It used to spend 10 rounds bouncing between them and fail, e.g. Compressor Release 300 between 290 and 310. `note` names both steps.
-- Internal refactor, no behaviour change: sub-commands share one preamble (`Commands._on_strip` with `_on_slot`/`_on_send`/`_on_eq`) instead of repeating the lock, readiness, argument-check and strip-lookup steps; the plug-in LCD parsing helpers moved to `plugins/lcd.py`, which removes the circular imports around `plugin.py`; `PluginCommands.list` was split up. Checked by replaying the test suite on the old and new code and comparing every MIDI message and result.
+- Internal refactor, no behaviour change: sub-commands share one preamble (`Commands._on_strip` with `_on_slot`/`_on_send`/`_on_eq`) instead of repeating the lock, readiness, argument-check and strip-lookup steps; the plug-in LCD parsing helpers moved to `plugins/lcd.py`, which removes the circular imports around `plugin.py`; `PluginCommands.list` was split up; `set_numeric` (coarse fader move, then fine ticks), `configure` (four steps) and the plug-in insert body (preselect, then confirm) were split into phase functions. Checked by replaying the test suite on the old and new code and comparing every MIDI message and result.
 - Internal refactor, no behaviour change: the Aux Plug-in Mixer path moved to `plugin_mixer.py`, `calibrate`/`scan` to `plugins/calibrate.py`, and the shared set logic (numeric-vs-option decision, `#n`/option selection, result verdict) to `setter.py`, used by both `logic_plugin set` and `logic_eq set`.
 
 ### Fixed
