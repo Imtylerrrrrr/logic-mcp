@@ -1,5 +1,3 @@
-import pytest
-
 from logic_mcp.logic.modes import OVERLAY_S, ModeDriver, ModeError
 from logic_mcp.logic.setter import (SILENT_TICKS, SetOutcome, coerce, enum_matches, probe_mapping, set_enum, set_enum_index,
                                     set_numeric, set_option, verdict, batch_verdict, run_changes)
@@ -99,6 +97,49 @@ def test_set_numeric_reports_no_reaction_after_silent_ticks():
     out = set_numeric(d, 5, -3.0, None, tolerance=0.1)
     assert out.ok is False and out.note == "V-Pot 틱에 LCD 반응 없음"
     assert len(_vpot_msgs(logic, n0)) == SILENT_TICKS
+
+
+def test_set_numeric_succeeds_after_one_secant_correction():
+    d, logic, eq = eq_driver()
+    n0 = len(logic.fake.sent)
+    out = set_numeric(d, 5, -3.0, Mapping("linear", -21.0, 27.0), tolerance=0.1)   # 매핑이 3 dB 어긋나 첫 페이더는 -6 dB에 닿는다
+    assert out.ok and out.rounds == 1 and out.note == "fader+보정"
+    assert abs(eq[1][1].value - -3.0) <= 0.1 and not _vpot_msgs(logic, n0)
+    assert len([m for m in logic.fake.sent[n0:] if m[0] & 0xF0 == 0xE0]) == 2
+
+
+def test_set_numeric_turn_back_tick_without_lcd_reaction_fails():
+    d, logic, eq = eq_driver()
+    eq[1][1].step = 7.0
+    orig = d.tick
+
+    def tick(ch, n):
+        ok = orig(ch, n)
+        logic.drop_all_vpots = True                                         # 첫 틱만 반응한다: 되돌림 틱은 LCD가 안 바뀐다
+        return ok
+    d.tick = tick
+    n0 = len(logic.fake.sent)
+    out = set_numeric(d, 5, -3.0, None, tolerance=0.1)                      # 0 → -7: 건너뛰었고 이전 단계(0)가 가깝다
+    assert out.ok is False and out.note == "V-Pot 틱에 LCD 반응 없음" and out.rounds == 2
+    assert eq[1][1].value == -7.0 and len(_vpot_msgs(logic, n0)) == 2
+
+
+def test_set_numeric_turn_back_tick_landing_elsewhere_keeps_looping():
+    d, logic, eq = eq_driver()
+    p = eq[1][1]
+    p.step = 7.0
+    orig, calls = p.tick, []
+
+    def tick(n):
+        calls.append(n)
+        if len(calls) == 2:
+            p.value = 4.0                                                   # 되돌림 틱이 LCD는 바꾸지만 이전 단계(0)가 아닌 곳에 선다
+        else:
+            orig(n)
+    p.tick = tick
+    out = set_numeric(d, 5, -3.0, None, tolerance=0.1)
+    assert out.ok and out.note == "" and out.rounds == 3 and p.value == -3.0
+    assert calls == [-1, 1, -1]
 
 
 def test_set_numeric_gives_up_after_ten_rounds(monkeypatch):

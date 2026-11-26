@@ -484,3 +484,42 @@ def test_mixer_pan_leaves_assign_mode_and_flip_first():
     assert P.button_down(P.Note.FLIP) in fake.sent and P.button_down(P.Note.PAN) in fake.sent
     assert surface.state.view.kind == "pan" and not surface.state.assignment.flip
     assert r.verified == "skipped" and r.note == "already"        # 가짜의 팬 값 0
+
+
+def test_configure_unverified_when_numbers_do_not_appear_after_option_name_value():
+    cmds, surface, fake = make_commands()
+    fake.feed(lcd_row1(b"Audio 1St Out Master "))    # 번호 접두사가 없는 LCD
+    surface.tick()
+    assert not any(s.number is not None for s in surface.state.strips)
+    r = cmds.configure()
+    assert r.ok is False and r.verified == "unverified" and "되돌려 눌렀음" in r.note and "번호가 없음" in r.note
+    assert fake.sent.count(P.button_down(P.Note.NAME_VALUE)) == 2
+    assert cmds.configured is False
+
+
+def test_configure_unverified_when_beats_led_never_lights():
+    cmds, surface, fake = make_commands()
+    fake.feed(P.button_down(P.Note.SMPTE_LED))       # SMPTE 모드 LED
+    fake.feed(P.button_up(P.Note.BEATS_LED))
+    fake.feed(bytes([0xE0, 0x00, 0x60]))
+    fake.feed(lcd_row2(b"-64    0      0      0      "))
+    surface.tick()
+    assert surface.state.time.mode != "beats"
+    r = cmds.configure()
+    assert r.ok is False and r.verified == "unverified" and "BEATS LED" in r.note
+    assert fake.sent.count(P.button_down(P.Note.SMPTE_BEATS)) == 1
+    assert cmds.configured is False
+
+
+def test_configure_leaves_to_pan_first_when_another_view_is_active():
+    cmds, surface, fake = make_commands()
+    fake.feed(bytes([0xE0, 0x00, 0x60]))
+    fake.feed(lcd_row2(b"-64    0      0      0      "))
+    fake.feed(bytes([0xB0, 0x4B, ord("S") & 0x3F]))  # 2자리 표시 `SE`: PAN이 아닌 보기
+    fake.feed(bytes([0xB0, 0x4A, ord("E") & 0x3F]))
+    surface.tick()
+    assert cmds.modes.view.kind != "pan"
+    n0 = len(fake.sent)
+    r = cmds.configure()
+    assert P.button_down(P.Note.PAN) in fake.sent[n0:]   # PAN으로 먼저 나간다
+    assert r.ok and r.note == "already"

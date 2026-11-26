@@ -1163,3 +1163,21 @@ def test_set_many_guard_failure_stops_the_batch(tmp_path):
     second = r.after["results"][1]
     assert second["verified"] == "unverified" and "guard" in second["note"]
     assert _vals(logic, [2, 3]) == [-30.0, 2.1] and surface.state.view.kind == "pan"
+
+
+def test_insert_unverified_when_the_confirming_press_does_not_open_the_edit_view(tmp_path, monkeypatch):
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    orig = ModeDriver.press_vpot_until
+    monkeypatch.setattr(ModeDriver, "press_vpot_until", lambda self, v, pred, timeout: orig(self, v, lambda w: False, timeout))
+    r = cmds.plugin.insert(1, None, 1, "Compressor")
+    assert r.ok is False and r.verified == "unverified"
+    assert r.note.startswith("확정 뒤") and "편집 뷰가 아니라" in r.note
+
+
+def test_insert_unverified_when_the_edit_view_header_shows_another_name(tmp_path, monkeypatch):
+    from logic_mcp.logic import plugin as plugin_mod
+    cmds, surface, fake, logic, cache = make(tmp_path)
+    monkeypatch.setattr(plugin_mod, "_header_name", lambda row1: (1, "Bogus", True))
+    r = cmds.plugin.insert(1, None, 1, "Compressor")
+    assert r.ok is False and r.verified == "unverified"
+    assert "확정 뒤 편집 뷰 헤더가 Ins.1 'Bogus'" in r.note and "기대 Ins.1 'Compressor'" in r.note
