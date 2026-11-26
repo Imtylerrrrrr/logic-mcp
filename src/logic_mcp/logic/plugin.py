@@ -476,6 +476,55 @@ class PluginCommands:
                                     "remaining": changes[len(results):]})
         return self._on_slot(action, strip, number, slot, body)
 
+    def _preselect(self, v: int, idx: int | None, plugin: str, want: str) -> tuple[str, str, str | None]:
+        """삽입 메뉴(V-Pot v)에서 넣을 항목을 미리 선택한다(누르지 않는다). 캐시 목록에 없는 이름(idx None)은 메뉴를 접두 일치로
+        훑고, 있으면 캐시 위치로 가서 근처 보정 → 안 맞으면 이름으로 처음부터 훑는다(실전 F1).
+        (확정할 이름, 경로 note, 실패 note 또는 None). 실패해도 누르지 않는다: 호출자 쪽 leave가 미리 선택을 취소한다."""
+        d = self.d
+        if idx is None:                                      # 캐시 목록에 없는 이름: 메뉴를 접두 일치로 훑는다(스펙 4 F1)
+            found, ticks, last = seek_by_name(d, v, plugin, prefix=True)
+            if not found:
+                return want, "", (f"{plugin!r}가 목록({self.cache.source}, {len(self.cache.items)}개)에 없어 "
+                                  f"이름 탐색 {ticks}틱 했으나 못 찾음(마지막 {last!r}). `logic_plugin scan` 권장")
+            return last, f"name_scan:{ticks}", None
+        rewind_to_empty(d, v)
+        d.tick(v, 2 * idx)                               # `--`(0)에서 2·i틱 = i번째 항목(ceil 모델)
+        shown = first = self._shown(v, want)
+        for _ in range(3):                               # 목록이 캐시와 조금 어긋나면 근처에서 찾는다
+            if normalize(shown) == normalize(want):
+                break
+            j, _c = find(self.cache.items, shown)
+            d.tick(v, ITEM_TICKS if j is None else 2 * (idx - j))   # 모르는 이름 = 캐시 목록에 빠진 항목 → 실제 위치는 뒤(재수집)
+            shown = self._shown(v, want)
+        if normalize(shown) != normalize(want):          # 순서가 크게 다르면 이름으로 처음부터 훑는다(실전 F1)
+            found, ticks, last = seek_by_name(d, v, want)
+            if not found:                                # 누르지 않는다: finally의 leave가 미리 선택을 취소
+                return want, "", (f"목록 위치 {idx}에 {first!r}가 보임(기대 {want!r}). 이름 탐색 {ticks}틱 뒤에도 "
+                                  f"{want!r} 못 찾음(마지막 {last!r}). 설치 목록이 다른 듯. `logic_plugin scan` 권장")
+            return want, f"name_scan:{ticks}", None
+        return want, "", None
+
+    def _confirm(self, v: int, slot: int, expect: int | None, want: str) -> tuple[str, str | None]:
+        """미리 선택한 항목을 눌러 확정하고 편집 뷰 헤더(트랙·슬롯·이름)로 검증한다. (넣은 이름, 실패 note 또는 None).
+        목록 이름이 오버레이 21칸에서 잘렸으면 헤더의 전체 이름을 돌려준다."""
+        b, d = self.b, self.d
+        if not d.press_vpot_until(v, lambda w: w.kind == "plugin_edit" and w.index == slot, CONFIRM_S):
+            return want, f"확정 뒤 {CONFIRM_S:.0f}초 안에 편집 뷰가 아니라 {d.view.kind}"
+        d.settle_smart()
+        d.toggle_name_value()
+        row1 = b.surface.state.lcd[0]
+        num, name, _complete = _header_name(row1)
+        d.toggle_name_value()
+        if (tn := _header_track(row1)) != expect:
+            return want, (f"확정 뒤 편집 뷰 헤더가 Track {tn}(기대 Track {expect}): 플러그인이 트랙 {tn}에 들어갔을 수 있음. "
+                          "Logic에서 직접 확인할 것")
+        n_want, n_name = normalize(want), normalize(name)
+        if num != slot or not name or not (n_want.startswith(n_name) or n_name.startswith(n_want)):
+            return want, f"확정 뒤 편집 뷰 헤더가 Ins.{num} {name!r}(기대 Ins.{slot} {want!r})"
+        if len(n_name) > len(n_want):                        # 목록 이름이 오버레이 21칸에서 잘린 경우(실기: EVOC 20 TrackOscillat) 헤더의 전체 이름
+            want = name
+        return want, None
+
     def _insert_body(self, action: str, t0: int, target: dict, ch: int, slot: int, plugin: str,
                      replace: bool) -> "ToolResult":
         """insert·move 공통 본체(_guarded 안에서, _fresh 뒤). 캐시 위치로 가서 근처 보정 → 안 맞으면 이름 탐색(실전 F1),
@@ -495,49 +544,11 @@ class PluginCommands:
         if occupied and not replace:
             return b._result(action, False, "skipped", t0, target=target,
                              note=f"슬롯 {slot}에 {current!r}가 있음. 교체하려면 replace=true")
-        path_note = ""
-        if idx is None:                                      # 캐시 목록에 없는 이름: 메뉴를 접두 일치로 훑는다(스펙 4 F1)
-            found, ticks, last = seek_by_name(d, v, plugin, prefix=True)
-            if not found:
-                return b._result(action, False, "unverified", t0, target=target,
-                                 note=f"{plugin!r}가 목록({self.cache.source}, {len(self.cache.items)}개)에 없어 "
-                                      f"이름 탐색 {ticks}틱 했으나 못 찾음(마지막 {last!r}). `logic_plugin scan` 권장")
-            want, path_note = last, f"name_scan:{ticks}"
-        else:
-            rewind_to_empty(d, v)
-            d.tick(v, 2 * idx)                               # `--`(0)에서 2·i틱 = i번째 항목(ceil 모델)
-            shown = first = self._shown(v, want)
-            for _ in range(3):                               # 목록이 캐시와 조금 어긋나면 근처에서 찾는다
-                if normalize(shown) == normalize(want):
-                    break
-                j, _c = find(self.cache.items, shown)
-                d.tick(v, ITEM_TICKS if j is None else 2 * (idx - j))   # 모르는 이름 = 캐시 목록에 빠진 항목 → 실제 위치는 뒤(재수집)
-                shown = self._shown(v, want)
-            if normalize(shown) != normalize(want):          # 순서가 크게 다르면 이름으로 처음부터 훑는다(실전 F1)
-                found, ticks, last = seek_by_name(d, v, want)
-                if not found:                                # 누르지 않는다: finally의 leave가 미리 선택을 취소
-                    return b._result(action, False, "unverified", t0, target=target,
-                                     note=f"목록 위치 {idx}에 {first!r}가 보임(기대 {want!r}). 이름 탐색 {ticks}틱 뒤에도 "
-                                          f"{want!r} 못 찾음(마지막 {last!r}). 설치 목록이 다른 듯. `logic_plugin scan` 권장")
-                path_note = f"name_scan:{ticks}"
-        if not d.press_vpot_until(v, lambda w: w.kind == "plugin_edit" and w.index == slot, CONFIRM_S):
-            return b._result(action, False, "unverified", t0, target=target,
-                             note=f"확정 뒤 {CONFIRM_S:.0f}초 안에 편집 뷰가 아니라 {d.view.kind}")
-        d.settle_smart()
-        d.toggle_name_value()
-        row1 = b.surface.state.lcd[0]
-        num, name, _complete = _header_name(row1)
-        d.toggle_name_value()
-        if (tn := _header_track(row1)) != expect:
-            return b._result(action, False, "unverified", t0, target=target,
-                             note=f"확정 뒤 편집 뷰 헤더가 Track {tn}(기대 Track {expect}): 플러그인이 트랙 {tn}에 들어갔을 수 있음. "
-                                  "Logic에서 직접 확인할 것")
-        n_want, n_name = normalize(want), normalize(name)
-        if num != slot or not name or not (n_want.startswith(n_name) or n_name.startswith(n_want)):
-            return b._result(action, False, "unverified", t0, target=target,
-                             note=f"확정 뒤 편집 뷰 헤더가 Ins.{num} {name!r}(기대 Ins.{slot} {want!r})")
-        if len(n_name) > len(n_want):                        # 목록 이름이 오버레이 21칸에서 잘린 경우(실기: EVOC 20 TrackOscillat) 헤더의 전체 이름
-            want = name
+        want, path_note, fail = self._preselect(v, idx, plugin, want)
+        if fail is None:
+            want, fail = self._confirm(v, slot, expect, want)
+        if fail is not None:
+            return b._result(action, False, "unverified", t0, target=target, note=fail)
         d.enter("plugin_channel")
         abbrev = self._slot_text(slot)
         self.cache.learn_abbrev(abbrev.lstrip("*"), want)
